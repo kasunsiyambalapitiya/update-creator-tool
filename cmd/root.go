@@ -70,6 +70,7 @@ func initConfig() {
 	setDefaultValues()
 
 	viper.SetConfigName("config") // name of config file (without extension)
+	// check for these paths for finding the config file
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("$HOME/.wum-uc")
 	//viper.AutomaticEnv()

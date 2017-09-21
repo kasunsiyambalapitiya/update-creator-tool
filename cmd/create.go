@@ -204,7 +204,7 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	}
 	logger.Trace("-------------------------------------")
 
-	// Create an interrupt handler
+	// Create an interrupt handler, handle keybord interupt
 	cleanupChannel := util.HandleInterrupts(func() {
 		util.CleanUpDirectory(constant.TEMP_DIR)
 	})
@@ -707,9 +707,10 @@ error) {
 		//Convert all backslashes to slashes (to fix path issues in windows)
 		absolutePath = filepath.ToSlash(absolutePath)
 
-		//Ignore root directory
+		//Ignore root directory, this happens only for the first time. then root becomes child one after all
+		// in the root dir is finished
 		if root == absolutePath {
-			return nil
+			return nil // this nill return will go only once for the first iteration
 		}
 		logger.Trace(fmt.Sprintf("[WALK] %s ; %v", absolutePath, fileInfo.IsDir()))
 		//check current file in ignored files map. This is useful to ignore update-descriptor.yaml, etc in
@@ -835,8 +836,8 @@ func AddToRootNode(root *node, path []string, isDir bool, md5Hash string) *node 
 		} else {
 			newNode.relativeLocation = root.relativeLocation + "/" + path[0]
 		}
-		newNode.parent = root
-		root.childNodes[path[0]] = &newNode
+		newNode.parent = root // the root node at the child node
+		root.childNodes[path[0]] = &newNode // update the root node with the child node
 	} else {
 		// If there are more path elements than 1, that means we are currently processing a directory.
 		logger.Trace(fmt.Sprintf("End not reached. checking: %v", path[0]))
@@ -852,8 +853,8 @@ func AddToRootNode(root *node, path []string, isDir bool, md5Hash string) *node 
 			} else {
 				newNode.relativeLocation = root.relativeLocation + "/" + path[0]
 			}
-			newNode.parent = root
-			root.childNodes[path[0]] = &newNode
+			newNode.parent = root // the root node at the child node
+			root.childNodes[path[0]] = &newNode // update the root node with the child node
 			node = &newNode
 		}
 		// Recursively call the function for the rest of the path elements.
@@ -924,6 +925,7 @@ func FindMatches(root *node, name string, isDir bool, matches map[string]*node) 
 	// Regardless of whether the file is found or not, iterate through all sub directories to find all matches
 	for _, childNode := range root.childNodes {
 		if childNode.isDir {
+			//we check for directory so isDir which is true can be directly assingned
 			FindMatches(childNode, name, isDir, matches)
 		}
 	}
