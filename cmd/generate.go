@@ -84,7 +84,8 @@ func generateUpdate(updatedDistPath, previousDistPath string) {
 	rootNodeOfUpdatedDistribution := CreateNewNode()
 	var err error
 	rootNodeOfUpdatedDistribution, err = ReadZip(updatedDistPath)
-	util.PrintInfo(fmt.Sprintf("Recieved ", len(rootNodeOfUpdatedDistribution.childNodes)))
+	logger.Debug("root node of the updated distribution received")
+	//util.PrintInfo(fmt.Sprintf("Recieved ", len(rootNodeOfUpdatedDistribution.childNodes)))
 	util.HandleErrorAndExit(err)
 	logger.Debug("Reading updated distribution zip finished")
 	logger.Debug("Reading previuosly released distribution zip")
@@ -101,6 +102,7 @@ func generateUpdate(updatedDistPath, previousDistPath string) {
 	//map for modified files
 	modifiedFiles := make(map[string]string)
 	deletedFiles := make(map[string]string)
+	addedFiles := make(map[string]string)
 
 	//iterate through each file to identify modified and deleted files
 	for _, file := range zipReader.Reader.File {
@@ -120,8 +122,63 @@ func generateUpdate(updatedDistPath, previousDistPath string) {
 		//name of the file
 		fileName := file.Name
 
-		// Get the relative path of the file
+		//check this log
 		logger.Trace(fmt.Sprintf("file.Name: %s and md5", fileName, md5Hash))
+		//delete this print
+		//fmt.Println("file.Name: and md5", fileName, md5Hash)
+		// Get the relative path of the file
+		var relativePath string
+		if (strings.Contains(fileName, "/")) {
+			relativePath = strings.SplitN(fileName, "/", 2)[1]
+		} else {
+			relativePath = fileName
+		}
+
+		// Replace all \ with /. Otherwise it will cause issues in Windows OS.
+		relativePath = filepath.ToSlash(relativePath)
+		logger.Trace(fmt.Sprintf("relativePath: %s", relativePath))
+		//delete
+		//fmt.Println("relativePath:", relativePath)
+
+		fileNameStrings := strings.Split(fileName, "/")
+		fileName = fileNameStrings[len(fileNameStrings) - 1]
+
+		//Finding modified files
+		findModifiedFiles(&rootNodeOfUpdatedDistribution, fileName, md5Hash, relativePath, modifiedFiles)
+		//Finding deleted files
+		findDeletedOrNewlyAddedFiles(&rootNodeOfUpdatedDistribution, relativePath, deletedFiles)
+	}
+
+	//finding newly added files to the previous distribution
+	distributionName = getDistributionName(previousDistPath)
+	// Read the distribution zip file
+	logger.Debug("Reading previous distribution zip")
+	//use viper for getrting distributionName
+	util.PrintInfo(fmt.Sprintf("Reading the previous %s. Please wait...", distributionName))
+	// rootNode is what we use as the root of the updated distribution when we populate tree like structure.
+	rootNodeOfPreviousDistribution := CreateNewNode()
+	rootNodeOfPreviousDistribution, err = ReadZip(previousDistPath)
+	logger.Debug("root node of the previous distribution received")
+	//util.PrintInfo(fmt.Sprintf("Recieved ", len(rootNodeOfPreviousDistribution.childNodes)))
+	util.HandleErrorAndExit(err)
+	logger.Debug("Reading previous distribution zip finished")
+	logger.Debug("Reading updated distribution zip for finding newly added files")
+	//check text content of the log
+	util.PrintInfo(fmt.Sprintf("Reading the updated %s. to get diff Please wait...", distributionName))
+
+	zipReader, err = zip.OpenReader(previousDistPath)
+	if err != nil {
+		//chck this
+		util.HandleErrorAndExit(err)
+	}
+	defer zipReader.Close()
+	// iterate throug updated pack to identify the newly added files
+	for _, file := range zipReader.Reader.File {
+		// we donot need to calculate the md5 of the file as we are filtering only the added files
+		// name of the file
+		fileName := file.Name
+		//check this log
+		logger.Trace(fmt.Sprintf("file.Name: %s", fileName))
 		//delete this print
 		//fmt.Println("file.Name: and md5", fileName, md5Hash)
 
@@ -140,21 +197,17 @@ func generateUpdate(updatedDistPath, previousDistPath string) {
 
 		fileNameStrings := strings.Split(fileName, "/")
 		fileName = fileNameStrings[len(fileNameStrings) - 1]
+		//Finding newly added files
+		findDeletedOrNewlyAddedFiles(&rootNodeOfPreviousDistribution, relativePath, addedFiles)
 
-		//modifiedFiles = make(map[string]string)
-		findModifiedFiles(&rootNodeOfUpdatedDistribution, fileName, md5Hash, relativePath, modifiedFiles)
-
-		findDeletedFiles(&rootNodeOfUpdatedDistribution, relativePath, deletedFiles)
 	}
-
-	//finding newly added files to the previuos distribution
-
-
 
 	fmt.Println("Modified files")
 	fmt.Println(modifiedFiles)
 	fmt.Println("Deleted Files")
 	fmt.Println(deletedFiles)
+	fmt.Println("Added Files")
+	fmt.Println(addedFiles)
 
 }
 
@@ -196,24 +249,22 @@ func findModifiedFiles(root *Node, name string, md5Hash string, relativePath str
 	}
 }
 
-func findDeletedFiles(root *Node, relativeLocation string, deletedFiles map[string]string) {
+func findDeletedOrNewlyAddedFiles(root *Node, relativeLocation string, matches map[string]string) {
 	// need to remove if there is a slash at the end of the relativeLocation path
-	//fmt.Println("--"+relativeLocation)
-
 	relativeLocation = strings.TrimSuffix(relativeLocation, "/")
 	//fmt.Println(relativeLocation)
 	// Check whether a file exists in the given relative path in any child Node
 	_, found := root.childNodes[relativeLocation]
+	if !found {
 
-	if !found  {
-
-		deletedFiles[root.name] = root.relativeLocation
+		matches[root.name] = root.relativeLocation
 	}
 
 	for _, childNode := range root.childNodes {
 		if childNode.isDir {
-			findDeletedFiles(childNode, relativeLocation, deletedFiles)
+			findDeletedOrNewlyAddedFiles(childNode, relativeLocation, matches)
 		}
 	}
 
 }
+
