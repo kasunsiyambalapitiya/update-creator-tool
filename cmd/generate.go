@@ -73,6 +73,7 @@ func generateUpdate(updatedDistPath, previousDistPath string) {
 	logger.Debug("[generate] command called")
 
 	checkDistribution(updatedDistPath)
+	checkDistribution(previousDistPath)
 
 	distributionName := getDistributionName(updatedDistPath)
 	// Read the distribution zip file
@@ -99,8 +100,9 @@ func generateUpdate(updatedDistPath, previousDistPath string) {
 
 	//map for modified files
 	modifiedFiles := make(map[string]string)
+	deletedFiles := make(map[string]string)
 
-	//iterate through each file to identify unchanged, deleted and changed files
+	//iterate through each file to identify modified and deleted files
 	for _, file := range zipReader.Reader.File {
 		//open the file for calculating MD5
 		zippedFile, err := file.Open()
@@ -142,9 +144,18 @@ func generateUpdate(updatedDistPath, previousDistPath string) {
 		//modifiedFiles = make(map[string]string)
 		findModifiedFiles(&rootNodeOfUpdatedDistribution, fileName, md5Hash, relativePath, modifiedFiles)
 
+		findDeletedFiles(&rootNodeOfUpdatedDistribution, relativePath, deletedFiles)
 	}
+
+	//finding newly added files to the previuos distribution
+
+
+
 	fmt.Println("Modified files")
 	fmt.Println(modifiedFiles)
+	fmt.Println("Deleted Files")
+	fmt.Println(deletedFiles)
+
 }
 
 func checkDistribution(distributionName string) {
@@ -183,4 +194,26 @@ func findModifiedFiles(root *Node, name string, md5Hash string, relativePath str
 			findModifiedFiles(childNode, name, md5Hash, relativePath, modifiedFiles)
 		}
 	}
+}
+
+func findDeletedFiles(root *Node, relativeLocation string, deletedFiles map[string]string) {
+	// need to remove if there is a slash at the end of the relativeLocation path
+	//fmt.Println("--"+relativeLocation)
+
+	relativeLocation = strings.TrimSuffix(relativeLocation, "/")
+	//fmt.Println(relativeLocation)
+	// Check whether a file exists in the given relative path in any child Node
+	_, found := root.childNodes[relativeLocation]
+
+	if !found  {
+
+		deletedFiles[root.name] = root.relativeLocation
+	}
+
+	for _, childNode := range root.childNodes {
+		if childNode.isDir {
+			findDeletedFiles(childNode, relativeLocation, deletedFiles)
+		}
+	}
+
 }
