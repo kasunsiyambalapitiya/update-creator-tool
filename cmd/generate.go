@@ -99,10 +99,10 @@ func generateUpdate(updatedDistPath, previousDistPath string) {
 	}
 	defer zipReader.Close()
 
-	//map for modified files
-	modifiedFiles := make(map[string]string)
-	deletedFiles := make(map[string]string)
-	addedFiles := make(map[string]string)
+	//slices for modified, changed and deleted files from the update
+	modifiedFiles := make(map[string]struct{})
+	deletedFiles := make(map[string]struct{})
+	addedFiles := make(map[string]struct{})
 
 	//iterate through each file to identify modified and deleted files
 	for _, file := range zipReader.Reader.File {
@@ -202,12 +202,12 @@ func generateUpdate(updatedDistPath, previousDistPath string) {
 
 	}
 
-	fmt.Println("Modified files")
-	fmt.Println(modifiedFiles)
-	fmt.Println("Deleted Files")
-	fmt.Println(deletedFiles)
-	fmt.Println("Added Files")
-	fmt.Println(addedFiles)
+	//fmt.Println("Modified files",modifiedFiles)
+	util.PrintInfo("Modified Files", modifiedFiles)
+	//fmt.Println("Deleted Files",deletedFiles)
+	util.PrintInfo("Deleted Files", deletedFiles)
+	//fmt.Println("Added Files",addedFiles)
+	util.PrintInfo("Added Files", addedFiles)
 
 }
 
@@ -229,17 +229,18 @@ func getDistributionName(distributionZipName string) string {
 	return distributionName
 }
 
-func findModifiedFiles(root *Node, name string, md5Hash string, relativePath string, modifiedFiles map[string]string) {
+func findModifiedFiles(root *Node, name string, md5Hash string, relativePath string, modifiedFiles map[string]struct{}) {
 	// Check whether the given name is in the child Nodes
 	childNode, found := root.childNodes[name]
 	//fmt.Println("entered to findModified")
-	if found {
+	if found && childNode.isDir == false && childNode.relativeLocation == relativePath && childNode.md5Hash !=
+		md5Hash {
 		//fmt.Println("found")
-		//Check if it is modified
-		if childNode.isDir == false && childNode.relativeLocation == relativePath && childNode.md5Hash !=
-			md5Hash {
-			modifiedFiles[childNode.name] = childNode.relativeLocation
+		_, found := modifiedFiles[childNode.relativeLocation]
+		if (!found) {
+			modifiedFiles[childNode.relativeLocation] = struct{}{}
 		}
+
 	}
 	// Regardless of whether the file is found or not, iterate through all sub directories to find all matches
 	for _, childNode := range root.childNodes {
@@ -249,15 +250,16 @@ func findModifiedFiles(root *Node, name string, md5Hash string, relativePath str
 	}
 }
 
-func findDeletedOrNewlyAddedFiles(root *Node, relativeLocation string, matches map[string]string) {
+func findDeletedOrNewlyAddedFiles(root *Node, relativeLocation string, matches map[string]struct{}) {
 	// need to remove if there is a slash at the end of the relativeLocation path
 	relativeLocation = strings.TrimSuffix(relativeLocation, "/")
 	//fmt.Println(relativeLocation)
 	// Check whether a file exists in the given relative path in any child Node
 	_, found := root.childNodes[relativeLocation]
-	if !found {
+	_, recorded := matches[relativeLocation]
+	if !found && !recorded {
 
-		matches[root.name] = root.relativeLocation
+		matches[relativeLocation] = struct{}{}
 	}
 
 	for _, childNode := range root.childNodes {
