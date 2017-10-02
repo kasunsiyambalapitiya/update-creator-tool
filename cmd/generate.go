@@ -28,13 +28,14 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"path/filepath"
+	"reflect"
 )
 
 // Values used to print help command.
 var (
-	generateCmdUse = "generate <update_dist_loc> <dist_dist_loc>"
+	generateCmdUse       = "generate <update_dist_loc> <dist_dist_loc>"
 	generateCmdShortDesc = "generate a new update"
-	generateCmdLongDesc = dedent.Dedent(`
+	generateCmdLongDesc  = dedent.Dedent(`
 		This command will generate a new update zip by comparing the diff between the updated pack and the
 		previous released distribution.`)
 )
@@ -121,32 +122,43 @@ func generateUpdate(updatedDistPath, previousDistPath string) {
 
 		//name of the file
 		fileName := file.Name
-
+		fmt.Println("name of the file", fileName)
 		//check this log
 		logger.Trace(fmt.Sprintf("file.Name: %s and md5", fileName, md5Hash))
 		//delete this print
 		//fmt.Println("file.Name: and md5", fileName, md5Hash)
+
+		if strings.HasSuffix(fileName, "/") {
+			fileName = strings.TrimSuffix(fileName, "/")
+		}
 		// Get the relative path of the file
 		var relativePath string
+
 		if (strings.Contains(fileName, "/")) {
 			relativePath = strings.SplitN(fileName, "/", 2)[1]
 		} else {
-			relativePath = fileName
+			relativePath = ""
 		}
 
 		// Replace all \ with /. Otherwise it will cause issues in Windows OS.
 		relativePath = filepath.ToSlash(relativePath)
 		logger.Trace(fmt.Sprintf("relativePath: %s", relativePath))
+		if strings.HasSuffix(relativePath, "/") {
+			relativePath = strings.TrimSuffix(relativePath, "/")
+		}
 		//delete
-		//fmt.Println("relativePath:", relativePath)
+		fmt.Println("relativePath:", relativePath)
 
 		fileNameStrings := strings.Split(fileName, "/")
-		fileName = fileNameStrings[len(fileNameStrings) - 1]
-
-		//Finding modified files
-		findModifiedFiles(&rootNodeOfUpdatedDistribution, fileName, md5Hash, relativePath, modifiedFiles)
-		//Finding deleted files
-		findDeletedOrNewlyAddedFiles(&rootNodeOfUpdatedDistribution, relativePath, deletedFiles)
+		fmt.Println("length", len(fileNameStrings))
+		fileName = fileNameStrings[len(fileNameStrings)-1]
+		fmt.Println(fileName)
+		if relativePath != "" {
+			//Finding modified files
+			findModifiedFiles(&rootNodeOfUpdatedDistribution, fileName, md5Hash, relativePath, modifiedFiles)
+			//Finding deleted files
+			findDeletedOrNewlyAddedFiles(&rootNodeOfUpdatedDistribution, fileName, relativePath, rootNodeOfUpdatedDistribution.childNodes, deletedFiles)
+		}
 	}
 
 	//finding newly added files to the previous distribution
@@ -166,7 +178,7 @@ func generateUpdate(updatedDistPath, previousDistPath string) {
 	//check text content of the log
 	util.PrintInfo(fmt.Sprintf("Reading the updated %s. to get diff Please wait...", distributionName))
 
-	zipReader, err = zip.OpenReader(previousDistPath)
+	zipReader, err = zip.OpenReader(updatedDistPath)
 	if err != nil {
 		//chck this
 		util.HandleErrorAndExit(err)
@@ -177,16 +189,21 @@ func generateUpdate(updatedDistPath, previousDistPath string) {
 		// we donot need to calculate the md5 of the file as we are filtering only the added files
 		// name of the file
 		fileName := file.Name
+		fmt.Println("name of the file", fileName)
 		//check this log
-		logger.Trace(fmt.Sprintf("file.Name: %s", fileName))
+		logger.Trace(fmt.Sprintf("file.Name: %s and md5", fileName))
 		//delete this print
 		//fmt.Println("file.Name: and md5", fileName, md5Hash)
 
+		if strings.HasSuffix(fileName, "/") {
+			fileName = strings.TrimSuffix(fileName, "/")
+		}
+		// Get the relative path of the file
 		var relativePath string
 		if (strings.Contains(fileName, "/")) {
 			relativePath = strings.SplitN(fileName, "/", 2)[1]
 		} else {
-			relativePath = fileName
+			relativePath = ""
 		}
 
 		// Replace all \ with /. Otherwise it will cause issues in Windows OS.
@@ -196,25 +213,31 @@ func generateUpdate(updatedDistPath, previousDistPath string) {
 		//fmt.Println("relativePath:", relativePath)
 
 		fileNameStrings := strings.Split(fileName, "/")
-		fileName = fileNameStrings[len(fileNameStrings) - 1]
+		fmt.Println("length", len(fileNameStrings))
+		fileName = fileNameStrings[len(fileNameStrings)-1]
+		fmt.Println(fileName)
 		//Finding newly added files
-		findDeletedOrNewlyAddedFiles(&rootNodeOfPreviousDistribution, relativePath, addedFiles)
-
+		if relativePath != "" {
+			findDeletedOrNewlyAddedFiles(&rootNodeOfPreviousDistribution, fileName, relativePath, rootNodeOfPreviousDistribution.childNodes, addedFiles)
+		}
 	}
 
 	//fmt.Println("Modified files",modifiedFiles)
 	util.PrintInfo("Modified Files", modifiedFiles)
+	util.PrintInfo("length", len(modifiedFiles))
 	//fmt.Println("Deleted Files",deletedFiles)
 	util.PrintInfo("Deleted Files", deletedFiles)
+	util.PrintInfo("length", len(deletedFiles))
 	//fmt.Println("Added Files",addedFiles)
 	util.PrintInfo("Added Files", addedFiles)
+	util.PrintInfo("length", len(addedFiles))
 
 }
 
 func checkDistribution(distributionName string) {
 	//to a seperate method and reuse in create.go
 	if !strings.HasSuffix(distributionName, ".zip") {
-		util.HandleErrorAndExit(errors.New(fmt.Sprintf("Entered distribution path(%s) does not point to a " +
+		util.HandleErrorAndExit(errors.New(fmt.Sprintf("Entered distribution path(%s) does not point to a "+
 			"zip file.", distributionName)))
 	}
 }
@@ -224,7 +247,7 @@ func getDistributionName(distributionZipName string) string {
 	//make this a common method
 	// Get the product name from the distribution path and set it as a viper config
 	paths := strings.Split(distributionZipName, constant.PATH_SEPARATOR)
-	distributionName := strings.TrimSuffix(paths[len(paths) - 1], ".zip")
+	distributionName := strings.TrimSuffix(paths[len(paths)-1], ".zip")
 	viper.Set(constant.PRODUCT_NAME, distributionName)
 	return distributionName
 }
@@ -250,23 +273,38 @@ func findModifiedFiles(root *Node, name string, md5Hash string, relativePath str
 	}
 }
 
-func findDeletedOrNewlyAddedFiles(root *Node, relativeLocation string, matches map[string]struct{}) {
+func findDeletedOrNewlyAddedFiles(root *Node, fileName string, relativeLocation string, childNodesOfRootOfParentDistribution map[string]*Node, matches map[string]struct{}) bool {
 	// need to remove if there is a slash at the end of the relativeLocation path
-	relativeLocation = strings.TrimSuffix(relativeLocation, "/")
+	//fmt.Println("relative loc before: ", relativeLocation)
+	//relativeLocation = strings.TrimSuffix(relativeLocation, "/")
 	//fmt.Println(relativeLocation)
 	// Check whether a file exists in the given relative path in any child Node
-	_, found := root.childNodes[relativeLocation]
-	_, recorded := matches[relativeLocation]
-	if !found && !recorded {
+	_, found := root.childNodes[fileName]
+	//_, recorded := matches[relativeLocation]
 
-		matches[relativeLocation] = struct{}{}
-	}
-
-	for _, childNode := range root.childNodes {
-		if childNode.isDir {
-			findDeletedOrNewlyAddedFiles(childNode, relativeLocation, matches)
+	//checking whether the file is in the correct relative location
+	if found {
+		if root.childNodes[fileName].relativeLocation != relativeLocation {
+			found = false
+		} else {
+			return true
 		}
 	}
+	if !found {
+		for _, childNode := range root.childNodes {
+			if childNode.isDir {
+				found = findDeletedOrNewlyAddedFiles(childNode, fileName, relativeLocation, childNodesOfRootOfParentDistribution, matches)
+				if found {
+					break
+				}
+			}
+		}
 
+	}
+	//after going through all the childnodes if it is still false means, that relative location is not present
+	parentRootNode := reflect.DeepEqual(childNodesOfRootOfParentDistribution, root.childNodes)
+	if !found && parentRootNode {
+		matches[relativeLocation] = struct{}{}
+	}
+	return found
 }
-
