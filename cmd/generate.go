@@ -29,15 +29,16 @@ import (
 	"encoding/hex"
 	"path/filepath"
 	"reflect"
+	"path"
 )
 
 // Values used to print help command.
 var (
-	generateCmdUse       = "generate <update_dist_loc> <dist_dist_loc>"
+	generateCmdUse       = "generate <update_dist_loc> <dist_dist_loc> <update_dir>"
 	generateCmdShortDesc = "generate a new update"
 	generateCmdLongDesc  = dedent.Dedent(`
 		This command will generate a new update zip by comparing the diff between the updated pack and the
-		previous released distribution.`)
+		previous released distribution. It is required to run wum-uc init first and provide the update location given for init as the third input`)
 )
 
 // generateCmd represents the generate command.
@@ -61,29 +62,64 @@ func init() {
 
 // This function will be called when the generate command is called.
 func initializeGenerateCommand(cmd *cobra.Command, args []string) {
-	if len(args) != 2 {
+	if len(args) != 3 {
 		util.HandleErrorAndExit(errors.New("Invalid number of argumants. Run 'wum-uc generate --help' to " +
 			"view help."))
 	}
-	generateUpdate(args[0], args[1])
+	generateUpdate(args[0], args[1], args[2])
 }
 
-func generateUpdate(updatedDistPath, previousDistPath string) {
+func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath string) {
 	// set debug level
 	setLogLevel()
 	logger.Debug("[generate] command called")
 
+	//1) Check whether the given update directory exists
+	exists, err := util.IsDirectoryExists(updateDirectoryPath)
+	util.HandleErrorAndExit(err, "Error occurred while reading the update directory")
+	logger.Debug(fmt.Sprintf("exists: %v", exists))
+	if !exists {
+		util.HandleErrorAndExit(errors.New(fmt.Sprintf("Directory does not exist at '%s'. Update location "+
+			"must be a directory.", updateDirectoryPath)))
+	}
+	updateRoot := strings.TrimSuffix(updateDirectoryPath, constant.PATH_SEPARATOR)
+	logger.Debug(fmt.Sprintf("updateRoot: %s\n", updateRoot))
+	viper.Set(constant.UPDATE_ROOT, updateRoot)
+
+	//2) Check whether the update-descriptor.yaml file exists
+	checkFileExistance(updateDirectoryPath, constant.UPDATE_DESCRIPTOR_FILE)
+
+	//3) Check whether the LICENSE.txt file exists
+	checkFileExistance(updateDirectoryPath, constant.LICENSE_FILE)
+
+	//4) Check whether the NOT_A_CONTRIBUTION.txt file exists
+	checkFileExistance(updateDirectoryPath,constant.NOT_A_CONTRIBUTION_FILE)
+
+	//5) Check whether the given distributions exists
+	checkDistributionPath(updatedDistPath, "updated")
+	checkDistributionPath(previousDistPath, "previous")
+
+	//6) Check whether the given distributions are zip files
 	checkDistribution(updatedDistPath)
 	checkDistribution(previousDistPath)
 
+	//7) Read update-descriptor.yaml and set the update name which will be used when creating the update zip file.
+	updateDescriptor, err := util.LoadUpdateDescriptor(constant.UPDATE_DESCRIPTOR_FILE, updateDirectoryPath)
+	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred when reading '%s' file.",
+		constant.UPDATE_DESCRIPTOR_FILE))
+
+	//8) Validate the file format of the update-descriptor.yaml
+	err = util.ValidateUpdateDescriptor(updateDescriptor)
+	util.HandleErrorAndExit(err, fmt.Sprintf("'%s' format is incorrect.", constant.UPDATE_DESCRIPTOR_FILE))
+
+	//9) Identify modified, added and deleted files by comparing the diff between two given distributions
 	distributionName := getDistributionName(updatedDistPath)
-	// Read the distribution zip file
+	// Read the updated distribution zip file
 	logger.Debug("Reading updated distribution zip")
 	//use viper for getrting distributionName
 	util.PrintInfo(fmt.Sprintf("Reading the updated %s. Please wait...", distributionName))
 	// rootNode is what we use as the root of the updated distribution when we populate tree like structure.
 	rootNodeOfUpdatedDistribution := CreateNewNode()
-	var err error
 	rootNodeOfUpdatedDistribution, err = ReadZip(updatedDistPath)
 	logger.Debug("root node of the updated distribution received")
 	//util.PrintInfo(fmt.Sprintf("Recieved ", len(rootNodeOfUpdatedDistribution.childNodes)))
@@ -231,9 +267,32 @@ func generateUpdate(updatedDistPath, previousDistPath string) {
 	//fmt.Println("Added Files",addedFiles)
 	util.PrintInfo("Added Files", addedFiles)
 	util.PrintInfo("length", len(addedFiles))
-
 }
 
+//This function will be used to check for the availability of the given file in the update directory location
+func checkFileExistance(updateDirectoryPath, fileName string) {
+	// Construct the relevant file location
+	updateDescriptorPath := path.Join(updateDirectoryPath, fileName)
+	exists, err := util.IsFileExists(updateDescriptorPath)
+	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while reading the '%v'",
+		fileName))
+	if !exists {
+		util.HandleErrorAndExit(errors.New(fmt.Sprintf("'%s' not found at '%s' directory.",
+			fileName, updateDirectoryPath)))
+	}
+	logger.Debug(fmt.Sprintf("%s exists. Location %s", fileName, updateDescriptorPath))
+}
+
+func checkDistributionPath(distributionPath, distributionState string) {
+	exists, err := util.IsFileExists(distributionPath)
+	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while checking '%s' '%s' ", distributionState, distributionPath))
+	if !exists {
+		util.HandleErrorAndExit(errors.New(fmt.Sprintf("File does not exist at '%s'. '%s' Distribution must "+
+			"be a zip file.", distributionPath, distributionState)))
+	}
+}
+
+//This function checks whether the given distritbution is a zip file
 func checkDistribution(distributionName string) {
 	//to a seperate method and reuse in create.go
 	if !strings.HasSuffix(distributionName, ".zip") {
