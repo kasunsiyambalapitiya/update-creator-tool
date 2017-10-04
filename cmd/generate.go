@@ -86,14 +86,14 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	logger.Debug(fmt.Sprintf("updateRoot: %s\n", updateRoot))
 	viper.Set(constant.UPDATE_ROOT, updateRoot)
 
-	//2) Check whether the update-descriptor.yaml file exists
+	//2) Check whether the update-descriptor.yaml file exists in the update directory
 	checkFileExistance(updateDirectoryPath, constant.UPDATE_DESCRIPTOR_FILE)
 
-	//3) Check whether the LICENSE.txt file exists
+	//3) Check whether the LICENSE.txt file file exists in the update directory
 	checkFileExistance(updateDirectoryPath, constant.LICENSE_FILE)
 
-	//4) Check whether the NOT_A_CONTRIBUTION.txt file exists
-	checkFileExistance(updateDirectoryPath,constant.NOT_A_CONTRIBUTION_FILE)
+	//4) Check whether the NOT_A_CONTRIBUTION.txt file exists in the update directory
+	checkFileExistance(updateDirectoryPath, constant.NOT_A_CONTRIBUTION_FILE)
 
 	//5) Check whether the given distributions exists
 	checkDistributionPath(updatedDistPath, "updated")
@@ -112,7 +112,11 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	err = util.ValidateUpdateDescriptor(updateDescriptor)
 	util.HandleErrorAndExit(err, fmt.Sprintf("'%s' format is incorrect.", constant.UPDATE_DESCRIPTOR_FILE))
 
-	//9) Identify modified, added and deleted files by comparing the diff between two given distributions
+	//9) Set the update name
+	updateName := GetUpdateName(updateDescriptor, constant.UPDATE_NAME_PREFIX)
+	viper.Set(constant.UPDATE_NAME, updateName)
+
+	//10) Identify modified, added and deleted files by comparing the diff between two given distributions
 	distributionName := getDistributionName(updatedDistPath)
 	// Read the updated distribution zip file
 	logger.Debug("Reading updated distribution zip")
@@ -267,6 +271,11 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	//fmt.Println("Added Files",addedFiles)
 	util.PrintInfo("Added Files", addedFiles)
 	util.PrintInfo("length", len(addedFiles))
+
+	//11) Update added,deleted and modified files in the the update-descritor.yaml
+	//12) Copy files in the update location to a temp directory
+	copyMandatoryFilesToTemp()
+
 }
 
 //This function will be used to check for the availability of the given file in the update directory location
@@ -366,4 +375,40 @@ func findDeletedOrNewlyAddedFiles(root *Node, fileName string, relativeLocation 
 		matches[relativeLocation] = struct{}{}
 	}
 	return found
+}
+
+//This will be used to copy mandatory files of an update that exists in given update location to a temp location for creating the update zip
+func copyMandatoryFilesToTemp() {
+	//Get the update name from viper config
+	updateName := viper.GetString(constant.UPDATE_NAME)
+	//Get the update location from viper config
+	updateRoot := viper.GetString(constant.UPDATE_ROOT)
+	updateDescriptorFileName := constant.UPDATE_DESCRIPTOR_FILE
+	licenseTxtFileName := constant.LICENSE_FILE
+	notAContributionFileName := constant.NOT_A_CONTRIBUTION_FILE
+
+	//copy update-descriptor.yaml to temp location
+	copyFilesToTmp(updateDescriptorFileName, updateRoot, updateName)
+	//copy LICENSE.TXT to temp location
+	copyFilesToTmp(licenseTxtFileName, updateRoot, updateName)
+	//copy NOT_A_CONTRIBUTION.txt to temp location
+	copyFilesToTmp(notAContributionFileName, updateRoot, updateName)
+
+}
+
+func copyFilesToTmp(fileName, updateRoot, updateName string) {
+	source := path.Join(updateRoot, fileName)
+	// we donot need to replace the path seperator as this file currently exits in the system, so it can be open by os package by default
+	carbonHome := path.Join(updateRoot,constant.TEMP_DIR, updateName, constant.CARBON_HOME)
+	destination := path.Join(carbonHome, fileName)
+	//Replace all / with OS specific path separators to handle OSs like Windows
+	destination = strings.Replace(destination, "/", constant.PATH_SEPARATOR, -1)
+	// may need to change the implementations once the PR#19 merged
+	parentDirectory := path.Dir(destination)
+	logger.Debug("parent directory:", parentDirectory)
+	err := util.CreateDirectory(parentDirectory)
+	util.HandleErrorAndExit(err, fmt.Sprint("Error occured when creating the '%v' directory", parentDirectory))
+	err = util.CopyFile(source, destination)
+	//util.HandleErrorAndExit(err, fmt.Sprint("Error occured when copying source file '%v' to destination '%v'",source,destination))
+	util.HandleErrorAndExit(err)
 }

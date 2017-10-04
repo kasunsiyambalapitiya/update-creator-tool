@@ -158,7 +158,7 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	util.HandleErrorAndExit(err, fmt.Sprintf("'%s' format is incorrect.", constant.UPDATE_DESCRIPTOR_FILE))
 
 	// set the update name
-	updateName := getUpdateName(updateDescriptor, constant.UPDATE_NAME_PREFIX)
+	updateName := GetUpdateName(updateDescriptor, constant.UPDATE_NAME_PREFIX)
 	viper.Set(constant.UPDATE_NAME, updateName)
 
 	// Get ignored files. These files wont be stored in the data structure. So matches will not be searched for
@@ -327,7 +327,7 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 }
 
 // This function will set the update name which will be used when creating the update zip.
-func getUpdateName(updateDescriptor *util.UpdateDescriptor, updateNamePrefix string) string {
+func GetUpdateName(updateDescriptor *util.UpdateDescriptor, updateNamePrefix string) string {
 	// Read the corresponding details from the struct
 	platformVersion := updateDescriptor.Platform_version
 	updateNumber := updateDescriptor.Update_number
