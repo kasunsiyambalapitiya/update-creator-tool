@@ -116,7 +116,8 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	updateName := GetUpdateName(updateDescriptor, constant.UPDATE_NAME_PREFIX)
 	viper.Set(constant.UPDATE_NAME, updateName)
 
-	//10) Identify modified, added and deleted files by comparing the diff between two given distributions
+	//10) Identify modified, added and removed files by comparing the diff between two given distributions
+	//Get the distribution name
 	distributionName := getDistributionName(updatedDistPath)
 	// Read the updated distribution zip file
 	logger.Debug("Reading updated distribution zip")
@@ -140,12 +141,12 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	}
 	defer zipReader.Close()
 
-	//slices for modified, changed and deleted files from the update
+	//slices for modified, changed and removed files from the update
 	modifiedFiles := make(map[string]struct{})
-	deletedFiles := make(map[string]struct{})
+	removedFiles := make(map[string]struct{})
 	addedFiles := make(map[string]struct{})
 
-	//iterate through each file to identify modified and deleted files
+	//iterate through each file to identify modified and removed files
 	for _, file := range zipReader.Reader.File {
 		//open the file for calculating MD5
 		zippedFile, err := file.Open()
@@ -196,9 +197,10 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		if relativePath != "" {
 			//Finding modified files
 			findModifiedFiles(&rootNodeOfUpdatedDistribution, fileName, md5Hash, relativePath, modifiedFiles)
-			//Finding deleted files
-			findDeletedOrNewlyAddedFiles(&rootNodeOfUpdatedDistribution, fileName, relativePath, rootNodeOfUpdatedDistribution.childNodes, deletedFiles)
+			//Finding removed files
+			findRemovedOrNewlyAddedFiles(&rootNodeOfUpdatedDistribution, fileName, relativePath, rootNodeOfUpdatedDistribution.childNodes, removedFiles)
 		}
+
 	}
 
 	//finding newly added files to the previous distribution
@@ -223,7 +225,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		//chck this
 		util.HandleErrorAndExit(err)
 	}
-	defer zipReader.Close()
+	//defer zipReader.Close()
 	// iterate throug updated pack to identify the newly added files
 	for _, file := range zipReader.Reader.File {
 		// we donot need to calculate the md5 of the file as we are filtering only the added files
@@ -258,24 +260,36 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		fmt.Println(fileName)
 		//Finding newly added files
 		if relativePath != "" {
-			findDeletedOrNewlyAddedFiles(&rootNodeOfPreviousDistribution, fileName, relativePath, rootNodeOfPreviousDistribution.childNodes, addedFiles)
+			findRemovedOrNewlyAddedFiles(&rootNodeOfPreviousDistribution, fileName, relativePath, rootNodeOfPreviousDistribution.childNodes, addedFiles)
 		}
+		zipReader.Close()
 	}
 
 	//fmt.Println("Modified files",modifiedFiles)
 	util.PrintInfo("Modified Files", modifiedFiles)
 	util.PrintInfo("length", len(modifiedFiles))
-	//fmt.Println("Deleted Files",deletedFiles)
-	util.PrintInfo("Deleted Files", deletedFiles)
-	util.PrintInfo("length", len(deletedFiles))
+	//fmt.Println("removed Files",removedFiles)
+	util.PrintInfo("removed Files", removedFiles)
+	util.PrintInfo("length", len(removedFiles))
 	//fmt.Println("Added Files",addedFiles)
 	util.PrintInfo("Added Files", addedFiles)
 	util.PrintInfo("length", len(addedFiles))
 
-	//11) Update added,deleted and modified files in the the update-descritor.yaml
+	//11) Update added,removed and modified files in the the updateDescritor struct
+	filteredAddedFiles := alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles, updateDescriptor)
+	fmt.Println(filteredAddedFiles)
+
 	//12) Copy files in the update location to a temp directory
 	copyMandatoryFilesToTemp()
 
+	//13) Save the updateDescriptor with newly added, removed and modified files to the the update-descriptor.yaml
+
+	// Todo handle interrupts
+	data, err := MarshalUpdateDescriptor(updateDescriptor)
+	util.HandleErrorAndExit(err, "Error occurred while marshalling the update-descriptor.")
+	err = SaveUpdateDescriptor(constant.UPDATE_DESCRIPTOR_FILE, data)
+	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while saving the '%v'.",
+		constant.UPDATE_DESCRIPTOR_FILE))
 }
 
 //This function will be used to check for the availability of the given file in the update directory location
@@ -341,7 +355,7 @@ func findModifiedFiles(root *Node, name string, md5Hash string, relativePath str
 	}
 }
 
-func findDeletedOrNewlyAddedFiles(root *Node, fileName string, relativeLocation string, childNodesOfRootOfParentDistribution map[string]*Node, matches map[string]struct{}) bool {
+func findRemovedOrNewlyAddedFiles(root *Node, fileName string, relativeLocation string, childNodesOfRootOfParentDistribution map[string]*Node, matches map[string]struct{}) bool {
 	// need to remove if there is a slash at the end of the relativeLocation path
 	//fmt.Println("relative loc before: ", relativeLocation)
 	//relativeLocation = strings.TrimSuffix(relativeLocation, "/")
@@ -361,7 +375,7 @@ func findDeletedOrNewlyAddedFiles(root *Node, fileName string, relativeLocation 
 	if !found {
 		for _, childNode := range root.childNodes {
 			if childNode.isDir {
-				found = findDeletedOrNewlyAddedFiles(childNode, fileName, relativeLocation, childNodesOfRootOfParentDistribution, matches)
+				found = findRemovedOrNewlyAddedFiles(childNode, fileName, relativeLocation, childNodesOfRootOfParentDistribution, matches)
 				if found {
 					break
 				}
@@ -377,6 +391,58 @@ func findDeletedOrNewlyAddedFiles(root *Node, fileName string, relativeLocation 
 	return found
 }
 
+//This function is used to update the updateDescriptor with the added, removed and modified files from the update
+func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]struct{}, updateDescriptor *util.UpdateDescriptor) map[string]struct{} {
+	filteredAddedFiles := make(map[string]struct{})
+	featurePrefix := "wso2/lib/features/"
+
+	//append modified files
+	for modifiedFile, _ := range modifiedFiles {
+		updateDescriptor.File_changes.Modified_files = append(updateDescriptor.File_changes.Modified_files, modifiedFile)
+	}
+
+	//append removed files
+	//map[string]struct{} is used here as it is trival to search for an element in a slice
+	removedFeatureNames := make(map[string]struct{})
+	//Todo refactor delete word to remove to be consistent with the UpdateDescriptor struct
+	for removedFile, _ := range removedFiles {
+		//need to keep track of the features being removed as we only specify the relevant feature directories to be removed on update-descriptor.yaml, without mentioning the files and subdirectories in them
+		if strings.HasPrefix(removedFile, featurePrefix) {
+			//extracting the relevant feature name to be saved in the map for future filtering
+			removedFeatureName := strings.SplitN(strings.TrimPrefix(removedFile, featurePrefix), "/", 2)[0]
+			_, found := removedFeatureNames[removedFeatureName]
+			// if the removedFeature's root directory which is in "wso2/lib/features/" is present, it's root directory has already been added for removal (as the complete feature directory)
+			if !found {
+				removedFeatureNames[removedFeatureName] = struct{}{}
+				//adding only the root directory of the removed feature to the updateDescriptor
+				updateDescriptor.File_changes.Removed_files = append(updateDescriptor.File_changes.Removed_files, featurePrefix+removedFeatureName)
+				//ToDo ask shall we put "/" at the end of the directory to indicate it is a directory, this will not cause troubles with the node.relative location
+				//as we are not using them for deleted files. We just delete those in the previous distribution
+			}
+		} else {
+			updateDescriptor.File_changes.Removed_files = append(updateDescriptor.File_changes.Removed_files, removedFile)
+		}
+	}
+
+	//append newly added files
+	for addedFile, _ := range addedFiles {
+		//need to filter out root directories of newl added features, as they will be automatically created when coping the files and sub directories in them during updating
+		//check whether the addedFile exists inside the "wso2/lib/features/"
+		if strings.HasPrefix(addedFile, featurePrefix) {
+			//Todo do we need to consider the platform indendependence in here for "/"
+			if strings.Contains(strings.TrimPrefix(addedFile, featurePrefix), "/") {
+				// if it contains "/" then addedFile is either a file or a subdirectory inside the above root feature directory
+				filteredAddedFiles[addedFile] = struct{}{}
+				updateDescriptor.File_changes.Added_files = append(updateDescriptor.File_changes.Added_files, addedFile)
+			}
+		} else {
+			filteredAddedFiles[addedFile] = struct{}{}
+			updateDescriptor.File_changes.Added_files = append(updateDescriptor.File_changes.Added_files, addedFile)
+		}
+	}
+	return filteredAddedFiles
+}
+
 //This will be used to copy mandatory files of an update that exists in given update location to a temp location for creating the update zip
 func copyMandatoryFilesToTemp() {
 	//Get the update name from viper config
@@ -388,19 +454,20 @@ func copyMandatoryFilesToTemp() {
 	notAContributionFileName := constant.NOT_A_CONTRIBUTION_FILE
 
 	//copy update-descriptor.yaml to temp location
-	copyFilesToTmp(updateDescriptorFileName, updateRoot, updateName)
+	copyFilesToTemp(updateDescriptorFileName, updateRoot, updateName)
 	//copy LICENSE.TXT to temp location
-	copyFilesToTmp(licenseTxtFileName, updateRoot, updateName)
+	copyFilesToTemp(licenseTxtFileName, updateRoot, updateName)
 	//copy NOT_A_CONTRIBUTION.txt to temp location
-	copyFilesToTmp(notAContributionFileName, updateRoot, updateName)
+	copyFilesToTemp(notAContributionFileName, updateRoot, updateName)
 
 }
 
-func copyFilesToTmp(fileName, updateRoot, updateName string) {
+func copyFilesToTemp(fileName, updateRoot, updateName string) {
 	source := path.Join(updateRoot, fileName)
 	// we donot need to replace the path seperator as this file currently exits in the system, so it can be open by os package by default
-	carbonHome := path.Join(updateRoot,constant.TEMP_DIR, updateName, constant.CARBON_HOME)
-	destination := path.Join(carbonHome, fileName)
+	//ToDo change so that works on current location's temp directory
+	//carbonHome := path.Join(updateRoot, constant.TEMP_DIR, updateName, constant.CARBON_HOME)
+	destination := path.Join(updateRoot, constant.TEMP_DIR, updateName, fileName)
 	//Replace all / with OS specific path separators to handle OSs like Windows
 	destination = strings.Replace(destination, "/", constant.PATH_SEPARATOR, -1)
 	// may need to change the implementations once the PR#19 merged
@@ -409,6 +476,6 @@ func copyFilesToTmp(fileName, updateRoot, updateName string) {
 	err := util.CreateDirectory(parentDirectory)
 	util.HandleErrorAndExit(err, fmt.Sprint("Error occured when creating the '%v' directory", parentDirectory))
 	err = util.CopyFile(source, destination)
-	//util.HandleErrorAndExit(err, fmt.Sprint("Error occured when copying source file '%v' to destination '%v'",source,destination))
+	util.HandleErrorAndExit(err, fmt.Sprint("Error occured when copying source file '%v' to destination '%v'", source, destination))
 	util.HandleErrorAndExit(err)
 }
