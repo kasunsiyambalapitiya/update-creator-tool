@@ -30,6 +30,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"path"
+	"os"
+	"io"
 )
 
 // Values used to print help command.
@@ -136,7 +138,6 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	//rootNodeOfPreviousDistribution := CreateNewNode()
 	zipReader, err := zip.OpenReader(previousDistPath)
 	if err != nil {
-		//chck this
 		util.HandleErrorAndExit(err)
 	}
 	defer zipReader.Close()
@@ -203,6 +204,8 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 
 	}
 
+	zipReader.Close()
+
 	//finding newly added files to the previous distribution
 	distributionName = getDistributionName(previousDistPath)
 	// Read the distribution zip file
@@ -222,10 +225,9 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 
 	zipReader, err = zip.OpenReader(updatedDistPath)
 	if err != nil {
-		//chck this
 		util.HandleErrorAndExit(err)
 	}
-	//defer zipReader.Close()
+	defer zipReader.Close()
 	// iterate throug updated pack to identify the newly added files
 	for _, file := range zipReader.Reader.File {
 		// we donot need to calculate the md5 of the file as we are filtering only the added files
@@ -262,7 +264,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		if relativePath != "" {
 			findRemovedOrNewlyAddedFiles(&rootNodeOfPreviousDistribution, fileName, relativePath, rootNodeOfPreviousDistribution.childNodes, addedFiles)
 		}
-		zipReader.Close()
+		//zipReader.Close() // if this is causing panic we need to close it here
 	}
 
 	//fmt.Println("Modified files",modifiedFiles)
@@ -288,8 +290,33 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	data, err := MarshalUpdateDescriptor(updateDescriptor)
 	util.HandleErrorAndExit(err, "Error occurred while marshalling the update-descriptor.")
 	err = SaveUpdateDescriptor(constant.UPDATE_DESCRIPTOR_FILE, data)
-	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while saving the '%v'.",
+	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while saving the (%v).",
 		constant.UPDATE_DESCRIPTOR_FILE))
+
+	//14) Extract newly added and modified files from the updated zip and copy them to the temp directory for creating the update zip
+	//using the same zipreader used in reading the updated zip
+	for _, file := range zipReader.Reader.File {
+		//util.PrintInfo(file.Name)
+		var fileName string
+		if strings.Contains(file.Name, "/") {
+			fileName = strings.SplitN(file.Name, "/", 2)[1]
+			util.PrintInfo(fileName)
+		} else {
+			fileName = file.Name
+			util.PrintInfo(fileName)
+		}
+
+		// extracting newly added files from the updated distribution
+		_, found := addedFiles[fileName]
+		if found {
+			copyAlteredFileToTempDir(file)
+		}
+		// extracting modified files from the updated distribution
+
+	}
+
+	zipReader.Close()
+
 }
 
 //This function will be used to check for the availability of the given file in the update directory location
@@ -342,7 +369,7 @@ func findModifiedFiles(root *Node, name string, md5Hash string, relativePath str
 		md5Hash {
 		//fmt.Println("found")
 		_, found := modifiedFiles[childNode.relativeLocation]
-		if (!found) {
+		if !found {
 			modifiedFiles[childNode.relativeLocation] = struct{}{}
 		}
 
@@ -454,19 +481,54 @@ func copyMandatoryFilesToTemp() {
 	notAContributionFileName := constant.NOT_A_CONTRIBUTION_FILE
 
 	//copy update-descriptor.yaml to temp location
-	copyFilesToTemp(updateDescriptorFileName, updateRoot, updateName)
+	copyMandatoryFileToTemp(updateDescriptorFileName, updateRoot, updateName)
 	//copy LICENSE.TXT to temp location
-	copyFilesToTemp(licenseTxtFileName, updateRoot, updateName)
+	copyMandatoryFileToTemp(licenseTxtFileName, updateRoot, updateName)
 	//copy NOT_A_CONTRIBUTION.txt to temp location
-	copyFilesToTemp(notAContributionFileName, updateRoot, updateName)
+	copyMandatoryFileToTemp(notAContributionFileName, updateRoot, updateName)
 
 }
 
-func copyFilesToTemp(fileName, updateRoot, updateName string) {
+//ToDo change so that works on current location's temp directory
+func copyAlteredFileToTempDir(file *zip.File) {
+	fileName := file.Name
+	//Get the update name from viper config
+	updateName := viper.GetString(constant.UPDATE_NAME)
+	//Get the update location from viper config
+	updateRoot := viper.GetString(constant.UPDATE_ROOT)
+	destination := path.Join(updateRoot, constant.TEMP_DIR, updateName, constant.CARBON_HOME, fileName)
+	//Replace all / with OS specific path separators to handle OSs like Windows
+	destination = strings.Replace(destination, "/", constant.PATH_SEPARATOR, -1)
+
+	//Need to create the relevant parent directories in the destination before writing the file
+	parentDirectory := filepath.Dir(destination)
+	err := util.CreateDirectory(parentDirectory)
+	util.HandleErrorAndExit(err, fmt.Sprint("Error occured when creating the (%v) directory", parentDirectory))
+	//open new file for writing only
+	newFile, err := os.OpenFile(destination, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+	if err != nil {
+		util.HandleErrorAndExit(err, fmt.Sprintf("Error occured when opening the (%s) file for writing", destination))
+	}
+	defer newFile.Close()
+
+	zippedFile, err := file.Open()
+	if err != nil {
+		util.HandleErrorAndExit(err, fmt.Sprintf("Error occured when opening the (%s)file", fileName))
+	}
+
+	//copying the contents of the file
+	_, err = io.Copy(newFile, zippedFile)
+	if err != nil {
+		util.HandleErrorAndExit(err, fmt.Sprintf("Error occured when copying the content of (%s)file to temp", fileName))
+	}
+	zippedFile.Close()
+}
+
+//ToDo add logs and user outs for all functions
+func copyMandatoryFileToTemp(fileName, updateRoot, updateName string) {
 	source := path.Join(updateRoot, fileName)
 	// we donot need to replace the path seperator as this file currently exits in the system, so it can be open by os package by default
 	//ToDo change so that works on current location's temp directory
-	//carbonHome := path.Join(updateRoot, constant.TEMP_DIR, updateName, constant.CARBON_HOME)
 	destination := path.Join(updateRoot, constant.TEMP_DIR, updateName, fileName)
 	//Replace all / with OS specific path separators to handle OSs like Windows
 	destination = strings.Replace(destination, "/", constant.PATH_SEPARATOR, -1)
@@ -474,8 +536,8 @@ func copyFilesToTemp(fileName, updateRoot, updateName string) {
 	parentDirectory := path.Dir(destination)
 	logger.Debug("parent directory:", parentDirectory)
 	err := util.CreateDirectory(parentDirectory)
-	util.HandleErrorAndExit(err, fmt.Sprint("Error occured when creating the '%v' directory", parentDirectory))
+	util.HandleErrorAndExit(err, fmt.Sprint("Error occured when creating the (%v) directory", parentDirectory))
 	err = util.CopyFile(source, destination)
-	util.HandleErrorAndExit(err, fmt.Sprint("Error occured when copying source file '%v' to destination '%v'", source, destination))
+	util.HandleErrorAndExit(err, fmt.Sprint("Error occured when copying source file (%v) to destination (%v)", source, destination))
 	util.HandleErrorAndExit(err)
 }
