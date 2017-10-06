@@ -277,7 +277,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	util.PrintInfo("Added Files", addedFiles)
 	util.PrintInfo("length", len(addedFiles))
 
-	//11) Update added,removed and modified files in the the updateDescritor struct
+	//11) Update added,removed and modified files in the the updateDescriptor struct
 	filteredAddedFiles := alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles, updateDescriptor)
 	fmt.Println(filteredAddedFiles)
 
@@ -296,7 +296,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	//14) Extract newly added and modified files from the updated zip and copy them to the temp directory for creating the update zip
 	//using the same zipreader used in reading the updated zip
 	for _, file := range zipReader.Reader.File {
-		//util.PrintInfo(file.Name)
+		util.PrintInfo(file.Name)
 		var fileName string
 		if strings.Contains(file.Name, "/") {
 			fileName = strings.SplitN(file.Name, "/", 2)[1]
@@ -307,14 +307,16 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		}
 
 		// extracting newly added files from the updated distribution
-		_, found := addedFiles[fileName]
+		_, found := filteredAddedFiles[fileName]
 		if found {
-			copyAlteredFileToTempDir(file)
+			copyAlteredFileToTempDir(file, fileName)
 		}
 		// extracting modified files from the updated distribution
-
+		_, found = modifiedFiles[fileName]
+		if found{
+			copyAlteredFileToTempDir(file, fileName)
+		}
 	}
-
 	zipReader.Close()
 
 }
@@ -490,8 +492,8 @@ func copyMandatoryFilesToTemp() {
 }
 
 //ToDo change so that works on current location's temp directory
-func copyAlteredFileToTempDir(file *zip.File) {
-	fileName := file.Name
+//Todo double check fmt.Sprintf()
+func copyAlteredFileToTempDir(file *zip.File, fileName string) {
 	//Get the update name from viper config
 	updateName := viper.GetString(constant.UPDATE_NAME)
 	//Get the update location from viper config
