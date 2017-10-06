@@ -32,6 +32,7 @@ import (
 	"path"
 	"os"
 	"io"
+	"github.com/mholt/archiver"
 )
 
 // Values used to print help command.
@@ -313,11 +314,22 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		}
 		// extracting modified files from the updated distribution
 		_, found = modifiedFiles[fileName]
-		if found{
+		if found {
 			copyAlteredFileToTempDir(file, fileName)
 		}
 	}
 	zipReader.Close()
+
+	//15) Create the update zip
+	//todo make the update zip in the temp dir
+	targetDirectory := path.Join(updateRoot, constant.TEMP_DIR, updateName)
+	//make targetDirectory path compatible with windows OS
+	targetDirectory = strings.Replace(targetDirectory, "/", constant.PATH_SEPARATOR, -2)
+	updateZipName := updateName + ".zip"
+	err = archiver.Zip.Make(path.Join(updateRoot, updateZipName), []string{targetDirectory})
+	util.HandleErrorAndExit(err)
+	//16) Delete the temp directory
+	util.CleanUpDirectory(path.Join(updateRoot,constant.TEMP_DIR))
 
 }
 
@@ -422,6 +434,7 @@ func findRemovedOrNewlyAddedFiles(root *Node, fileName string, relativeLocation 
 
 //This function is used to update the updateDescriptor with the added, removed and modified files from the update
 func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]struct{}, updateDescriptor *util.UpdateDescriptor) map[string]struct{} {
+	//Todo needs to filterout other folders in META-INF
 	filteredAddedFiles := make(map[string]struct{})
 	featurePrefix := "wso2/lib/features/"
 
