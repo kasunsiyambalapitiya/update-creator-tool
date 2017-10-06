@@ -39,11 +39,10 @@ import (
 var (
 	generateCmdUse       = "generate <update_dist_loc> <dist_dist_loc> <update_dir>"
 	generateCmdShortDesc = "generate a new update"
-	generateCmdLongDesc  = dedent.Dedent(`
-		This command will generate a new update zip by comparing the diff between the updated pack and the
-		previous released distribution. It is required to run wum-uc init first and provide the update location given for init as the third input`)
+	generateCmdLongDesc  = dedent.Dedent(`This command will generate a new update zip by comparing the diff between
+	the updated pack and the previous released distribution. It is required to run wum-uc init first and provide the
+	update location given for init as the third input`)
 )
-
 // generateCmd represents the generate command.
 var generateCmd = &cobra.Command{
 	Use:   generateCmdUse,
@@ -200,7 +199,8 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 			//Finding modified files
 			findModifiedFiles(&rootNodeOfUpdatedDistribution, fileName, md5Hash, relativePath, modifiedFiles)
 			//Finding removed files
-			findRemovedOrNewlyAddedFiles(&rootNodeOfUpdatedDistribution, fileName, relativePath, rootNodeOfUpdatedDistribution.childNodes, removedFiles)
+			findRemovedOrNewlyAddedFiles(&rootNodeOfUpdatedDistribution, fileName, relativePath,
+				rootNodeOfUpdatedDistribution.childNodes, removedFiles)
 		}
 
 	}
@@ -263,7 +263,8 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		fmt.Println(fileName)
 		//Finding newly added files
 		if relativePath != "" {
-			findRemovedOrNewlyAddedFiles(&rootNodeOfPreviousDistribution, fileName, relativePath, rootNodeOfPreviousDistribution.childNodes, addedFiles)
+			findRemovedOrNewlyAddedFiles(&rootNodeOfPreviousDistribution, fileName, relativePath,
+				rootNodeOfPreviousDistribution.childNodes, addedFiles)
 		}
 		//zipReader.Close() // if this is causing panic we need to close it here
 	}
@@ -294,8 +295,8 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while saving the (%v).",
 		constant.UPDATE_DESCRIPTOR_FILE))
 
-	//14) Extract newly added and modified files from the updated zip and copy them to the temp directory for creating the update zip
-	//using the same zipreader used in reading the updated zip
+	//14) Extract newly added and modified files from the updated zip and copy them to the temp directory for
+	// creating the update zip using the same zipreader used in reading the updated zip
 	for _, file := range zipReader.Reader.File {
 		util.PrintInfo(file.Name)
 		var fileName string
@@ -329,7 +330,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	err = archiver.Zip.Make(path.Join(updateRoot, updateZipName), []string{targetDirectory})
 	util.HandleErrorAndExit(err)
 	//16) Delete the temp directory
-	util.CleanUpDirectory(path.Join(updateRoot,constant.TEMP_DIR))
+	util.CleanUpDirectory(path.Join(updateRoot, constant.TEMP_DIR))
 
 }
 
@@ -349,7 +350,8 @@ func checkFileExistance(updateDirectoryPath, fileName string) {
 
 func checkDistributionPath(distributionPath, distributionState string) {
 	exists, err := util.IsFileExists(distributionPath)
-	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while checking '%s' '%s' ", distributionState, distributionPath))
+	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while checking '%s' '%s' ", distributionState,
+		distributionPath))
 	if !exists {
 		util.HandleErrorAndExit(errors.New(fmt.Sprintf("File does not exist at '%s'. '%s' Distribution must "+
 			"be a zip file.", distributionPath, distributionState)))
@@ -375,7 +377,11 @@ func getDistributionName(distributionZipName string) string {
 	return distributionName
 }
 
-func findModifiedFiles(root *Node, name string, md5Hash string, relativePath string, modifiedFiles map[string]struct{}) {
+//TOdo add Docs
+//Todo add logs
+//Todo check altered lift of addedfiles
+func findModifiedFiles(root *Node, name string, md5Hash string, relativePath string,
+	modifiedFiles map[string]struct{}) {
 	// Check whether the given name is in the child Nodes
 	childNode, found := root.childNodes[name]
 	//fmt.Println("entered to findModified")
@@ -396,7 +402,8 @@ func findModifiedFiles(root *Node, name string, md5Hash string, relativePath str
 	}
 }
 
-func findRemovedOrNewlyAddedFiles(root *Node, fileName string, relativeLocation string, childNodesOfRootOfParentDistribution map[string]*Node, matches map[string]struct{}) bool {
+func findRemovedOrNewlyAddedFiles(root *Node, fileName string, relativeLocation string,
+	childNodesOfRootOfParentDistribution map[string]*Node, matches map[string]struct{}) bool {
 	// need to remove if there is a slash at the end of the relativeLocation path
 	//fmt.Println("relative loc before: ", relativeLocation)
 	//relativeLocation = strings.TrimSuffix(relativeLocation, "/")
@@ -416,8 +423,10 @@ func findRemovedOrNewlyAddedFiles(root *Node, fileName string, relativeLocation 
 	if !found {
 		for _, childNode := range root.childNodes {
 			if childNode.isDir {
-				found = findRemovedOrNewlyAddedFiles(childNode, fileName, relativeLocation, childNodesOfRootOfParentDistribution, matches)
+				found = findRemovedOrNewlyAddedFiles(childNode, fileName, relativeLocation,
+					childNodesOfRootOfParentDistribution, matches)
 				if found {
+					//Todo check here
 					break
 				}
 			}
@@ -433,7 +442,8 @@ func findRemovedOrNewlyAddedFiles(root *Node, fileName string, relativeLocation 
 }
 
 //This function is used to update the updateDescriptor with the added, removed and modified files from the update
-func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]struct{}, updateDescriptor *util.UpdateDescriptor) map[string]struct{} {
+func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]struct{},
+	updateDescriptor *util.UpdateDescriptor) map[string]struct{} {
 	//Todo needs to filterout other folders in META-INF
 	filteredAddedFiles := make(map[string]struct{})
 	featurePrefix := "wso2/lib/features/"
@@ -448,16 +458,19 @@ func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]st
 	removedFeatureNames := make(map[string]struct{})
 	//Todo refactor delete word to remove to be consistent with the UpdateDescriptor struct
 	for removedFile, _ := range removedFiles {
-		//need to keep track of the features being removed as we only specify the relevant feature directories to be removed on update-descriptor.yaml, without mentioning the files and subdirectories in them
+		//need to keep track of the features being removed as we only specify the relevant feature directories to be
+		//removed on update-descriptor.yaml, without mentioning the files and subdirectories in them
 		if strings.HasPrefix(removedFile, featurePrefix) {
 			//extracting the relevant feature name to be saved in the map for future filtering
 			removedFeatureName := strings.SplitN(strings.TrimPrefix(removedFile, featurePrefix), "/", 2)[0]
 			_, found := removedFeatureNames[removedFeatureName]
-			// if the removedFeature's root directory which is in "wso2/lib/features/" is present, it's root directory has already been added for removal (as the complete feature directory)
+			// if the removedFeature's root directory which is in "wso2/lib/features/" is present, it's root
+			// directory has already been added for removal (as the complete feature directory)
 			if !found {
 				removedFeatureNames[removedFeatureName] = struct{}{}
 				//adding only the root directory of the removed feature to the updateDescriptor
-				updateDescriptor.File_changes.Removed_files = append(updateDescriptor.File_changes.Removed_files, featurePrefix+removedFeatureName)
+				updateDescriptor.File_changes.Removed_files = append(updateDescriptor.File_changes.Removed_files,
+					featurePrefix+removedFeatureName)
 				//ToDo ask shall we put "/" at the end of the directory to indicate it is a directory, this will not cause troubles with the node.relative location
 				//as we are not using them for deleted files. We just delete those in the previous distribution
 			}
@@ -468,12 +481,14 @@ func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]st
 
 	//append newly added files
 	for addedFile, _ := range addedFiles {
-		//need to filter out root directories of newl added features, as they will be automatically created when coping the files and sub directories in them during updating
+		//need to filter out root directories of newl added features, as they will be automatically created when
+		// coping the files and sub directories in them during updating
 		//check whether the addedFile exists inside the "wso2/lib/features/"
 		if strings.HasPrefix(addedFile, featurePrefix) {
 			//Todo do we need to consider the platform indendependence in here for "/"
 			if strings.Contains(strings.TrimPrefix(addedFile, featurePrefix), "/") {
-				// if it contains "/" then addedFile is either a file or a subdirectory inside the above root feature directory
+				// if it contains "/" then addedFile is either a file or a subdirectory inside the above root feature
+				// directory
 				filteredAddedFiles[addedFile] = struct{}{}
 				updateDescriptor.File_changes.Added_files = append(updateDescriptor.File_changes.Added_files, addedFile)
 			}
@@ -485,7 +500,8 @@ func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]st
 	return filteredAddedFiles
 }
 
-//This will be used to copy mandatory files of an update that exists in given update location to a temp location for creating the update zip
+//This will be used to copy mandatory files of an update that exists in given update location to a temp location for
+// creating the update zip
 func copyMandatoryFilesToTemp() {
 	//Get the update name from viper config
 	updateName := viper.GetString(constant.UPDATE_NAME)
@@ -534,7 +550,8 @@ func copyAlteredFileToTempDir(file *zip.File, fileName string) {
 	//copying the contents of the file
 	_, err = io.Copy(newFile, zippedFile)
 	if err != nil {
-		util.HandleErrorAndExit(err, fmt.Sprintf("Error occured when copying the content of (%s)file to temp", fileName))
+		util.HandleErrorAndExit(err, fmt.Sprintf("Error occured when copying the content of (%s)file to temp",
+			fileName))
 	}
 	zippedFile.Close()
 }
@@ -542,7 +559,8 @@ func copyAlteredFileToTempDir(file *zip.File, fileName string) {
 //ToDo add logs and user outs for all functions
 func copyMandatoryFileToTemp(fileName, updateRoot, updateName string) {
 	source := path.Join(updateRoot, fileName)
-	// we donot need to replace the path seperator as this file currently exits in the system, so it can be open by os package by default
+	// we donot need to replace the path seperator as this file currently exits in the system, so it can be open by
+	// os package by default
 	//ToDo change so that works on current location's temp directory
 	destination := path.Join(updateRoot, constant.TEMP_DIR, updateName, fileName)
 	//Replace all / with OS specific path separators to handle OSs like Windows
@@ -553,6 +571,7 @@ func copyMandatoryFileToTemp(fileName, updateRoot, updateName string) {
 	err := util.CreateDirectory(parentDirectory)
 	util.HandleErrorAndExit(err, fmt.Sprint("Error occured when creating the (%v) directory", parentDirectory))
 	err = util.CopyFile(source, destination)
-	util.HandleErrorAndExit(err, fmt.Sprint("Error occured when copying source file (%v) to destination (%v)", source, destination))
+	util.HandleErrorAndExit(err, fmt.Sprint("Error occured when copying source file (%v) to destination (%v)",
+		source, destination))
 	util.HandleErrorAndExit(err)
 }
