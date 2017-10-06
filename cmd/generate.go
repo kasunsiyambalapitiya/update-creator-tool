@@ -37,11 +37,11 @@ import (
 
 // Values used to print help command.
 var (
-	generateCmdUse       = "generate <update_dist_loc> <dist_dist_loc> <update_dir>"
-	generateCmdShortDesc = "generate a new update"
+	generateCmdUse       = "generate <update_dist_loc> <prev_dist_loc> <update_dir>"
+	generateCmdShortDesc = "Generate a new update"
 	generateCmdLongDesc  = dedent.Dedent(`This command will generate a new update zip by comparing the diff between
-	the updated pack and the previous released distribution. It is required to run wum-uc init first and provide the
-	update location given for init as the third input`)
+	the updated distribution and the previous released distribution. It is required to run wum-uc init first and provide
+	the	update location given for init as the third input`)
 )
 // generateCmd represents the generate command.
 var generateCmd = &cobra.Command{
@@ -59,7 +59,7 @@ func init() {
 	generateCmd.Flags().BoolVarP(&isTraceLogsEnabled, "trace", "t", util.EnableTraceLogs, "Enable trace logs")
 
 	generateCmd.Flags().BoolP("md5", "m", util.CheckMd5Disabled, "Disable checking MD5 sum")
-	viper.BindPFlag(constant.CHECK_MD5_DISABLED, generateCmd.Flags().Lookup("md5"))
+	//viper.BindPFlag(constant.CHECK_MD5_DISABLED, generateCmd.Flags().Lookup("md5"))
 }
 
 // This function will be called when the generate command is called.
@@ -71,6 +71,7 @@ func initializeGenerateCommand(cmd *cobra.Command, args []string) {
 	generateUpdate(args[0], args[1], args[2])
 }
 
+//This function will start generating the update zip according to the diff between given two distributions
 func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath string) {
 	// set debug level
 	setLogLevel()
@@ -334,7 +335,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 
 }
 
-//This function will be used to check for the availability of the given file in the update directory location
+//This function will be used to check for the availability of the given file in the given update directory location
 func checkFileExistance(updateDirectoryPath, fileName string) {
 	// Construct the relevant file location
 	updateDescriptorPath := path.Join(updateDirectoryPath, fileName)
@@ -348,6 +349,7 @@ func checkFileExistance(updateDirectoryPath, fileName string) {
 	logger.Debug(fmt.Sprintf("%s exists. Location %s", fileName, updateDescriptorPath))
 }
 
+//This function checks whether the given distribution exists
 func checkDistributionPath(distributionPath, distributionState string) {
 	exists, err := util.IsFileExists(distributionPath)
 	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while checking '%s' '%s' ", distributionState,
@@ -358,12 +360,12 @@ func checkDistributionPath(distributionPath, distributionState string) {
 	}
 }
 
-//This function checks whether the given distritbution is a zip file
-func checkDistribution(distributionName string) {
-	//to a seperate method and reuse in create.go
-	if !strings.HasSuffix(distributionName, ".zip") {
-		util.HandleErrorAndExit(errors.New(fmt.Sprintf("Entered distribution path(%s) does not point to a "+
-			"zip file.", distributionName)))
+//This function checks whether the given distribution is a zip file
+func checkDistribution(distributionPath string) {
+	//ToDo to a seperate method and reuse in create.go
+	if !strings.HasSuffix(distributionPath, ".zip") {
+		util.HandleErrorAndExit(errors.New(fmt.Sprintf("Entered distribution path '%s' does not point to a "+
+			"zip file.", distributionPath)))
 	}
 }
 
