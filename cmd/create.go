@@ -996,7 +996,7 @@ func MarshalUpdateDescriptor(updateDescriptor *util.UpdateDescriptor) ([]byte, e
 func SaveUpdateDescriptor(updateDescriptorFilename string, data []byte) error {
 	updateName := viper.GetString(constant.UPDATE_NAME)
 	//ToDo remove the hardcoded updateRoot location. Check how to keep this as the same
-	destination := path.Join(viper.GetString(constant.UPDATE_ROOT), constant.TEMP_DIR, updateName, updateDescriptorFilename)
+	destination := path.Join(constant.TEMP_DIR, updateName, updateDescriptorFilename)
 	// Open a new file for writing only
 	file, err := os.OpenFile(
 		destination,
