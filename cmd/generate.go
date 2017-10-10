@@ -383,7 +383,6 @@ func findModifiedFiles(root *Node, fileName string, md5Hash string, relativeLoca
 			modifiedFiles[childNode.relativeLocation] = struct{}{}
 			logger.Trace(fmt.Sprintf("Modified file %s is added to the modifiedFiles map", fileName))
 		}
-
 	}
 	// Regardless of whether the file is found or not, iterate through all sub directories to find all matches
 	for _, childNode := range root.childNodes {
@@ -408,8 +407,7 @@ func findRemovedOrNewlyAddedFiles(root *Node, fileName string, relativeLocation 
 		if root.childNodes[fileName].relativeLocation != relativeLocation {
 			found = false
 			logger.Trace(fmt.Sprintf("The %s file is not found in the same relative path, so it can be either "+
-				"removed or newly added file",
-				fileName))
+				"removed or newly added file", fileName))
 		} else {
 			logger.Trace(fmt.Sprintf("The %s file is found in the same relative path, so it is niether removed or "+
 				"newly added file", fileName))
@@ -444,19 +442,19 @@ func findRemovedOrNewlyAddedFiles(root *Node, fileName string, relativeLocation 
 //This function is used to update the updateDescriptor with the added, removed and modified files from the update
 func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]struct{},
 	updateDescriptor *util.UpdateDescriptor) map[string]struct{} {
-	//Todo needs to filterout other folders in META-INF
+	logger.Debug(fmt.Sprintf("Altering UpdateDescriptor started"))
 	filteredAddedFiles := make(map[string]struct{})
 	featurePrefix := "wso2/lib/features/"
 
 	//append modified files
-	logger.Debug(fmt.Sprintf("Appending modified files to the update descriptor started"))
+	logger.Debug(fmt.Sprintf("Appending modified files to the UpdateDescriptor started"))
 	for modifiedFile, _ := range modifiedFiles {
 		updateDescriptor.File_changes.Modified_files = append(updateDescriptor.File_changes.Modified_files, modifiedFile)
 	}
-	logger.Debug(fmt.Sprintf("Appending modified files to the update descriptor finished successfully"))
+	logger.Debug(fmt.Sprintf("Appending modified files to the UpdateDescriptor finished successfully"))
 
 	//append removed files
-	logger.Debug(fmt.Sprintf("Appending removed files to the update descriptor started"))
+	logger.Debug(fmt.Sprintf("Appending removed files to the UpdateDescriptor started"))
 	//map[string]struct{} is used here as it is trival to search for an element in a slice
 	removedFeatureNames := make(map[string]struct{})
 	for removedFile, _ := range removedFiles {
@@ -475,16 +473,19 @@ func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]st
 				updateDescriptor.File_changes.Removed_files = append(updateDescriptor.File_changes.Removed_files,
 					featurePrefix+removedFeatureName)
 				//ToDo ask shall we put "/" at the end of the directory to indicate it is a directory, this will not cause troubles with the node.relative location
-				//as we are not using them for removed files. We just remove those in the previous distribution
+				//as we are not using nodes or any files in updated distribution for removing files in the previous
+				// distribution. We just remove those in the previous distribution
 			}
 		} else {
 			updateDescriptor.File_changes.Removed_files = append(updateDescriptor.File_changes.Removed_files, removedFile)
 		}
 	}
-	logger.Debug(fmt.Sprintf("Appending removed files to the update descriptor finished successfully"))
+	logger.Debug(fmt.Sprintf("Appending removed files to the UpdateDescriptor finished successfully"))
 
 	//append newly added files
+	logger.Debug(fmt.Sprintf("Appending added files to the UpdateDescriptor started"))
 	for addedFile, _ := range addedFiles {
+		//Todo needs to filterout other folders in META-INF
 		//need to filter out root directories of newl added features, as they will be automatically created when
 		// coping the files and sub directories in them during updating
 		//check whether the addedFile exists inside the "wso2/lib/features/"
@@ -501,6 +502,8 @@ func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]st
 			updateDescriptor.File_changes.Added_files = append(updateDescriptor.File_changes.Added_files, addedFile)
 		}
 	}
+	logger.Debug(fmt.Sprintf("Appending added files to the UpdateDescriptor finished successfully"))
+	logger.Debug(fmt.Sprintf("Altering UpdateDescriptor finished successfully"))
 	return filteredAddedFiles
 }
 
