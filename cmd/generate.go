@@ -103,8 +103,8 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	checkDistributionPath(previousDistPath, "previous")
 
 	//6) Check whether the given distributions are zip files
-	checkDistribution(updatedDistPath)
-	checkDistribution(previousDistPath)
+	checkDistribution(updatedDistPath,"updated")
+	checkDistribution(previousDistPath,"previous")
 
 	//7) Read update-descriptor.yaml and set the update name which will be used when creating the update zip file.
 	updateDescriptor, err := util.LoadUpdateDescriptor(constant.UPDATE_DESCRIPTOR_FILE, updateDirectoryPath)
@@ -303,10 +303,10 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		var fileName string
 		if strings.Contains(file.Name, "/") {
 			fileName = strings.SplitN(file.Name, "/", 2)[1]
-			util.PrintInfo(fileName)
+			//util.PrintInfo(fileName)
 		} else {
 			fileName = file.Name
-			util.PrintInfo(fileName)
+			//util.PrintInfo(fileName)
 		}
 
 		// extracting newly added files from the updated distribution
@@ -358,17 +358,20 @@ func checkDistributionPath(distributionPath, distributionState string) {
 		util.HandleErrorAndExit(errors.New(fmt.Sprintf("File does not exist at '%s'. '%s' Distribution must "+
 			"be a zip file.", distributionPath, distributionState)))
 	}
+	logger.Debug(fmt.Sprintf("The %s distribution exists in %s location",distributionState, distributionPath))
 }
 
 //This function checks whether the given distribution is a zip file
-func checkDistribution(distributionPath string) {
+func checkDistribution(distributionPath string,distributionState string) {
 	//ToDo to a seperate method and reuse in create.go
 	if !strings.HasSuffix(distributionPath, ".zip") {
 		util.HandleErrorAndExit(errors.New(fmt.Sprintf("Entered distribution path '%s' does not point to a "+
 			"zip file.", distributionPath)))
 	}
+	logger.Debug(fmt.Sprintf("The %s distribution is a zip file",distributionState))
 }
 
+//This function is used to extract out the distribution name from the given zip file
 func getDistributionName(distributionZipName string) string {
 
 	//make this a common method
@@ -376,6 +379,7 @@ func getDistributionName(distributionZipName string) string {
 	paths := strings.Split(distributionZipName, constant.PATH_SEPARATOR)
 	distributionName := strings.TrimSuffix(paths[len(paths)-1], ".zip")
 	viper.Set(constant.PRODUCT_NAME, distributionName)
+	logger.Debug(fmt.Sprintf("Distribution name set in to the viper config"))
 	return distributionName
 }
 
