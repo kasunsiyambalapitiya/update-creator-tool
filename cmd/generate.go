@@ -510,7 +510,7 @@ func copyMandatoryFilesToTemp() {
 	copyMandatoryFileToTemp(licenseTxtFileName, updateRoot, updateName)
 	//copy NOT_A_CONTRIBUTION.txt to temp location
 	copyMandatoryFileToTemp(notAContributionFileName, updateRoot, updateName)
-
+	logger.Debug(fmt.Sprintf("Copying mandatory files of an update to temp location completed successfully"))
 }
 
 //ToDo change so that works on current location's temp directory
@@ -550,6 +550,7 @@ func copyAlteredFileToTempDir(file *zip.File, fileName string) {
 }
 
 //ToDo add logs and user outs for all functions
+//This function will be used to copy given mandatory file to the temp location for creating the update zip
 func copyMandatoryFileToTemp(fileName, updateRoot, updateName string) {
 	source := path.Join(updateRoot, fileName)
 	// we donot need to replace the path seperator as this file currently exits in the system, so it can be open by
