@@ -188,7 +188,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		fileNameStrings := strings.Split(fileName, "/")
 		fileName = fileNameStrings[len(fileNameStrings)-1]
 		logger.Trace(fmt.Sprintf("File Name %s", fileName))
-		if relativeLocation != "" {
+		if relativeLocation != "" && !file.FileInfo().IsDir() {
 			//Finding modified files
 			findModifiedFiles(&rootNodeOfUpdatedDistribution, fileName, md5Hash, relativeLocation, modifiedFiles)
 			//Finding removed files
@@ -250,7 +250,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		fileName = fileNameStrings[len(fileNameStrings)-1]
 		logger.Trace(fmt.Sprintf("File Name %s", fileName))
 		//Finding newly added files
-		if relativeLocation != "" {
+		if relativeLocation != "" && !file.FileInfo().IsDir() {
 			findRemovedOrNewlyAddedFiles(&rootNodeOfPreviousDistribution, fileName, relativeLocation,
 				rootNodeOfPreviousDistribution.childNodes, addedFiles)
 		}
@@ -267,7 +267,6 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 
 	//11) Update added,removed and modified files in the the updateDescriptor struct
 	filteredAddedFiles := alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles, updateDescriptor)
-	fmt.Println(filteredAddedFiles)
 
 	//12) Copy files in the update location to a temp directory
 	copyMandatoryFilesToTemp()
@@ -485,31 +484,18 @@ func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]st
 	//append newly added files
 	logger.Debug(fmt.Sprintf("Appending added files to the UpdateDescriptor started"))
 	for addedFile, _ := range addedFiles {
-		//Todo needs to filterout other folders in META-INF
-		//need to filter out root directories of newl added features, as they will be automatically created when
-		// coping the files and sub directories in them during updating
-		//check whether the addedFile exists inside the "wso2/lib/features/"
-		if strings.HasPrefix(addedFile, featurePrefix) {
-			//Todo do we need to consider the platform indendependence in here for "/"
-			if strings.Contains(strings.TrimPrefix(addedFile, featurePrefix), "/") {
-				// if it contains "/" then addedFile is either a file or a subdirectory inside the above root feature
-				// directory
-				filteredAddedFiles[addedFile] = struct{}{}
-				updateDescriptor.File_changes.Added_files = append(updateDescriptor.File_changes.Added_files, addedFile)
-			}
-		} else {
-			filteredAddedFiles[addedFile] = struct{}{}
-			updateDescriptor.File_changes.Added_files = append(updateDescriptor.File_changes.Added_files, addedFile)
-		}
+		filteredAddedFiles[addedFile] = struct{}{}
+		updateDescriptor.File_changes.Added_files = append(updateDescriptor.File_changes.Added_files, addedFile)
 	}
 	logger.Debug(fmt.Sprintf("Appending added files to the UpdateDescriptor finished successfully"))
 	logger.Debug(fmt.Sprintf("Altering UpdateDescriptor finished successfully"))
 	return filteredAddedFiles
 }
 
-//This will be used to copy mandatory files of an update that exists in given update location to a temp location for
+//This is used to copy mandatory files of an update, that exists in given update location to a temp location for
 // creating the update zip
 func copyMandatoryFilesToTemp() {
+	logger.Debug(fmt.Sprintf("Copying mandatory files of an update to temp location started"))
 	//Get the update name from viper config
 	updateName := viper.GetString(constant.UPDATE_NAME)
 	//Get the update location from viper config
