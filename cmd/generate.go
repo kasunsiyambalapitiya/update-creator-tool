@@ -381,11 +381,10 @@ func findModifiedFiles(root *Node, fileName string, md5Hash string, relativeLoca
 		md5Hash {
 		logger.Trace(fmt.Sprintf("The file %s exists in the both distributions with mismatch md5, meaning they are "+
 			"modified", fileName))
-		_, found := modifiedFiles[childNode.relativeLocation]
-		if !found {
-			modifiedFiles[childNode.relativeLocation] = struct{}{}
-			logger.Trace(fmt.Sprintf("Modified file %s is added to the modifiedFiles map", fileName))
-		}
+
+		modifiedFiles[childNode.relativeLocation] = struct{}{}
+		logger.Trace(fmt.Sprintf("Modified file %s is added to the modifiedFiles map", fileName))
+
 	}
 	// Regardless of whether the file is found or not, iterate through all sub directories to find all matches
 	for _, childNode := range root.childNodes {
@@ -550,7 +549,6 @@ func copyAlteredFileToTempDir(file *zip.File, fileName string) {
 	zippedFile.Close()
 }
 
-//ToDo add logs and user outs for all functions
 //This function will be used to copy given mandatory file to the temp location for creating the update zip
 func copyMandatoryFileToTemp(fileName, updateRoot, updateName string) {
 	logger.Debug(fmt.Sprintf("Copying mandatory file %s to temp location", fileName))
