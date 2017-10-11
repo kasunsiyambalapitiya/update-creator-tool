@@ -149,7 +149,7 @@ func compare(updateFileMap, distributionFileMap map[string]bool, updateDescripto
 			logger.Debug("Added files: ", updateDescriptor.File_changes.Added_files)
 			isInAddedFiles := util.IsStringIsInSlice(filePath, updateDescriptor.File_changes.Added_files)
 			logger.Debug(fmt.Sprintf("isInAddedFiles: %v", isInAddedFiles))
-			resourceFiles := getResourceFiles()
+			resourceFiles := GetResourceFiles()
 			logger.Debug(fmt.Sprintf("resourceFiles: %v", resourceFiles))
 			fileName := strings.TrimPrefix(filePath, updateName+"/")
 			logger.Debug(fmt.Sprintf("fileName: %s", fileName))
@@ -245,7 +245,7 @@ func readUpdateZip(filename string) (map[string]bool, *util.UpdateDescriptor, er
 					return nil, nil, err
 				}
 			default:
-				resourceFiles := getResourceFiles()
+				resourceFiles := GetResourceFiles()
 				logger.Debug(fmt.Sprintf("resourceFiles: %v", resourceFiles))
 				prefix := filepath.Join(updateName, constant.CARBON_HOME)
 				logger.Debug(fmt.Sprintf("Checking prefix %s in %s", prefix, file.Name))
