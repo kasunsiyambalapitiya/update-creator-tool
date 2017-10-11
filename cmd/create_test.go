@@ -29,7 +29,7 @@ func TestGetUpdateName(t *testing.T) {
 		Update_number:    updateNumber,
 		Platform_version: kernelVersion,
 	}
-	updateName := getUpdateName(&updateDescriptor, constant.UPDATE_NAME_PREFIX)
+	updateName := GetUpdateName(&updateDescriptor, constant.UPDATE_NAME_PREFIX)
 	expected := constant.UPDATE_NAME_PREFIX + "-" + kernelVersion + "-" + updateNumber
 	if updateName != expected {
 		t.Errorf("Test failed, expected: %s, actual: %s", expected, updateName)
