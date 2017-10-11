@@ -28,7 +28,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"path/filepath"
-	"reflect"
 	"path"
 	"os"
 	"io"
@@ -180,9 +179,6 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 
 		// Replace all \ with /. Otherwise it will cause issues in Windows OS.
 		relativeLocation = filepath.ToSlash(relativeLocation)
-		if strings.HasSuffix(relativeLocation, "/") {
-			relativeLocation = strings.TrimSuffix(relativeLocation, "/")
-		}
 		logger.Trace(fmt.Sprintf("relativeLocation:%s", relativeLocation))
 
 		fileNameStrings := strings.Split(fileName, "/")
@@ -192,8 +188,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 			//Finding modified files
 			findModifiedFiles(&rootNodeOfUpdatedDistribution, fileName, md5Hash, relativeLocation, modifiedFiles)
 			//Finding removed files
-			findRemovedOrNewlyAddedFiles(&rootNodeOfUpdatedDistribution, fileName, relativeLocation,
-				rootNodeOfUpdatedDistribution.childNodes, removedFiles)
+			findRemovedOrNewlyAddedFiles(&rootNodeOfUpdatedDistribution, fileName, relativeLocation, removedFiles)
 		}
 
 	}
@@ -251,8 +246,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		logger.Trace(fmt.Sprintf("File Name %s", fileName))
 		//Finding newly added files
 		if relativeLocation != "" && !file.FileInfo().IsDir() {
-			findRemovedOrNewlyAddedFiles(&rootNodeOfPreviousDistribution, fileName, relativeLocation,
-				rootNodeOfPreviousDistribution.childNodes, addedFiles)
+			findRemovedOrNewlyAddedFiles(&rootNodeOfPreviousDistribution, fileName, relativeLocation, addedFiles)
 		}
 		//zipReader.Close() // if this is causing panic we need to close it here
 	}
@@ -396,49 +390,20 @@ func findModifiedFiles(root *Node, fileName string, md5Hash string, relativeLoca
 }
 
 //This function is used for identifying removed and newly added files between given two zip files
-func findRemovedOrNewlyAddedFiles(root *Node, fileName string, relativeLocation string,
-	childNodesOfRootOfParentDistribution map[string]*Node, matches map[string]struct{}) bool {
-	logger.Trace(fmt.Sprintf("Checking %s file to identify as a removed or newly added in %s relative path",
+func findRemovedOrNewlyAddedFiles(root *Node, fileName string, relativeLocation string, matches map[string]struct{}) {
+	logger.Trace(fmt.Sprintf("Checking %s file to identify it as a removed or newly added in %s relative path",
 		fileName, relativeLocation))
-	// Check whether a file exists in the given relative path in any child Node
-	_, found := root.childNodes[fileName]
+	// Check whether the given file exists in the given relative path in any child Node
+	found := PathExists(root, relativeLocation, false)
 
-	//checking whether the file is in the correct relative location, this is done as multiple files will have the
-	// same file name but they exists in different relative locations
-	if found {
-		if root.childNodes[fileName].relativeLocation != relativeLocation {
-			found = false
-			logger.Trace(fmt.Sprintf("The %s file is not found in the same relative path, so it can be either "+
-				"removed or newly added file", fileName))
-		} else {
-			logger.Trace(fmt.Sprintf("The %s file is found in the same relative path, so it is niether removed or "+
-				"newly added file", fileName))
-			return true
-		}
-	}
 	if !found {
-		for _, childNode := range root.childNodes {
-			if childNode.isDir {
-				found = findRemovedOrNewlyAddedFiles(childNode, fileName, relativeLocation,
-					childNodesOfRootOfParentDistribution, matches)
-				if found {
-					logger.Trace(fmt.Sprintf("The %s file is found in the same relative path, so it is niether removed or "+
-						"newly added file", fileName))
-					//This is to break out every for loop started for searching the relevant file, if the the file is
-					// found with the same relative location.
-					break
-				}
-			}
-		}
-
-	}
-	//after going through all the childnodes if it is still false means, that relative location is not present among
-	// in any nodes
-	parentRootNode := reflect.DeepEqual(childNodesOfRootOfParentDistribution, root.childNodes)
-	if !found && parentRootNode {
+		logger.Trace(fmt.Sprintf("The %s file is not found in the same relative path %s, so it can be either "+
+			"a removed or newly added file", fileName,relativeLocation))
 		matches[relativeLocation] = struct{}{}
+	} else {
+		logger.Trace(fmt.Sprintf("The %s file is found in the same relative path %s, so it is neither a removed or "+
+			"newly added file", fileName,relativeLocation))
 	}
-	return found
 }
 
 //This function is used to update the updateDescriptor with the added, removed and modified files from the update
