@@ -398,11 +398,11 @@ func findRemovedOrNewlyAddedFiles(root *Node, fileName string, relativeLocation 
 
 	if !found {
 		logger.Trace(fmt.Sprintf("The %s file is not found in the same relative path %s, so it can be either "+
-			"a removed or newly added file", fileName,relativeLocation))
+			"a removed or newly added file", fileName, relativeLocation))
 		matches[relativeLocation] = struct{}{}
 	} else {
 		logger.Trace(fmt.Sprintf("The %s file is found in the same relative path %s, so it is neither a removed or "+
-			"newly added file", fileName,relativeLocation))
+			"newly added file", fileName, relativeLocation))
 	}
 }
 
@@ -464,20 +464,11 @@ func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]st
 // creating the update zip
 func copyMandatoryFilesToTemp() {
 	logger.Debug(fmt.Sprintf("Copying mandatory files of an update to temp location started"))
-	//Get the update name from viper config
-	updateName := viper.GetString(constant.UPDATE_NAME)
-	//Get the update location from viper config
-	updateRoot := viper.GetString(constant.UPDATE_ROOT)
-	updateDescriptorFileName := constant.UPDATE_DESCRIPTOR_FILE
-	licenseTxtFileName := constant.LICENSE_FILE
-	notAContributionFileName := constant.NOT_A_CONTRIBUTION_FILE
-
-	//copy update-descriptor.yaml to temp location
-	copyMandatoryFileToTemp(updateDescriptorFileName, updateRoot, updateName)
-	//copy LICENSE.TXT to temp location
-	copyMandatoryFileToTemp(licenseTxtFileName, updateRoot, updateName)
-	//copy NOT_A_CONTRIBUTION.txt to temp location
-	copyMandatoryFileToTemp(notAContributionFileName, updateRoot, updateName)
+	//map of files to be copied to the temp directory with file name as the key and boolean specifying mandatory or
+	// optional as the value
+	resourceFiles := GetResourceFiles()
+	err := CopyResourceFilesToTempDir(resourceFiles)
+	util.HandleErrorAndExit(err, errors.New("Error occurred while copying resource files."))
 	logger.Debug(fmt.Sprintf("Copying mandatory files of an update to temp location completed successfully"))
 }
 
@@ -514,7 +505,7 @@ func copyAlteredFileToTempDir(file *zip.File, fileName string) {
 	zippedFile.Close()
 }
 
-//This function will be used to copy given mandatory file to the temp location for creating the update zip
+/*//This function will be used to copy given mandatory file to the temp location for creating the update zip
 func copyMandatoryFileToTemp(fileName, updateRoot, updateName string) {
 	logger.Debug(fmt.Sprintf("Copying mandatory file %s to temp location", fileName))
 	source := path.Join(updateRoot, fileName)
@@ -535,4 +526,4 @@ func copyMandatoryFileToTemp(fileName, updateRoot, updateName string) {
 		source, destination))
 	util.HandleErrorAndExit(err)
 	logger.Debug(fmt.Sprintf("Copying mandatory file %s to temp location completed", fileName))
-}
+}*/

@@ -292,8 +292,8 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	}
 
 	//8) Copy resource files (update-descriptor.yaml, etc) to temp directory
-	resourceFiles := getResourceFiles()
-	err = copyResourceFilesToTempDir(resourceFiles)
+	resourceFiles := GetResourceFiles()
+	err = CopyResourceFilesToTempDir(resourceFiles)
 	util.HandleErrorAndExit(err, errors.New("Error occurred while copying resource files."))
 
 	// Save the update-descriptor with the updated, newly added files to the temp directory
@@ -970,7 +970,7 @@ func getIgnoredFilesInUpdate() map[string]bool {
 
 // This will return a map of files which would be copied to the temp directory before creating the update zip. Key is
 // the file name and value is whether the file is mandatory or not.
-func getResourceFiles() map[string]bool {
+func GetResourceFiles() map[string]bool {
 	filesMap := make(map[string]bool)
 	// Get the mandatory resource files and add to the the map
 	for _, file := range viper.GetStringSlice(constant.RESOURCE_FILES_MANDATORY) {
@@ -1019,7 +1019,7 @@ func SaveUpdateDescriptor(updateDescriptorFilename string, data []byte) error {
 }
 
 // This function will copy resource files to the temp directory.
-func copyResourceFilesToTempDir(resourceFilesMap map[string]bool) error {
+func CopyResourceFilesToTempDir(resourceFilesMap map[string]bool) error {
 	// Create the directories if they are not available
 	updateName := viper.GetString(constant.UPDATE_NAME)
 	destination := path.Join(constant.TEMP_DIR, updateName, constant.CARBON_HOME)
