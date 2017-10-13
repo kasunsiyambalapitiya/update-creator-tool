@@ -94,31 +94,28 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	//3) Check whether the LICENSE.txt file file exists in the update directory
 	checkFileExistance(updateDirectoryPath, constant.LICENSE_FILE)
 
-	//4) Check whether the NOT_A_CONTRIBUTION.txt file exists in the update directory
-	checkFileExistance(updateDirectoryPath, constant.NOT_A_CONTRIBUTION_FILE)
-
-	//5) Check whether the given distributions exists
+	//4) Check whether the given distributions exists
 	checkDistributionPath(updatedDistPath, "updated")
 	checkDistributionPath(previousDistPath, "previous")
 
-	//6) Check whether the given distributions are zip files
+	//5) Check whether the given distributions are zip files
 	checkDistribution(updatedDistPath, "updated")
 	checkDistribution(previousDistPath, "previous")
 
-	//7) Read update-descriptor.yaml and set the update name which will be used when creating the update zip file.
+	//6) Read update-descriptor.yaml and set the update name which will be used when creating the update zip file.
 	updateDescriptor, err := util.LoadUpdateDescriptor(constant.UPDATE_DESCRIPTOR_FILE, updateDirectoryPath)
 	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred when reading '%s' file.",
 		constant.UPDATE_DESCRIPTOR_FILE))
 
-	//8) Validate the file format of the update-descriptor.yaml
+	//7) Validate the file format of the update-descriptor.yaml
 	err = util.ValidateUpdateDescriptor(updateDescriptor)
 	util.HandleErrorAndExit(err, fmt.Sprintf("'%s' format is incorrect.", constant.UPDATE_DESCRIPTOR_FILE))
 
-	//9) Set the update name
+	//8) Set the update name
 	updateName := GetUpdateName(updateDescriptor, constant.UPDATE_NAME_PREFIX)
 	viper.Set(constant.UPDATE_NAME, updateName)
 
-	//10) Identify modified, added and removed files by comparing the diff between two given distributions
+	//9) Identify modified, added and removed files by comparing the diff between two given distributions
 	//Get the distribution name
 	distributionName := getDistributionName(updatedDistPath)
 	// Read the updated distribution zip file
@@ -140,13 +137,13 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	}
 	defer zipReader.Close()
 
-	//slices for modified, changed and removed files from the update
+	//maps for modified, changed and removed files from the update
 	modifiedFiles := make(map[string]struct{})
 	removedFiles := make(map[string]struct{})
 	addedFiles := make(map[string]struct{})
 
 	//iterate through each file to identify modified and removed files
-	logger.Debug(fmt.Sprintf("Finding modified and removed files between the given 2 distributions"))
+	logger.Debug(fmt.Sprintf("Finding modified and removed files between updated and previous distributions"))
 	for _, file := range zipReader.Reader.File {
 		//open the file for calculating MD5
 		zippedFile, err := file.Open()
@@ -259,13 +256,13 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	util.PrintInfo("Added Files", addedFiles)
 	util.PrintInfo("length", len(addedFiles))
 
-	//11) Update added,removed and modified files in the the updateDescriptor struct
+	//10) Update added,removed and modified files in the the updateDescriptor struct
 	filteredAddedFiles := alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles, updateDescriptor)
 
-	//12) Copy files in the update location to a temp directory
+	//11) Copy files in the update location to a temp directory
 	copyMandatoryFilesToTemp()
 
-	//13) Save the updateDescriptor with newly added, removed and modified files to the the update-descriptor.yaml
+	//12) Save the updateDescriptor with newly added, removed and modified files to the the update-descriptor.yaml
 
 	// Todo handle interrupts
 	data, err := MarshalUpdateDescriptor(updateDescriptor)
@@ -275,14 +272,13 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while saving the (%v).",
 		constant.UPDATE_DESCRIPTOR_FILE))
 
-	//14) Extract newly added and modified files from the updated zip and copy them to the temp directory for
+	//13) Extract newly added and modified files from the updated zip and copy them to the temp directory for
 	// creating the update zip. The same zipReader used in reading the updated zip is used in here
 	logger.Debug(fmt.Sprintf("Extracting newly added and modified files from the updated zip"))
 	for _, file := range zipReader.Reader.File {
 		var fileName string
 		if strings.Contains(file.Name, "/") {
 			fileName = strings.SplitN(file.Name, "/", 2)[1]
-			//util.PrintInfo(fileName)
 		} else {
 			fileName = file.Name
 		}
@@ -303,7 +299,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	zipReader.Close()
 	logger.Debug(fmt.Sprintf("Copying newly added and modified files from updated zip to temp location"))
 
-	//15) Create the update zip
+	//14) Create the update zip
 	logger.Debug(fmt.Sprintf("Creating the update zip"))
 	targetDirectory := path.Join(constant.TEMP_DIR, updateName)
 	//make targetDirectory path compatible with windows OS
@@ -312,7 +308,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	err = archiver.Zip.Make(path.Join(updateRoot, updateZipName), []string{targetDirectory})
 	util.HandleErrorAndExit(err)
 	logger.Debug(fmt.Sprintf("Creating the update zip completed successfully"))
-	//16) Delete the temp directory
+	//15) Delete the temp directory
 	util.CleanUpDirectory(path.Join(constant.TEMP_DIR))
 	logger.Debug(fmt.Sprintf("Temp directory deleted successfully"))
 }
