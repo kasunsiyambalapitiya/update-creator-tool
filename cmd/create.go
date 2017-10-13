@@ -806,8 +806,6 @@ func ReadZip(location string) (Node, error) {
 
 		// Get the relative path of the file
 		logger.Trace(fmt.Sprintf("file.Name: %s", file.Name))
-		//delete this print
-		//fmt.Println("file.Name: and md5", file.Name, md5Hash)
 
 		var relativePath string
 		if (strings.Contains(file.Name, "/")) {
@@ -819,8 +817,6 @@ func ReadZip(location string) (Node, error) {
 		// Replace all \ with /. Otherwise it will cause issues in Windows OS.
 		relativePath = filepath.ToSlash(relativePath)
 		logger.Trace(fmt.Sprintf("relativePath: %s", relativePath))
-		//delete
-		//fmt.Println("relativePath:", relativePath)
 
 		// Add the file to root Node
 		AddToRootNode(&rootNode, strings.Split(relativePath, "/"), file.FileInfo().IsDir(), md5Hash)
@@ -828,8 +824,6 @@ func ReadZip(location string) (Node, error) {
 			fileMap[relativePath] = false
 		}
 	}
-	//delete
-	//fmt.Println("end creating the root node"+rootNode.name)
 	util.PrintInfo(fmt.Sprintf("end creating the root node ", rootNode.name))
 
 	return rootNode, nil
@@ -842,8 +836,6 @@ func AddToRootNode(root *Node, path []string, isDir bool, md5Hash string) *Node 
 	// If the current path element is the last element, add it as a new Node.
 	if len(path) == 1 {
 		logger.Trace("End reached")
-		//delete
-		//fmt.Println("End Reached")
 		newNode := CreateNewNode()
 		newNode.name = path[0]
 		newNode.isDir = isDir
@@ -858,8 +850,6 @@ func AddToRootNode(root *Node, path []string, isDir bool, md5Hash string) *Node 
 	} else {
 		// If there are more path elements than 1, that means we are currently processing a directory.
 		logger.Trace(fmt.Sprintf("End not reached. checking: %v", path[0]))
-		//delete
-		//fmt.Println("End not reached. checking:", path[0])
 
 		Node, contains := root.childNodes[path[0]]
 		// If the directory is already not in the tree, add it as a new Node

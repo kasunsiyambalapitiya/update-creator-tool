@@ -159,7 +159,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		//name of the file
 		fileName := file.Name
 		logger.Trace(fmt.Sprintf("file.Name: %s and md5", fileName, md5Hash))
-
+		//Todo we can eliminate this as we check for only files
 		if strings.HasSuffix(fileName, "/") {
 			fileName = strings.TrimSuffix(fileName, "/")
 		}
@@ -349,7 +349,6 @@ func checkDistributionType(distributionPath string, distributionState string) {
 
 //This function is used to extract out the distribution name from the given zip file.
 func getDistributionName(distributionZipName string) string {
-	//ToDo make this a common method
 	// Get the product name from the distribution path and set it as a viper config
 	paths := strings.Split(distributionZipName, constant.PATH_SEPARATOR)
 	distributionName := strings.TrimSuffix(paths[len(paths)-1], ".zip")
