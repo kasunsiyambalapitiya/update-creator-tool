@@ -127,7 +127,8 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	util.HandleErrorAndExit(err)
 	logger.Debug("Reading updated distribution zip finished")
 	logger.Debug("Reading previously released distribution zip for finding removed and modified files")
-	util.PrintInfo(fmt.Sprintf("Reading the previous %s. to get diff Please wait...", distributionName))
+	util.PrintInfo(fmt.Sprintf("Reading the previous %s. to identify removed and modified files, Please wait...",
+		distributionName))
 
 	zipReader, err := zip.OpenReader(previousDistPath)
 	if err != nil {
@@ -185,7 +186,6 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 			//Finding removed files
 			findRemovedOrNewlyAddedFiles(&rootNodeOfUpdatedDistribution, fileName, relativeLocation, removedFiles)
 		}
-
 	}
 	logger.Debug(fmt.Sprintf("Done finding modified and removed files between the given 2 distributions"))
 	// closing the ReadCloser of previous distribution
@@ -201,11 +201,11 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	rootNodeOfPreviousDistribution := CreateNewNode()
 	rootNodeOfPreviousDistribution, err = ReadZip(previousDistPath)
 	logger.Debug("root node of the previous distribution received")
-	//util.PrintInfo(fmt.Sprintf("Recieved ", len(rootNodeOfPreviousDistribution.childNodes)))
 	util.HandleErrorAndExit(err)
 	logger.Debug("Reading previous distribution zip finished")
 	logger.Debug("Reading updated distribution zip for finding newly added files")
-	util.PrintInfo(fmt.Sprintf("Reading the updated %s. to get diff Please wait...", distributionName))
+	util.PrintInfo(fmt.Sprintf("Reading the updated %s. to identify newly added files, Please wait...",
+		distributionName))
 
 	zipReader, err = zip.OpenReader(updatedDistPath)
 	if err != nil {
@@ -213,7 +213,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	}
 	defer zipReader.Close()
 	// iterate through updated pack to identify the newly added files
-	logger.Debug(fmt.Sprintf("Finding newly added files between the given 2 distributions"))
+	logger.Debug(fmt.Sprintf("Finding newly added files between updated and previous distributions"))
 	for _, file := range zipReader.Reader.File {
 		// we do not need to calculate the md5 of the file as we are filtering only the added files
 		// name of the file
@@ -223,7 +223,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		if strings.HasSuffix(fileName, "/") {
 			fileName = strings.TrimSuffix(fileName, "/")
 		}
-		//ToDo make getting relative location a util method
+		//ToDo make getting relative location a util method and use it in both create and generate cmds
 		// Get the relative location of the file
 		var relativeLocation string
 		if (strings.Contains(fileName, "/")) {
@@ -248,13 +248,13 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	logger.Debug(fmt.Sprintf("Done finding newly added files between the given 2 distributions"))
 
 	util.PrintInfo("Modified Files", modifiedFiles)
-	util.PrintInfo("length", len(modifiedFiles))
+	util.PrintInfo("no of modified files", len(modifiedFiles))
 	util.PrintInfo("removed Files", removedFiles)
-	util.PrintInfo("length", len(removedFiles))
+	util.PrintInfo("no of removed files", len(removedFiles))
 	util.PrintInfo("Added Files", addedFiles)
-	util.PrintInfo("length", len(addedFiles))
+	util.PrintInfo("no of added files", len(addedFiles))
 
-	//10) Update added,removed and modified files in the the updateDescriptor struct
+	//10) Update added,removed and modified files in the updateDescriptor struct
 	filteredAddedFiles := alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles, updateDescriptor)
 
 	//11) Copy files in the update location to a temp directory
@@ -377,10 +377,11 @@ func findModifiedFiles(root *Node, fileName string, md5Hash string, relativeLoca
 			findModifiedFiles(childNode, fileName, md5Hash, relativeLocation, modifiedFiles)
 		}
 	}
-	logger.Trace(fmt.Sprintf("Checking %s file exists in %s relative path for modifications completed", fileName, relativeLocation))
+	logger.Trace(fmt.Sprintf("Checking %s file exists in %s relative path for modifications completed", fileName,
+		relativeLocation))
 }
 
-//This function is used for identifying removed and newly added files between given two zip files
+//This function is used for identifying removed and newly added files between given two zip files.
 func findRemovedOrNewlyAddedFiles(root *Node, fileName string, relativeLocation string, matches map[string]struct{}) {
 	logger.Trace(fmt.Sprintf("Checking %s file to identify it as a removed or newly added in %s relative path",
 		fileName, relativeLocation))
@@ -388,16 +389,16 @@ func findRemovedOrNewlyAddedFiles(root *Node, fileName string, relativeLocation 
 	found := PathExists(root, relativeLocation, false)
 
 	if !found {
-		logger.Trace(fmt.Sprintf("The %s file is not found in the same relative path %s, so it can be either "+
+		logger.Trace(fmt.Sprintf("The %s file is not found in the given relative path %s, so it can be either "+
 			"a removed or newly added file", fileName, relativeLocation))
 		matches[relativeLocation] = struct{}{}
 	} else {
-		logger.Trace(fmt.Sprintf("The %s file is found in the same relative path %s, so it is neither a removed or "+
+		logger.Trace(fmt.Sprintf("The %s file is found in the given relative path %s, so it is neither a removed or "+
 			"newly added file", fileName, relativeLocation))
 	}
 }
 
-//This function is used to update the updateDescriptor with the added, removed and modified files from the update
+//This function is used to update the updateDescriptor with the added, removed and modified files from the update.
 func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]struct{},
 	updateDescriptor *util.UpdateDescriptor) map[string]struct{} {
 	logger.Debug(fmt.Sprintf("Altering UpdateDescriptor started"))
