@@ -56,7 +56,6 @@ func init() {
 
 	generateCmd.Flags().BoolVarP(&isDebugLogsEnabled, "debug", "d", util.EnableDebugLogs, "Enable debug logs")
 	generateCmd.Flags().BoolVarP(&isTraceLogsEnabled, "trace", "t", util.EnableTraceLogs, "Enable trace logs")
-	generateCmd.Flags().BoolP("md5", "m", util.CheckMd5Disabled, "Disable checking MD5 sum")
 }
 
 // This function will be called when the generate command is called.
@@ -110,7 +109,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	util.HandleErrorAndExit(err, fmt.Sprintf("'%s' format is incorrect.", constant.UPDATE_DESCRIPTOR_FILE))
 
 	//8) Set the update name which will be used when creating the update zip file.
-	updateName := GetUpdateName(updateDescriptor, constant.UPDATE_NAME_PREFIX)
+	updateName := getUpdateName(updateDescriptor, constant.UPDATE_NAME_PREFIX)
 	viper.Set(constant.UPDATE_NAME, updateName)
 
 	//9) Identify modified, added and removed files by comparing the diff between two given distributions
@@ -121,8 +120,8 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	util.PrintInfo(fmt.Sprintf("Reading the updated %s. Please wait...", distributionName))
 
 	// rootNode is what we use as the root of the updated distribution when we populate tree like structure.
-	rootNodeOfUpdatedDistribution := CreateNewNode()
-	rootNodeOfUpdatedDistribution, err = ReadZip(updatedDistPath)
+	rootNodeOfUpdatedDistribution := createNewNode()
+	rootNodeOfUpdatedDistribution, err = readZip(updatedDistPath)
 	logger.Debug("root node of the updated distribution received")
 	util.HandleErrorAndExit(err)
 	logger.Debug("Reading updated distribution zip finished")
@@ -198,8 +197,8 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	logger.Debug("Reading previous distribution zip")
 	util.PrintInfo(fmt.Sprintf("Reading the previous %s. Please wait...", distributionName))
 	// rootNode is what we use as the root of the previous distribution when we populate tree like structure.
-	rootNodeOfPreviousDistribution := CreateNewNode()
-	rootNodeOfPreviousDistribution, err = ReadZip(previousDistPath)
+	rootNodeOfPreviousDistribution := createNewNode()
+	rootNodeOfPreviousDistribution, err = readZip(previousDistPath)
 	logger.Debug("root node of the previous distribution received")
 	util.HandleErrorAndExit(err)
 	logger.Debug("Reading previous distribution zip finished")
@@ -261,9 +260,9 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	copyResourceFilesToTemp()
 
 	//12) Save the updateDescriptor with newly added, removed and modified files to the the update-descriptor.yaml
-	data, err := MarshalUpdateDescriptor(updateDescriptor)
+	data, err := marshalUpdateDescriptor(updateDescriptor)
 	util.HandleErrorAndExit(err, "Error occurred while marshalling the update-descriptor.")
-	err = SaveUpdateDescriptor(constant.UPDATE_DESCRIPTOR_FILE, data)
+	err = saveUpdateDescriptor(constant.UPDATE_DESCRIPTOR_FILE, data)
 	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while saving the (%v).",
 		constant.UPDATE_DESCRIPTOR_FILE))
 	logger.Debug(fmt.Sprintf("update-descriptor.yaml updated successfully"))
@@ -311,7 +310,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	logger.Debug(fmt.Sprintf("Temp directory deleted successfully"))
 }
 
-//This function will be used to check for the availability of the given file in the given update directory location
+//This function will be used to check for the availability of the given file in the given update directory location.
 func checkFileExistance(updateDirectoryPath, fileName string) {
 	// Construct the relevant file location
 	updateDescriptorPath := path.Join(updateDirectoryPath, fileName)
@@ -339,7 +338,7 @@ func checkDistributionExistance(distributionPath, distributionState string) {
 
 //This function checks whether the given distribution is a zip file.
 func checkDistributionType(distributionPath string, distributionState string) {
-	//ToDo to a seperate method and reuse in create.go
+	//ToDo to a util method and reuse in create.go
 	if !strings.HasSuffix(distributionPath, ".zip") {
 		util.HandleErrorAndExit(errors.New(fmt.Sprintf("Entered distribution path '%s' does not point to a "+
 			"zip file.", distributionPath)))
@@ -358,7 +357,7 @@ func getDistributionName(distributionZipName string) string {
 }
 
 //This function is used for identifying modified files between the given 2 distributions.
-func findModifiedFiles(root *Node, fileName string, md5Hash string, relativeLocation string,
+func findModifiedFiles(root *node, fileName string, md5Hash string, relativeLocation string,
 	modifiedFiles map[string]struct{}) {
 	logger.Trace(fmt.Sprintf("Checking %s file for modifications in %s relative path", fileName, relativeLocation))
 	// Check whether the given fileName is in the child Nodes
@@ -382,10 +381,10 @@ func findModifiedFiles(root *Node, fileName string, md5Hash string, relativeLoca
 }
 
 //This function is used for identifying removed and newly added files between given two zip files.
-func findRemovedOrNewlyAddedFiles(root *Node, fileName string, relativeLocation string, matches map[string]struct{}) {
+func findRemovedOrNewlyAddedFiles(root *node, fileName string, relativeLocation string, matches map[string]struct{}) {
 	logger.Trace(fmt.Sprintf("Checking %s file to identify it as a removed or newly added in %s relative path",
 		fileName, relativeLocation))
-	// Check whether the given file exists in the given relative path in any child Node
+	// Check whether the given file exists in the given relative path in any child node
 	found := PathExists(root, relativeLocation, false)
 
 	if !found {
@@ -457,8 +456,8 @@ func copyResourceFilesToTemp() {
 	logger.Debug(fmt.Sprintf("Begin copying mandatory files of an update to temp location"))
 	//Obtain map of files to be copied to the temp directory with file name as the key and boolean specifying
 	//mandatory or optional as the value
-	resourceFiles := GetResourceFiles()
-	err := CopyResourceFilesToTempDir(resourceFiles)
+	resourceFiles := getResourceFiles()
+	err := copyResourceFilesToTempDir(resourceFiles)
 	util.HandleErrorAndExit(err, errors.New("Error occurred while copying resource files."))
 	logger.Debug(fmt.Sprintf("Copying mandatory files of an update to temp location completed successfully"))
 }

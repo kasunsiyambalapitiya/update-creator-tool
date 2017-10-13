@@ -29,7 +29,7 @@ func TestGetUpdateName(t *testing.T) {
 		Update_number:    updateNumber,
 		Platform_version: kernelVersion,
 	}
-	updateName := GetUpdateName(&updateDescriptor, constant.UPDATE_NAME_PREFIX)
+	updateName := getUpdateName(&updateDescriptor, constant.UPDATE_NAME_PREFIX)
 	expected := constant.UPDATE_NAME_PREFIX + "-" + kernelVersion + "-" + updateNumber
 	if updateName != expected {
 		t.Errorf("Test failed, expected: %s, actual: %s", expected, updateName)
@@ -40,7 +40,7 @@ func TestAddToRootNode(t *testing.T) {
 	//Add new file
 	isDir := false
 	hash := "hash1"
-	root := CreateNewNode()
+	root := createNewNode()
 	AddToRootNode(&root, strings.Split("a/b/c.jar", "/"), isDir, hash)
 
 	nodeName := "a"
@@ -114,7 +114,7 @@ func TestAddToRootNode(t *testing.T) {
 }
 
 func TestPathExists(t *testing.T) {
-	root := CreateNewNode()
+	root := createNewNode()
 	AddToRootNode(&root, strings.Split("a/b/c.jar", "/"), false, "hash1")
 
 	exists := PathExists(&root, "a/b/c.jar", false)

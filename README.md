@@ -6,8 +6,8 @@ Update Creator Tool is a tool which would help to create new updates and validat
 
 This tool mainly provides 2 functions.
 
-1. Creating a new updates
-2. Validating an Update
+1. Creating a new updates for both C4 and C5 based products
+2. Validating an Update (only for C4 based products)
 
 ### Installation
 
@@ -23,7 +23,7 @@ Then run `build.sh`. This will generate the executable files for various OS/Arch
 
 **Note:** Add this path to your system path variables. Then you'll be able to call **wum-uc** tool from anywhere.
 
-### Creating an update
+### Creating an update for a C4 based product
 
 This is done using the `create` command. Place all of your updated files in a directory. If there are any configuration changes, instructions related to the update, you have to add them in a file called **instructions.txt**. Lets call this directory **UPDATE_LOCATION**. This directory should following files.
 
@@ -140,3 +140,22 @@ wum-uc validate <update_loc> <dist_loc> [<flags>]
 This will compare the update zip’s directories and files with the distribution’s directories and files.
 
 **NOTE:** Also you can run `wum-uc validate --help` to view the help.
+
+### Creating an update for a C5 based product
+
+First of all you need to use the **init** command to initialize an empty directory. As mentioned above this 
+will generate the  **update-descriptor.yaml** which you will need to edit manually in order to provide the relevant 
+update details like update no, platform version, platform name, fug fixes and description. Upon completion of 
+amending relevant details to the **update-descriptor.yaml**, you need to run **generate** command by providing the 
+absolute locations of updated pack (with the fix), previous pack (with the bug) and the  update directory which 
+**init** 
+was performed.
+
+```bash
+wum-uc generate <update_dist_loc> <previous_dist_loc> <update_directory>
+<update_dist_loc>  - Location of the updated distribution zip with containg update
+<previous_dist_loc> - Location of the previous distribution zip
+<update_directory> - Location of the update directory
+```
+This will compare the diff between given two distributions and generate the update zip, which can be applied by 
+WUM-client to produce the updated pack at the client side
