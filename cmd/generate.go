@@ -56,7 +56,6 @@ func init() {
 
 	generateCmd.Flags().BoolVarP(&isDebugLogsEnabled, "debug", "d", util.EnableDebugLogs, "Enable debug logs")
 	generateCmd.Flags().BoolVarP(&isTraceLogsEnabled, "trace", "t", util.EnableTraceLogs, "Enable trace logs")
-	generateCmd.Flags().BoolP("md5", "m", util.CheckMd5Disabled, "Disable checking MD5 sum")
 }
 
 // This function will be called when the generate command is called.
@@ -311,7 +310,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	logger.Debug(fmt.Sprintf("Temp directory deleted successfully"))
 }
 
-//This function will be used to check for the availability of the given file in the given update directory location
+//This function will be used to check for the availability of the given file in the given update directory location.
 func checkFileExistance(updateDirectoryPath, fileName string) {
 	// Construct the relevant file location
 	updateDescriptorPath := path.Join(updateDirectoryPath, fileName)
@@ -339,7 +338,7 @@ func checkDistributionExistance(distributionPath, distributionState string) {
 
 //This function checks whether the given distribution is a zip file.
 func checkDistributionType(distributionPath string, distributionState string) {
-	//ToDo to a seperate method and reuse in create.go
+	//ToDo to a util method and reuse in create.go
 	if !strings.HasSuffix(distributionPath, ".zip") {
 		util.HandleErrorAndExit(errors.New(fmt.Sprintf("Entered distribution path '%s' does not point to a "+
 			"zip file.", distributionPath)))
