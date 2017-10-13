@@ -40,7 +40,7 @@ func TestAddToRootNode(t *testing.T) {
 	//Add new file
 	isDir := false
 	hash := "hash1"
-	root := createNewNode()
+	root := CreateNewNode()
 	AddToRootNode(&root, strings.Split("a/b/c.jar", "/"), isDir, hash)
 
 	nodeName := "a"
@@ -114,7 +114,7 @@ func TestAddToRootNode(t *testing.T) {
 }
 
 func TestPathExists(t *testing.T) {
-	root := createNewNode()
+	root := CreateNewNode()
 	AddToRootNode(&root, strings.Split("a/b/c.jar", "/"), false, "hash1")
 
 	exists := PathExists(&root, "a/b/c.jar", false)

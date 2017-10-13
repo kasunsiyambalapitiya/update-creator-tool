@@ -56,9 +56,7 @@ func init() {
 
 	generateCmd.Flags().BoolVarP(&isDebugLogsEnabled, "debug", "d", util.EnableDebugLogs, "Enable debug logs")
 	generateCmd.Flags().BoolVarP(&isTraceLogsEnabled, "trace", "t", util.EnableTraceLogs, "Enable trace logs")
-
 	generateCmd.Flags().BoolP("md5", "m", util.CheckMd5Disabled, "Disable checking MD5 sum")
-	//viper.BindPFlag(constant.CHECK_MD5_DISABLED, generateCmd.Flags().Lookup("md5"))
 }
 
 // This function will be called when the generate command is called.
@@ -95,14 +93,14 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	checkFileExistance(updateDirectoryPath, constant.LICENSE_FILE)
 
 	//4) Check whether the given distributions exists
-	checkDistributionPath(updatedDistPath, "updated")
-	checkDistributionPath(previousDistPath, "previous")
+	checkDistributionExistance(updatedDistPath, "updated")
+	checkDistributionExistance(previousDistPath, "previous")
 
 	//5) Check whether the given distributions are zip files
-	checkDistribution(updatedDistPath, "updated")
-	checkDistribution(previousDistPath, "previous")
+	checkDistributionType(updatedDistPath, "updated")
+	checkDistributionType(previousDistPath, "previous")
 
-	//6) Read update-descriptor.yaml and set the update name which will be used when creating the update zip file.
+	//6) Read update-descriptor.yaml and parse it to UpdateDescriptor struct
 	updateDescriptor, err := util.LoadUpdateDescriptor(constant.UPDATE_DESCRIPTOR_FILE, updateDirectoryPath)
 	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred when reading '%s' file.",
 		constant.UPDATE_DESCRIPTOR_FILE))
@@ -111,7 +109,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	err = util.ValidateUpdateDescriptor(updateDescriptor)
 	util.HandleErrorAndExit(err, fmt.Sprintf("'%s' format is incorrect.", constant.UPDATE_DESCRIPTOR_FILE))
 
-	//8) Set the update name
+	//8) Set the update name which will be used when creating the update zip file.
 	updateName := GetUpdateName(updateDescriptor, constant.UPDATE_NAME_PREFIX)
 	viper.Set(constant.UPDATE_NAME, updateName)
 
@@ -327,8 +325,8 @@ func checkFileExistance(updateDirectoryPath, fileName string) {
 	logger.Debug(fmt.Sprintf("%s exists. Location %s", fileName, updateDescriptorPath))
 }
 
-//This function checks whether the given distribution exists
-func checkDistributionPath(distributionPath, distributionState string) {
+//This function checks whether the given distribution exists.
+func checkDistributionExistance(distributionPath, distributionState string) {
 	exists, err := util.IsFileExists(distributionPath)
 	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while checking '%s' '%s' ", distributionState,
 		distributionPath))
@@ -339,8 +337,8 @@ func checkDistributionPath(distributionPath, distributionState string) {
 	logger.Debug(fmt.Sprintf("The %s distribution exists in %s location", distributionState, distributionPath))
 }
 
-//This function checks whether the given distribution is a zip file
-func checkDistribution(distributionPath string, distributionState string) {
+//This function checks whether the given distribution is a zip file.
+func checkDistributionType(distributionPath string, distributionState string) {
 	//ToDo to a seperate method and reuse in create.go
 	if !strings.HasSuffix(distributionPath, ".zip") {
 		util.HandleErrorAndExit(errors.New(fmt.Sprintf("Entered distribution path '%s' does not point to a "+
@@ -349,7 +347,7 @@ func checkDistribution(distributionPath string, distributionState string) {
 	logger.Debug(fmt.Sprintf("The %s distribution is a zip file", distributionState))
 }
 
-//This function is used to extract out the distribution name from the given zip file
+//This function is used to extract out the distribution name from the given zip file.
 func getDistributionName(distributionZipName string) string {
 	//ToDo make this a common method
 	// Get the product name from the distribution path and set it as a viper config
@@ -360,7 +358,7 @@ func getDistributionName(distributionZipName string) string {
 	return distributionName
 }
 
-//This function is used for identifying modified files between the given 2 distributions
+//This function is used for identifying modified files between the given 2 distributions.
 //Todo check altered lift of addedfiles
 func findModifiedFiles(root *Node, fileName string, md5Hash string, relativeLocation string,
 	modifiedFiles map[string]struct{}) {
