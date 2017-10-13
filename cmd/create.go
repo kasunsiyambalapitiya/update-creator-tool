@@ -1017,7 +1017,6 @@ func CopyResourceFilesToTempDir(resourceFilesMap map[string]bool) error {
 	// Iterate through all resource files
 	for filename, isMandatory := range resourceFilesMap {
 		updateRoot := viper.GetString(constant.UPDATE_ROOT)
-		updateName := viper.GetString(constant.UPDATE_NAME)
 		source := path.Join(updateRoot, filename)
 		destination := path.Join(constant.TEMP_DIR, updateName, filename)
 		// Copy the file

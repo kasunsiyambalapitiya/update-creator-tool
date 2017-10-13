@@ -257,22 +257,20 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	//10) Update added,removed and modified files in the updateDescriptor struct
 	alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles, updateDescriptor)
 
-	//11) Copy files in the update location to a temp directory
-	copyMandatoryFilesToTemp()
+	//11) Copy resource files in the update location to a temp directory
+	copyResourceFilesToTemp()
 
 	//12) Save the updateDescriptor with newly added, removed and modified files to the the update-descriptor.yaml
-
-	// Todo handle interrupts
 	data, err := MarshalUpdateDescriptor(updateDescriptor)
 	util.HandleErrorAndExit(err, "Error occurred while marshalling the update-descriptor.")
 	err = SaveUpdateDescriptor(constant.UPDATE_DESCRIPTOR_FILE, data)
-	logger.Debug(fmt.Sprintf("update-descriptor.yaml updated successfully"))
 	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while saving the (%v).",
 		constant.UPDATE_DESCRIPTOR_FILE))
+	logger.Debug(fmt.Sprintf("update-descriptor.yaml updated successfully"))
 
 	//13) Extract newly added and modified files from the updated zip and copy them to the temp directory for
-	// creating the update zip. The same zipReader used in reading the updated zip is used in here
-	logger.Debug(fmt.Sprintf("Extracting newly added and modified files from the updated zip"))
+	// creating the update zip. The same zipReader used in identifying added files is used in here
+	logger.Debug(fmt.Sprintf("Begin extracting newly added and modified files from the updated zip"))
 	for _, file := range zipReader.Reader.File {
 		var fileName string
 		if strings.Contains(file.Name, "/") {
@@ -295,7 +293,8 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		}
 	}
 	zipReader.Close()
-	logger.Debug(fmt.Sprintf("Copying newly added and modified files from updated zip to temp location"))
+	logger.Debug(fmt.Sprintf("Copying newly added and modified files from updated zip to temp location completed " +
+		"successfully"))
 
 	//14) Create the update zip
 	logger.Debug(fmt.Sprintf("Creating the update zip"))
@@ -306,6 +305,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	err = archiver.Zip.Make(path.Join(updateRoot, updateZipName), []string{targetDirectory})
 	util.HandleErrorAndExit(err)
 	logger.Debug(fmt.Sprintf("Creating the update zip completed successfully"))
+
 	//15) Delete the temp directory
 	util.CleanUpDirectory(path.Join(constant.TEMP_DIR))
 	logger.Debug(fmt.Sprintf("Temp directory deleted successfully"))
@@ -407,7 +407,8 @@ func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]st
 	//append modified files
 	logger.Debug(fmt.Sprintf("Appending modified files to the UpdateDescriptor started"))
 	for modifiedFile, _ := range modifiedFiles {
-		updateDescriptor.File_changes.Modified_files = append(updateDescriptor.File_changes.Modified_files, modifiedFile)
+		updateDescriptor.File_changes.Modified_files = append(updateDescriptor.File_changes.Modified_files,
+			modifiedFile)
 	}
 	logger.Debug(fmt.Sprintf("Appending modified files to the UpdateDescriptor finished successfully"))
 
@@ -435,7 +436,8 @@ func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]st
 				// distribution
 			}
 		} else {
-			updateDescriptor.File_changes.Removed_files = append(updateDescriptor.File_changes.Removed_files, removedFile)
+			updateDescriptor.File_changes.Removed_files = append(updateDescriptor.File_changes.Removed_files,
+				removedFile)
 		}
 	}
 	logger.Debug(fmt.Sprintf("Appending removed files to the UpdateDescriptor finished successfully"))
@@ -449,19 +451,19 @@ func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]st
 	logger.Debug(fmt.Sprintf("Altering UpdateDescriptor finished successfully"))
 }
 
-//This is used to copy mandatory files of an update, that exists in given update location to a temp location for
-// creating the update zip
-func copyMandatoryFilesToTemp() {
-	logger.Debug(fmt.Sprintf("Copying mandatory files of an update to temp location started"))
-	//map of files to be copied to the temp directory with file name as the key and boolean specifying mandatory or
-	// optional as the value
+//This is used to copy resource files of an update, that exists in given update location to a temp location for
+//creating the update zip.
+func copyResourceFilesToTemp() {
+	logger.Debug(fmt.Sprintf("Begin copying mandatory files of an update to temp location"))
+	//Obtain map of files to be copied to the temp directory with file name as the key and boolean specifying
+	//mandatory or optional as the value
 	resourceFiles := GetResourceFiles()
 	err := CopyResourceFilesToTempDir(resourceFiles)
 	util.HandleErrorAndExit(err, errors.New("Error occurred while copying resource files."))
 	logger.Debug(fmt.Sprintf("Copying mandatory files of an update to temp location completed successfully"))
 }
 
-// This is used to copy modified and newly added files to the temp location for creating the update zip
+// This is used to copy modified and newly added files to the temp location for creating the update zip.
 func copyAlteredFileToTempDir(file *zip.File, fileName string) {
 	//Get the update name from viper config
 	updateName := viper.GetString(constant.UPDATE_NAME)
@@ -469,7 +471,7 @@ func copyAlteredFileToTempDir(file *zip.File, fileName string) {
 	//Replace all / with OS specific path separators to handle OSs like Windows
 	destination = strings.Replace(destination, "/", constant.PATH_SEPARATOR, -1)
 
-	//Need to create the relevant parent directories in the destination before writing the file
+	//Need to create the relevant parent directories in the destination before writing to the file
 	parentDirectory := filepath.Dir(destination)
 	err := util.CreateDirectory(parentDirectory)
 	util.HandleErrorAndExit(err, fmt.Sprint("Error occured when creating the (%v) directory", parentDirectory))
@@ -493,26 +495,3 @@ func copyAlteredFileToTempDir(file *zip.File, fileName string) {
 	}
 	zippedFile.Close()
 }
-
-/*//This function will be used to copy given mandatory file to the temp location for creating the update zip
-func copyMandatoryFileToTemp(fileName, updateRoot, updateName string) {
-	logger.Debug(fmt.Sprintf("Copying mandatory file %s to temp location", fileName))
-	source := path.Join(updateRoot, fileName)
-	// we donot need to replace the path seperator as this file currently exits in the system, so it can be open by
-	// os package by default
-	//ToDo change so that works on current location's temp directory
-	//destination := path.Join(updateRoot, constant.TEMP_DIR, updateName, fileName)
-	destination := path.Join(constant.TEMP_DIR, updateName, fileName)
-	//Replace all / with OS specific path separators to handle OSs like Windows
-	destination = strings.Replace(destination, "/", constant.PATH_SEPARATOR, -1)
-	// may need to change the implementations once the PR#19 merged
-	parentDirectory := path.Dir(destination)
-	logger.Debug("parent directory:", parentDirectory)
-	err := util.CreateDirectory(parentDirectory)
-	util.HandleErrorAndExit(err, fmt.Sprint("Error occured when creating the (%v) directory", parentDirectory))
-	err = util.CopyFile(source, destination)
-	util.HandleErrorAndExit(err, fmt.Sprint("Error occured when copying source file (%v) to destination (%v)",
-		source, destination))
-	util.HandleErrorAndExit(err)
-	logger.Debug(fmt.Sprintf("Copying mandatory file %s to temp location completed", fileName))
-}*/
