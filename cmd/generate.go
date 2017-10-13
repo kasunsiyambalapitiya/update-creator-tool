@@ -159,7 +159,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		//name of the file
 		fileName := file.Name
 		logger.Trace(fmt.Sprintf("file.Name: %s and md5", fileName, md5Hash))
-		//Todo we can eliminate this as we check for only files
+
 		if strings.HasSuffix(fileName, "/") {
 			fileName = strings.TrimSuffix(fileName, "/")
 		}
@@ -358,7 +358,6 @@ func getDistributionName(distributionZipName string) string {
 }
 
 //This function is used for identifying modified files between the given 2 distributions.
-//Todo check altered lift of addedfiles
 func findModifiedFiles(root *Node, fileName string, md5Hash string, relativeLocation string,
 	modifiedFiles map[string]struct{}) {
 	logger.Trace(fmt.Sprintf("Checking %s file for modifications in %s relative path", fileName, relativeLocation))
@@ -371,7 +370,6 @@ func findModifiedFiles(root *Node, fileName string, md5Hash string, relativeLoca
 
 		modifiedFiles[childNode.relativeLocation] = struct{}{}
 		logger.Trace(fmt.Sprintf("Modified file %s is added to the modifiedFiles map", fileName))
-
 	}
 	// Regardless of whether the file is found or not, iterate through all sub directories to find all matches
 	for _, childNode := range root.childNodes {
@@ -379,7 +377,7 @@ func findModifiedFiles(root *Node, fileName string, md5Hash string, relativeLoca
 			findModifiedFiles(childNode, fileName, md5Hash, relativeLocation, modifiedFiles)
 		}
 	}
-	logger.Trace(fmt.Sprintf("Checking %s file for modifications completed in %s relative path", fileName, relativeLocation))
+	logger.Trace(fmt.Sprintf("Checking %s file exists in %s relative path for modifications completed", fileName, relativeLocation))
 }
 
 //This function is used for identifying removed and newly added files between given two zip files
