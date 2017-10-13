@@ -255,7 +255,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	util.PrintInfo("no of added files", len(addedFiles))
 
 	//10) Update added,removed and modified files in the updateDescriptor struct
-	filteredAddedFiles := alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles, updateDescriptor)
+	alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles, updateDescriptor)
 
 	//11) Copy files in the update location to a temp directory
 	copyMandatoryFilesToTemp()
@@ -282,7 +282,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		}
 
 		// extracting newly added files from the updated distribution
-		_, found := filteredAddedFiles[fileName]
+		_, found := addedFiles[fileName]
 		if found {
 			logger.Debug(fmt.Sprintf("Copying newly added file %s to temp location", fileName))
 			copyAlteredFileToTempDir(file, fileName)
@@ -400,9 +400,8 @@ func findRemovedOrNewlyAddedFiles(root *Node, fileName string, relativeLocation 
 
 //This function is used to update the updateDescriptor with the added, removed and modified files from the update.
 func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]struct{},
-	updateDescriptor *util.UpdateDescriptor) map[string]struct{} {
+	updateDescriptor *util.UpdateDescriptor) {
 	logger.Debug(fmt.Sprintf("Altering UpdateDescriptor started"))
-	filteredAddedFiles := make(map[string]struct{})
 	featurePrefix := "wso2/lib/features/"
 
 	//append modified files
@@ -424,16 +423,16 @@ func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]st
 			removedFeatureName := strings.SplitN(strings.TrimPrefix(removedFile, featurePrefix), "/", 2)[0]
 			_, found := removedFeatureNames[removedFeatureName]
 			// if the removedFeature's root directory which is in "wso2/lib/features/" is present in the map of
-			// removedFeatureNames, it's root directory has already been added for removal (as the complete feature
-			// directory)
+			// removedFeatureNames, it's root directory has already been added for removal
 			if !found {
 				removedFeatureNames[removedFeatureName] = struct{}{}
-				//adding only the root directory of the removed feature to the updateDescriptor
+				//adding only the root directory of the removed feature to the updateDescriptor for removal
 				updateDescriptor.File_changes.Removed_files = append(updateDescriptor.File_changes.Removed_files,
 					featurePrefix+removedFeatureName)
-				//ToDo ask shall we put "/" at the end of the directory to indicate it is a directory, this will not cause troubles with the node.relative location
-				//as we are not using nodes or any files in updated distribution for removing files in the previous
-				// distribution. We just remove those in the previous distribution
+				//ToDo ask shall we put "/" at the end of the directory to indicate it is a directory, this will not cause
+				// troubles with the node.relativeLocation as we are not using nodes or any files in updated
+				// distribution for removing files in the previous distribution. We just remove those in the previous
+				// distribution
 			}
 		} else {
 			updateDescriptor.File_changes.Removed_files = append(updateDescriptor.File_changes.Removed_files, removedFile)
@@ -444,12 +443,10 @@ func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]st
 	//append newly added files
 	logger.Debug(fmt.Sprintf("Appending added files to the UpdateDescriptor started"))
 	for addedFile, _ := range addedFiles {
-		filteredAddedFiles[addedFile] = struct{}{}
 		updateDescriptor.File_changes.Added_files = append(updateDescriptor.File_changes.Added_files, addedFile)
 	}
 	logger.Debug(fmt.Sprintf("Appending added files to the UpdateDescriptor finished successfully"))
 	logger.Debug(fmt.Sprintf("Altering UpdateDescriptor finished successfully"))
-	return filteredAddedFiles
 }
 
 //This is used to copy mandatory files of an update, that exists in given update location to a temp location for
