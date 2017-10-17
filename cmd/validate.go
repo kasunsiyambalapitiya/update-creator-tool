@@ -77,10 +77,7 @@ func startValidation(updateFilePath, distributionLocation string) {
 	distributionFileMap := make(map[string]bool)
 
 	//Check whether the update has the zip extension
-	if !strings.HasSuffix(updateFilePath, ".zip") {
-		util.HandleErrorAndExit(errors.New(fmt.Sprintf("Update must be a zip file. Entered file '%s' does "+
-			"not have a zip extension.", updateFilePath)))
-	}
+	util.IsZipFile(constant.UPDATE, updateFilePath)
 
 	//Check whether the update file exists
 	exists, err := util.IsFileExists(updateFilePath)
@@ -90,11 +87,8 @@ func startValidation(updateFilePath, distributionLocation string) {
 			updateFilePath)))
 	}
 
-	//Check whether the distribution has the zip extension
-	if !strings.HasSuffix(distributionLocation, ".zip") {
-		util.HandleErrorAndExit(errors.New(fmt.Sprintf("Distribution must be a zip file. Entered file "+
-			"'%s' does not have a zip extension.", distributionLocation)))
-	}
+	// Checks whether the given distribution is a zip file
+	util.IsZipFile(constant.DISTRIBUTION, distributionLocation)
 
 	//Set the product name in viper configs
 	lastIndex := strings.LastIndex(distributionLocation, constant.PATH_SEPARATOR)
