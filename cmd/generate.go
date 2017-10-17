@@ -42,6 +42,7 @@ var (
 	the updated distribution and the previous released distribution. It is required to run wum-uc init first and provide
 	the	update location given for init as the third input`)
 )
+
 // generateCmd represents the generate command.
 var generateCmd = &cobra.Command{
 	Use:   generateCmdUse,
@@ -67,7 +68,7 @@ func initializeGenerateCommand(cmd *cobra.Command, args []string) {
 	generateUpdate(args[0], args[1], args[2])
 }
 
-//This function will start generating the update zip according to the diff between given two distributions
+// This function will start generating the update zip according to the diff between given two distributions.
 func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath string) {
 	// set debug level
 	setLogLevel()
@@ -199,8 +200,8 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	// rootNode is what we use as the root of the previous distribution when we populate tree like structure.
 	rootNodeOfPreviousDistribution := createNewNode()
 	rootNodeOfPreviousDistribution, err = readZip(previousDistPath)
-	logger.Debug("root node of the previous distribution received")
 	util.HandleErrorAndExit(err)
+	logger.Debug("root node of the previous distribution received")
 	logger.Debug("Reading previous distribution zip finished")
 	logger.Debug("Reading updated distribution zip for finding newly added files")
 	util.PrintInfo(fmt.Sprintf("Reading the updated %s. to identify newly added files, Please wait...",
@@ -247,8 +248,8 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	logger.Debug(fmt.Sprintf("Done finding newly added files between the given 2 distributions"))
 
 	util.PrintInfo("Modified Files", modifiedFiles)
-	util.PrintInfo("no of modified files", len(modifiedFiles))
-	util.PrintInfo("removed Files", removedFiles)
+	util.PrintInfo("Number of modified files", len(modifiedFiles))
+	util.PrintInfo("Removed Files", removedFiles)
 	util.PrintInfo("no of removed files", len(removedFiles))
 	util.PrintInfo("Added Files", addedFiles)
 	util.PrintInfo("no of added files", len(addedFiles))
@@ -362,7 +363,7 @@ func findModifiedFiles(root *node, fileName string, md5Hash string, relativeLoca
 	logger.Trace(fmt.Sprintf("Checking %s file for modifications in %s relative path", fileName, relativeLocation))
 	// Check whether the given fileName is in the child Nodes
 	childNode, found := root.childNodes[fileName]
-	if found && childNode.isDir == false && childNode.relativeLocation == relativeLocation && childNode.md5Hash !=
+	if found && !childNode.isDir && childNode.relativeLocation == relativeLocation && childNode.md5Hash !=
 		md5Hash {
 		logger.Trace(fmt.Sprintf("The file %s exists in the both distributions with mismatch md5, meaning they are "+
 			"modified", fileName))
