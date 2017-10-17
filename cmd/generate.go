@@ -87,14 +87,14 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	viper.Set(constant.UPDATE_ROOT, updateRoot)
 
 	//2) Check whether the update-descriptor.yaml file exists in the update directory
-	checkFileExistance(updateDirectoryPath, constant.UPDATE_DESCRIPTOR_FILE)
+	checkFileExists(updateDirectoryPath, constant.UPDATE_DESCRIPTOR_FILE)
 
 	//3) Check whether the LICENSE.txt file file exists in the update directory
-	checkFileExistance(updateDirectoryPath, constant.LICENSE_FILE)
+	checkFileExists(updateDirectoryPath, constant.LICENSE_FILE)
 
 	//4) Check whether the given distributions exists
-	checkDistributionExistance(updatedDistPath, "updated")
-	checkDistributionExistance(previousDistPath, "previous")
+	checkDistributionExists(updatedDistPath, "updated")
+	checkDistributionExists(previousDistPath, "previous")
 
 	//5) Check whether the given distributions are zip files
 	checkDistributionType(updatedDistPath, "updated")
@@ -312,7 +312,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 }
 
 //This function will be used to check for the availability of the given file in the given update directory location.
-func checkFileExistance(updateDirectoryPath, fileName string) {
+func checkFileExists(updateDirectoryPath, fileName string) {
 	// Construct the relevant file location
 	updateDescriptorPath := path.Join(updateDirectoryPath, fileName)
 	exists, err := util.IsFileExists(updateDescriptorPath)
@@ -326,7 +326,7 @@ func checkFileExistance(updateDirectoryPath, fileName string) {
 }
 
 //This function checks whether the given distribution exists.
-func checkDistributionExistance(distributionPath, distributionState string) {
+func checkDistributionExists(distributionPath, distributionState string) {
 	exists, err := util.IsFileExists(distributionPath)
 	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while checking '%s' '%s' ", distributionState,
 		distributionPath))
