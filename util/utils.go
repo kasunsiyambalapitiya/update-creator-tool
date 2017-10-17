@@ -452,3 +452,13 @@ func ProcessString(data, delimiter string, trimAll bool) string {
 	}
 	return strings.TrimSuffix(allLines, delimiter)
 }
+
+// This function checks whether the given file is a zip file.
+// archiveType 		type of the archive
+// archiveFilePath	path to the archive file
+func IsZipFile(archiveType, archiveFilePath string) {
+	if !strings.HasSuffix(archiveFilePath, ".zip") {
+		HandleErrorAndExit(errors.New(fmt.Sprintf("%s must be a zip file. Entered file '%s' is not a valid zip file" +
+			".", archiveType, archiveFilePath)))
+	}
+}
