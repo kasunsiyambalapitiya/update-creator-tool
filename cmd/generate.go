@@ -339,7 +339,7 @@ func checkDistributionExists(distributionPath, distributionState string) {
 
 //This function checks whether the given distribution is a zip file.
 func checkDistributionType(distributionPath string, distributionState string) {
-	//ToDo to a util method and reuse in create.go
+	//ToDo to a util method and reuse in create.go and check the log
 	if !strings.HasSuffix(distributionPath, ".zip") {
 		util.HandleErrorAndExit(errors.New(fmt.Sprintf("Entered distribution path '%s' does not point to a "+
 			"zip file.", distributionPath)))
