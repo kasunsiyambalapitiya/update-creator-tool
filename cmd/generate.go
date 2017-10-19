@@ -396,7 +396,7 @@ func readZip(zipReader *zip.ReadCloser, rootNode *node) (node, error) {
 }
 
 // This function adds a new node to given root node.
-func AddToRootNode(root *node, path []string, isDir bool, md5Hash string) *node {
+func AddToRootNode(root *node, path []string, isDir bool, md5Hash string){
 	logger.Trace("Checking: %s : %s", path[0], path)
 
 	// If the current path element is the last element, add it as a new node.
@@ -435,8 +435,6 @@ func AddToRootNode(root *node, path []string, isDir bool, md5Hash string) *node 
 		// Recursively call the function for the rest of the path elements.
 		AddToRootNode(node, path[1:], isDir, md5Hash)
 	}
-	// Do we want to return a node in here, it is not used in any place
-	return root
 }
 
 // This function returns the distribution name of the given zip file and set it as viper config.
