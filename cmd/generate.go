@@ -15,33 +15,25 @@
 package cmd
 
 import (
-	"github.com/renstrom/dedent"
-	"github.com/spf13/cobra"
-	"strings"
-	"fmt"
-	"github.com/spf13/viper"
-	"github.com/wso2/update-creator-tool/util"
-	"github.com/wso2/update-creator-tool/constant"
-	"errors"
 	"archive/zip"
-	"io/ioutil"
 	"crypto/md5"
 	"encoding/hex"
-	"path/filepath"
-	"path"
-	"os"
-	"io"
+	"errors"
+	"fmt"
 	"github.com/mholt/archiver"
+	"github.com/renstrom/dedent"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"github.com/wso2/update-creator-tool/constant"
+	"github.com/wso2/update-creator-tool/util"
 	"gopkg.in/yaml.v2"
+	"io"
+	"io/ioutil"
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
 )
-
-// This struct is used to store file/directory information.
-type data struct {
-	name         string
-	isDir        bool
-	relativePath string
-	md5          string
-}
 
 // This struct used to store directory structure of the distribution.
 type node struct {
@@ -57,12 +49,17 @@ type node struct {
 var (
 	generateCmdUse       = "generate <update_dist_loc> <prev_dist_loc> <update_dir>"
 	generateCmdShortDesc = "Generate a new update"
-	generateCmdLongDesc  = dedent.Dedent(`This command will generate a new update zip by comparing the diff between
-	the updated distribution and the previous released distribution. It is required to run wum-uc init first and provide
-	the	update location given for init as the third input`)
+	generateCmdLongDesc  = dedent.Dedent(`
+	This command will generate a new update zip by comparing the diff between the updated distribution and the
+	previous released distribution. It is required to run wum-uc init first and provide the update location given
+	for init as the third input.
+	<update_dist_loc>	the location of the updated distribution
+	<prev_dist_loc>		the location of the previous distribution
+	<update_dir>		the location of the update directory where init was ran
+	`)
 )
 
-// generateCmd represents the generate command.
+// GenerateCmd represents the generate command.
 var generateCmd = &cobra.Command{
 	Use:   generateCmdUse,
 	Short: generateCmdShortDesc,
@@ -211,7 +208,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	}
 	logger.Debug(fmt.Sprintf("Done finding modified and removed files between the given 2 distributions"))
 	/*
-	logger.Debug(fmt.Sprintf("Closed the ReadCloser of previous distribution"))
+		logger.Debug(fmt.Sprintf("Closed the ReadCloser of previous distribution"))
 	*/
 
 	//finding newly added files to the previous distribution
@@ -417,7 +414,7 @@ func readZip(zipReader *zip.ReadCloser, rootNode *node) (node, error) {
 		logger.Trace(fmt.Sprintf("file.Name: %s", file.Name))
 
 		var relativePath string
-		if (strings.Contains(file.Name, "/")) {
+		if strings.Contains(file.Name, "/") {
 			relativePath = strings.SplitN(file.Name, "/", 2)[1]
 		} else {
 			relativePath = file.Name

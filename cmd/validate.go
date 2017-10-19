@@ -76,11 +76,8 @@ func startValidation(updateFilePath, distributionLocation string) {
 	updateFileMap := make(map[string]bool)
 	distributionFileMap := make(map[string]bool)
 
-	//Check whether the update has the zip extension
-	if !strings.HasSuffix(updateFilePath, ".zip") {
-		util.HandleErrorAndExit(errors.New(fmt.Sprintf("Update must be a zip file. Entered file '%s' does "+
-			"not have a zip extension.", updateFilePath)))
-	}
+	// Checks whether the update has the zip extension
+	util.IsZipFile(constant.UPDATE, updateFilePath)
 
 	//Check whether the update file exists
 	exists, err := util.IsFileExists(updateFilePath)
@@ -373,12 +370,7 @@ func readDistributionZip(filename string) (map[string]bool, error) {
 	for _, file := range zipReader.Reader.File {
 		logger.Trace(file.Name)
 
-		var relativePath string
-		if (strings.Contains(file.Name, "/")) {
-			relativePath = strings.SplitN(file.Name, "/", 2)[1]
-		} else {
-			relativePath = file.Name
-		}
+		relativePath := util.GetRelativePath(file)
 
 		if !file.FileInfo().IsDir() {
 			fileMap[relativePath] = false

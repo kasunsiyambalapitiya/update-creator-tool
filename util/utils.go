@@ -37,6 +37,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/wso2/update-creator-tool/constant"
 	"gopkg.in/yaml.v2"
+	"archive/zip"
 )
 
 var logger = log.Logger()
@@ -453,12 +454,26 @@ func ProcessString(data, delimiter string, trimAll bool) string {
 	return strings.TrimSuffix(allLines, delimiter)
 }
 
-//This function checks whether the given file is a zip file.
-//archiveType 		type of the archive
-//archiveFilePath	path to the archive file
+// This function checks whether the given file is a zip file.
+// archiveType 		type of the archive
+// archiveFilePath	path to the archive file
 func IsZipFile(archiveType, archiveFilePath string) {
 	if !strings.HasSuffix(archiveFilePath, ".zip") {
 		HandleErrorAndExit(errors.New(fmt.Sprintf("%s must be a zip file. Entered file '%s' does "+
 			"not have .zip extension.", archiveType, archiveFilePath)))
 	}
+}
+
+// This function will return the relative path of the given file.
+// file	file in which the relative path is to be obtained
+func GetRelativePath(file *zip.File) (relativePath string) {
+	if strings.Contains(file.Name, "/") {
+		relativePath = strings.SplitN(file.Name, "/", 2)[1]
+	} else {
+		relativePath = file.Name
+	}
+	// Replace all \ with /. Otherwise it will cause issues in Windows OS.
+	relativePath = filepath.ToSlash(relativePath)
+	logger.Trace(fmt.Sprintf("relativePath: %s", relativePath))
+	return
 }
