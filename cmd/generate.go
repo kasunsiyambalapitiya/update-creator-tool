@@ -113,9 +113,9 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	checkDistributionExists(previousDistPath, "previous")
 
 	// Check whether the given distributions are zip files
-	util.IsZipFile("updated distribution",updatedDistPath)
+	util.IsZipFile("updated distribution", updatedDistPath)
 	logger.Debug(fmt.Sprintf("Provided updated distribution is a zip file"))
-	util.IsZipFile("previous distribution",previousDistPath)
+	util.IsZipFile("previous distribution", previousDistPath)
 	logger.Debug(fmt.Sprintf("Provided previous distribution is a zip file"))
 
 	// Read update-descriptor.yaml and parse it to UpdateDescriptor struct
@@ -139,9 +139,9 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 
 	// Get zipReaders of both distributions
 	updatedDistributionReader := getZipReader(updatedDistPath)
-	logger.Debug("Zip reader used for reading updated distribution created successfully")
+	logger.Debug(fmt.Sprintf("Zip reader used for reading updated %s created successfully", distributionName))
 	previousDistributionReader := getZipReader(previousDistPath)
-	logger.Debug("Zip reader used for reading previous distribution created successfully")
+	logger.Debug(fmt.Sprintf("Zip reader used for reading previous released %s created successfully", distributionName))
 
 	defer updatedDistributionReader.Close()
 	defer previousDistributionReader.Close()
@@ -149,20 +149,19 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	// RootNode is what we use as the root of the updated distribution when we populate tree like structure
 	rootNodeOfUpdatedDistribution := createNewNode()
 	rootNodeOfUpdatedDistribution, err = readZip(updatedDistributionReader, &rootNodeOfUpdatedDistribution)
-	logger.Debug("root node of the updated distribution received")
 	util.HandleErrorAndExit(err)
-	logger.Debug("Reading updated distribution zip finished")
-	logger.Debug("Reading previously released distribution zip for finding removed and modified files")
-	logger.Info(fmt.Sprintf("Reading the previous %s. to identify removed and modified files, Please wait...",
-		distributionName))
+	logger.Debug(fmt.Sprintf("Node tree for updated %s created successfully", distributionName))
+	logger.Debug(fmt.Sprintf("Reading updated %s completed successfully", distributionName))
+	logger.Info(fmt.Sprintf("Reading previously released %s. Please wait...", distributionName))
 
-	// Maps for modified, changed and removed files from the update
+	// Maps for storing modified, changed and removed files from the update
 	modifiedFiles := make(map[string]struct{})
 	removedFiles := make(map[string]struct{})
 	addedFiles := make(map[string]struct{})
 
 	// Iterate through each file to identify modified and removed files from the update
-	logger.Debug(fmt.Sprintf("Finding modified and removed files between updated and previous distributions"))
+	logger.Debug(fmt.Sprintf("Finding modified and removed files between updated and previous released %s",
+		distributionName))
 	for _, file := range previousDistributionReader.Reader.File {
 		// Open the file for calculating MD5
 		zippedFile, err := file.Open()
@@ -170,7 +169,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 			util.HandleErrorAndExit(err)
 		}
 		data, err := ioutil.ReadAll(zippedFile)
-		// Don't use defer here because there will be too many open files and it will cause a panic
+		// Don't use defer here as too many open files will cause a panic
 		zippedFile.Close()
 		// Calculate the md5 of the file
 		hash := md5.New()
@@ -189,7 +188,6 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 
 		fileNameStrings := strings.Split(fileName, "/")
 		fileName = fileNameStrings[len(fileNameStrings)-1]
-		logger.Trace(fmt.Sprintf("File Name %s", fileName))
 		if relativePath != "" && !file.FileInfo().IsDir() {
 			// Finding modified files
 			findModifiedFiles(&rootNodeOfUpdatedDistribution, fileName, md5Hash, relativePath, modifiedFiles)
@@ -197,31 +195,27 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 			findRemovedOrNewlyAddedFiles(&rootNodeOfUpdatedDistribution, fileName, relativePath, removedFiles)
 		}
 	}
-	logger.Debug(fmt.Sprintf("Finding modified and removed files between the given 2 distributions completed " +
-		"successfully"))
+	logger.Debug(fmt.Sprintf("Finding modified and removed files between the given two %s distributions completed " +
+		"successfully",distributionName))
 
 	// Identifying newly added files from update
-	distributionName = getDistributionName(previousDistPath)
-	// Read the distribution zip file
-	logger.Debug("Reading previous distribution zip")
+	// Reading previous distribution zip file
 	logger.Info(fmt.Sprintf("Reading the previous %s. Please wait...", distributionName))
 	// RootNode is what we use as the root of the previous distribution when we populate tree like structure
 	rootNodeOfPreviousDistribution := createNewNode()
 	rootNodeOfPreviousDistribution, err = readZip(previousDistributionReader, &rootNodeOfPreviousDistribution)
 	util.HandleErrorAndExit(err)
-	logger.Debug("root node of the previous distribution received")
-	logger.Debug("Reading previous distribution zip finished")
-	logger.Debug("Reading updated distribution zip for finding newly added files")
-	logger.Info(fmt.Sprintf("Reading the updated %s. to identify newly added files, Please wait...",
-		distributionName))
+	logger.Debug(fmt.Sprintf("Node tree for previous released %s created successfully", distributionName))
+	logger.Debug(fmt.Sprintf("Reading previous released %s completed successfully", distributionName))
+	logger.Info(fmt.Sprintf("Reading updated %s. Please wait...", distributionName))
 
-	// Iterate through updated pack to identify the newly added files
-	logger.Debug(fmt.Sprintf("Finding newly added files between updated and previous distributions"))
+	// Iterating through updated pack to identify the newly added files
+	logger.Debug(fmt.Sprintf("Finding newly added files between updated and previous released %s",distributionName))
 	for _, file := range updatedDistributionReader.Reader.File {
-		// We do not need to calculate the md5 of the file as we are filtering only the added files
+		// MD5 of the file is not calculated as we are filtering only for added files
 		// Name of the file
 		fileName := file.Name
-		logger.Trace(fmt.Sprintf("file.Name: %s", fileName))
+		logger.Trace(fmt.Sprintf("File Name: %s", fileName))
 
 		if strings.HasSuffix(fileName, "/") {
 			fileName = strings.TrimSuffix(fileName, "/")
@@ -231,21 +225,21 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 
 		fileNameStrings := strings.Split(fileName, "/")
 		fileName = fileNameStrings[len(fileNameStrings)-1]
-		logger.Trace(fmt.Sprintf("File Name %s", fileName))
-		// Finding newly added files
 		if relativePath != "" && !file.FileInfo().IsDir() {
+			// Finding newly added files
 			findRemovedOrNewlyAddedFiles(&rootNodeOfPreviousDistribution, fileName, relativePath, addedFiles)
 		}
 		//zipReader.Close() // if this is causing panic we need to close it here
 	}
-	logger.Debug(fmt.Sprintf("Done finding newly added files between the given 2 distributions"))
+	logger.Debug(fmt.Sprintf("Finding newly added files between the given two %s distributions completed " +
+		"successfully",distributionName))
 
-	logger.Info("Modified Files", modifiedFiles)
-	logger.Debug("Number of modified files", len(modifiedFiles))
-	logger.Info("Removed Files", removedFiles)
-	logger.Debug("Number of removed files", len(removedFiles))
-	logger.Info("Added Files", addedFiles)
-	logger.Debug("Number of added files", len(addedFiles))
+	logger.Info("Modified Files : ", modifiedFiles)
+	logger.Debug("Number of modified files : ", len(modifiedFiles))
+	logger.Info("Removed Files : ", removedFiles)
+	logger.Debug("Number of removed files : ", len(removedFiles))
+	logger.Info("Added Files : ", addedFiles)
+	logger.Debug("Number of added files : ", len(addedFiles))
 
 	// Update added,removed and modified files in the updateDescriptor struct
 	alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles, updateDescriptor)
@@ -387,7 +381,7 @@ func readZip(zipReader *zip.ReadCloser, rootNode *node) (node, error) {
 		// Get the relative path of the file
 		logger.Trace(fmt.Sprintf("file.Name: %s", file.Name))
 
-		relativePath :=util.GetRelativePath(file)
+		relativePath := util.GetRelativePath(file)
 
 		// Add the file to root node
 		AddToRootNode(rootNode, strings.Split(relativePath, "/"), file.FileInfo().IsDir(), md5Hash)
@@ -396,7 +390,7 @@ func readZip(zipReader *zip.ReadCloser, rootNode *node) (node, error) {
 }
 
 // This function adds a new node to given root node.
-func AddToRootNode(root *node, path []string, isDir bool, md5Hash string) *node {
+func AddToRootNode(root *node, path []string, isDir bool, md5Hash string) {
 	logger.Trace("Checking: %s : %s", path[0], path)
 
 	// If the current path element is the last element, add it as a new node.
@@ -432,14 +426,12 @@ func AddToRootNode(root *node, path []string, isDir bool, md5Hash string) *node 
 			root.childNodes[path[0]] = &newNode
 			node = &newNode
 		}
-		// Recursively call the function for the rest of the path elements.
+		// Recursively call the function for the rest of the path elements
 		AddToRootNode(node, path[1:], isDir, md5Hash)
 	}
-	// Do we want to return a node in here, it is not used in any place
-	return root
 }
 
-// This function returns the distribution name of the given zip file and set it as viper config.
+// This function returns the distribution name of the given zip file and sets it as viper config.
 func getDistributionName(distributionPath string) string {
 	paths := strings.Split(distributionPath, constant.PATH_SEPARATOR)
 	distributionName := strings.TrimSuffix(paths[len(paths)-1], ".zip")
@@ -451,16 +443,16 @@ func getDistributionName(distributionPath string) string {
 // This function identifies modified files between given two distributions.
 func findModifiedFiles(root *node, fileName string, md5Hash string, relativePath string,
 	modifiedFiles map[string]struct{}) {
-	logger.Trace(fmt.Sprintf("Checking %s file for modifications in %s relative path", fileName, relativePath))
+	logger.Trace(fmt.Sprintf("Checking %s file for modifications in %s relative path started", fileName,
+		relativePath))
 	// Check whether the given fileName is in the child Nodes
 	childNode, found := root.childNodes[fileName]
-	if found && !childNode.isDir && childNode.relativePath == relativePath && childNode.md5Hash !=
-		md5Hash {
-		logger.Trace(fmt.Sprintf("The file %s exists in the both distributions with mismatch md5, meaning they are "+
-			"modified", fileName))
+	if found && childNode.relativePath == relativePath && childNode.md5Hash != md5Hash {
+		logger.Trace(fmt.Sprintf("The file %s exists in the both distributions with mismatched md5, so the file is "+
+			"being modified", fileName))
 
 		modifiedFiles[childNode.relativePath] = struct{}{}
-		logger.Trace(fmt.Sprintf("Modified file %s is added to the modifiedFiles map", fileName))
+		logger.Trace(fmt.Sprintf("Modified file %s added to the modifiedFiles map successfully", fileName))
 	}
 	// Regardless of whether the file is found or not, iterate through all sub directories to find all matches
 	for _, childNode := range root.childNodes {
@@ -480,11 +472,11 @@ func findRemovedOrNewlyAddedFiles(root *node, fileName string, relativePath stri
 	found := pathExists(root, relativePath, false)
 
 	if !found {
-		logger.Trace(fmt.Sprintf("The %s file is not found in the given relative path %s, so it can be either "+
+		logger.Trace(fmt.Sprintf("The %s file not found in the given relative path %s, so it can either be"+
 			"a removed or newly added file", fileName, relativePath))
 		matches[relativePath] = struct{}{}
 	} else {
-		logger.Trace(fmt.Sprintf("The %s file is found in the given relative path %s, so it is neither a removed or "+
+		logger.Trace(fmt.Sprintf("The %s file found in the given relative path %s, so it is neither a removed or "+
 			"newly added file", fileName, relativePath))
 	}
 }
@@ -522,7 +514,7 @@ func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]st
 	logger.Debug(fmt.Sprintf("Altering UpdateDescriptor started"))
 	featurePrefix := "wso2/lib/features/"
 
-	// Append modified files
+	// Appending modified files
 	logger.Debug(fmt.Sprintf("Appending modified files to the UpdateDescriptor started"))
 	for modifiedFile, _ := range modifiedFiles {
 		updateDescriptor.File_changes.Modified_files = append(updateDescriptor.File_changes.Modified_files,
@@ -530,18 +522,18 @@ func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]st
 	}
 	logger.Debug(fmt.Sprintf("Appending modified files to the UpdateDescriptor finished successfully"))
 
-	// Append removed files
+	// Appending removed files
 	logger.Debug(fmt.Sprintf("Appending removed files to the UpdateDescriptor started"))
 	// map[string]struct{} is used here as it is trival to search for an element in a slice
 	removedFeatureNames := make(map[string]struct{})
 	for removedFile, _ := range removedFiles {
 		// Need to keep track of the features being removed as we only specify the relevant feature directories to be
-		// Removed on update-descriptor.yaml, without mentioning the files and subdirectories in them
+		// removed on update-descriptor.yaml, without mentioning the files and subdirectories in them
 		if strings.HasPrefix(removedFile, featurePrefix) {
 			// Extracting the relevant feature name to be saved in the map for future filtering
 			removedFeatureName := strings.SplitN(strings.TrimPrefix(removedFile, featurePrefix), "/", 2)[0]
 			_, found := removedFeatureNames[removedFeatureName]
-			// If the removedFeature's root directory which is in "wso2/lib/features/" is present in the map of
+			// If the removedFeature's root directory which is in "wso2/lib/features/", is present in the map of
 			// removedFeatureNames, it's root directory has already been added for removal
 			if !found {
 				removedFeatureNames[removedFeatureName] = struct{}{}
@@ -560,12 +552,12 @@ func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]st
 	}
 	logger.Debug(fmt.Sprintf("Appending removed files to the UpdateDescriptor finished successfully"))
 
-	// Append newly added files
-	logger.Debug(fmt.Sprintf("Appending added files to the UpdateDescriptor started"))
+	// Appending newly added files
+	logger.Debug(fmt.Sprintf("Appending newly added files to the UpdateDescriptor started"))
 	for addedFile, _ := range addedFiles {
 		updateDescriptor.File_changes.Added_files = append(updateDescriptor.File_changes.Added_files, addedFile)
 	}
-	logger.Debug(fmt.Sprintf("Appending added files to the UpdateDescriptor finished successfully"))
+	logger.Debug(fmt.Sprintf("Appending newly added files to the UpdateDescriptor finished successfully"))
 	logger.Debug(fmt.Sprintf("Altering UpdateDescriptor finished successfully"))
 }
 
