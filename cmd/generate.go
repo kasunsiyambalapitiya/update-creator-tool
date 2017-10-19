@@ -51,8 +51,8 @@ var (
 	generateCmdShortDesc = "Generate a new update"
 	generateCmdLongDesc  = dedent.Dedent(`
 	This command will generate a new update zip by comparing the diff between the updated distribution and the
-	previous released distribution. It is required to run wum-uc init first and provide the update location given
-	for init as the third input.
+	previous released distribution. It is required to run wum-uc init first and pass update directory location
+	provided for init as the third input.
 	<update_dist_loc>	the location of the updated distribution
 	<prev_dist_loc>		the location of the previous distribution
 	<update_dir>		the location of the update directory where init was ran
@@ -93,13 +93,13 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	// Check whether the given update directory exists
 	exists, err := util.IsDirectoryExists(updateDirectoryPath)
 	util.HandleErrorAndExit(err, "Error occurred while reading the update directory")
-	logger.Debug(fmt.Sprintf("exists: %v", exists))
+	logger.Debug(fmt.Sprintf("Exists: %v", exists))
 	if !exists {
-		util.HandleErrorAndExit(errors.New(fmt.Sprintf("Directory does not exist at '%s'. Update location "+
+		util.HandleErrorAndExit(errors.New(fmt.Sprintf("directory does not exist at '%s'. Update location "+
 			"must be a directory.", updateDirectoryPath)))
 	}
 	updateRoot := strings.TrimSuffix(updateDirectoryPath, constant.PATH_SEPARATOR)
-	logger.Debug(fmt.Sprintf("updateRoot: %s\n", updateRoot))
+	logger.Debug(fmt.Sprintf("UpdateRoot: %s\n", updateRoot))
 	viper.Set(constant.UPDATE_ROOT, updateRoot)
 
 	// Check whether the update-descriptor.yaml file exists in the update directory
@@ -113,10 +113,10 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	checkDistributionExists(previousDistPath, "previous")
 
 	// Check whether the given distributions are zip files
-	util.IsZipFile(updatedDistPath, "updated distribution")
-	logger.Debug(fmt.Sprintf("The updated distribution is a zip file"))
-	util.IsZipFile(previousDistPath, "previous distribution")
-	logger.Debug(fmt.Sprintf("The previous distribution is a zip file"))
+	util.IsZipFile("updated distribution",updatedDistPath)
+	logger.Debug(fmt.Sprintf("Provided updated distribution is a zip file"))
+	util.IsZipFile("previous distribution",previousDistPath)
+	logger.Debug(fmt.Sprintf("Provided previous distribution is a zip file"))
 
 	// Read update-descriptor.yaml and parse it to UpdateDescriptor struct
 	updateDescriptor, err := util.LoadUpdateDescriptor(constant.UPDATE_DESCRIPTOR_FILE, updateDirectoryPath)
@@ -135,12 +135,13 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	// Get the distribution name
 	distributionName := getDistributionName(updatedDistPath)
 	// Read the updated distribution zip file
-	logger.Debug("Reading updated distribution zip")
-	util.PrintInfo(fmt.Sprintf("Reading the updated %s. Please wait...", distributionName))
+	logger.Info(fmt.Sprintf("Reading the updated %s. Please wait...", distributionName))
 
 	// Get zipReaders of both distributions
 	updatedDistributionReader := getZipReader(updatedDistPath)
+	logger.Debug("Zip reader used for reading updated distribution created successfully")
 	previousDistributionReader := getZipReader(previousDistPath)
+	logger.Debug("Zip reader used for reading previous distribution created successfully")
 
 	defer updatedDistributionReader.Close()
 	defer previousDistributionReader.Close()
@@ -152,7 +153,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	util.HandleErrorAndExit(err)
 	logger.Debug("Reading updated distribution zip finished")
 	logger.Debug("Reading previously released distribution zip for finding removed and modified files")
-	util.PrintInfo(fmt.Sprintf("Reading the previous %s. to identify removed and modified files, Please wait...",
+	logger.Info(fmt.Sprintf("Reading the previous %s. to identify removed and modified files, Please wait...",
 		distributionName))
 
 	// Maps for modified, changed and removed files from the update
@@ -196,25 +197,22 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 			findRemovedOrNewlyAddedFiles(&rootNodeOfUpdatedDistribution, fileName, relativeLocation, removedFiles)
 		}
 	}
-	logger.Debug(fmt.Sprintf("Done finding modified and removed files between the given 2 distributions"))
-	/*
-		logger.Debug(fmt.Sprintf("Closed the ReadCloser of previous distribution"))
-	*/
+	logger.Debug(fmt.Sprintf("Finding modified and removed files between the given 2 distributions completed " +
+		"successfully"))
 
 	// Identifying newly added files from update
 	distributionName = getDistributionName(previousDistPath)
 	// Read the distribution zip file
 	logger.Debug("Reading previous distribution zip")
-	util.PrintInfo(fmt.Sprintf("Reading the previous %s. Please wait...", distributionName))
+	logger.Info(fmt.Sprintf("Reading the previous %s. Please wait...", distributionName))
 	// RootNode is what we use as the root of the previous distribution when we populate tree like structure
 	rootNodeOfPreviousDistribution := createNewNode()
 	rootNodeOfPreviousDistribution, err = readZip(previousDistributionReader, &rootNodeOfPreviousDistribution)
 	util.HandleErrorAndExit(err)
-	// ToDo checkout for these type of logs
 	logger.Debug("root node of the previous distribution received")
 	logger.Debug("Reading previous distribution zip finished")
 	logger.Debug("Reading updated distribution zip for finding newly added files")
-	util.PrintInfo(fmt.Sprintf("Reading the updated %s. to identify newly added files, Please wait...",
+	logger.Info(fmt.Sprintf("Reading the updated %s. to identify newly added files, Please wait...",
 		distributionName))
 
 	// Iterate through updated pack to identify the newly added files
@@ -242,12 +240,12 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	}
 	logger.Debug(fmt.Sprintf("Done finding newly added files between the given 2 distributions"))
 
-	util.PrintInfo("Modified Files", modifiedFiles)
-	util.PrintInfo("Number of modified files", len(modifiedFiles))
-	util.PrintInfo("Removed Files", removedFiles)
-	util.PrintInfo("no of removed files", len(removedFiles))
-	util.PrintInfo("Added Files", addedFiles)
-	util.PrintInfo("no of added files", len(addedFiles))
+	logger.Info("Modified Files", modifiedFiles)
+	logger.Debug("Number of modified files", len(modifiedFiles))
+	logger.Info("Removed Files", removedFiles)
+	logger.Debug("Number of removed files", len(removedFiles))
+	logger.Info("Added Files", addedFiles)
+	logger.Debug("Number of added files", len(addedFiles))
 
 	// Update added,removed and modified files in the updateDescriptor struct
 	alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles, updateDescriptor)
@@ -320,16 +318,16 @@ func checkFileExists(updateDirectoryPath, fileName string) {
 		util.HandleErrorAndExit(errors.New(fmt.Sprintf("'%s' not found at '%s' directory.",
 			fileName, updateDirectoryPath)))
 	}
-	logger.Debug(fmt.Sprintf("%s exists. Location %s", fileName, updateDescriptorPath))
+	logger.Debug(fmt.Sprintf("%s exists in given update directory location", fileName))
 }
 
 // This function checks whether the given distribution exists.
 func checkDistributionExists(distributionPath, distributionState string) {
 	exists, err := util.IsFileExists(distributionPath)
-	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while checking '%s' '%s' ", distributionState,
-		distributionPath))
+	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while reading '%s' distribution at '%s' ",
+		distributionState, distributionPath))
 	if !exists {
-		util.HandleErrorAndExit(errors.New(fmt.Sprintf("File does not exist at '%s'. '%s' Distribution must "+
+		util.HandleErrorAndExit(errors.New(fmt.Sprintf("file does not exist at '%s'. '%s' distribution must "+
 			"be a zip file.", distributionPath, distributionState)))
 	}
 	logger.Debug(fmt.Sprintf("The %s distribution exists in %s location", distributionState, distributionPath))
@@ -344,7 +342,6 @@ func getUpdateName(updateDescriptor *util.UpdateDescriptor, updateNamePrefix str
 	return updateName
 }
 
-//Todo refactor this to a util function
 // This function marshals the update-descriptor.yaml file.
 func marshalUpdateDescriptor(updateDescriptor *util.UpdateDescriptor) ([]byte, error) {
 	data, err := yaml.Marshal(&updateDescriptor)
@@ -372,9 +369,6 @@ func createNewNode() node {
 
 // This function reads the zip file in the given location and returns the root node of the formed tree.
 func readZip(zipReader *zip.ReadCloser, rootNode *node) (node, error) {
-	//ToDo do we need this log
-	productName := viper.GetString(constant.PRODUCT_NAME)
-	logger.Debug(fmt.Sprintf("productName: %s", productName))
 	// Iterate through each file in the zip file
 	for _, file := range zipReader.Reader.File {
 		zippedFile, err := file.Open()
@@ -382,7 +376,7 @@ func readZip(zipReader *zip.ReadCloser, rootNode *node) (node, error) {
 			return *rootNode, err
 		}
 		data, err := ioutil.ReadAll(zippedFile)
-		// Don't use defer here because otherwise there will be too many open files and it will cause a panic
+		// Close zippedFile after reading its data to avoid too many open files leading to a panic
 		zippedFile.Close()
 
 		// Calculate the md5 of the file
@@ -393,16 +387,7 @@ func readZip(zipReader *zip.ReadCloser, rootNode *node) (node, error) {
 		// Get the relative path of the file
 		logger.Trace(fmt.Sprintf("file.Name: %s", file.Name))
 
-		var relativePath string
-		if strings.Contains(file.Name, "/") {
-			relativePath = strings.SplitN(file.Name, "/", 2)[1]
-		} else {
-			relativePath = file.Name
-		}
-
-		// Replace all \ with /. Otherwise it will cause issues in Windows OS.
-		relativePath = filepath.ToSlash(relativePath)
-		logger.Trace(fmt.Sprintf("relativePath: %s", relativePath))
+		relativePath :=util.GetRelativePath(file)
 
 		// Add the file to root node
 		AddToRootNode(rootNode, strings.Split(relativePath, "/"), file.FileInfo().IsDir(), md5Hash)
@@ -454,13 +439,12 @@ func AddToRootNode(root *node, path []string, isDir bool, md5Hash string) *node 
 	return root
 }
 
-// This function returns the distribution name of the given zip file.
-func getDistributionName(distributionZipName string) string {
-	// Get the product name from the distribution path and set it as a viper config
-	paths := strings.Split(distributionZipName, constant.PATH_SEPARATOR)
+// This function returns the distribution name of the given zip file and set it as viper config.
+func getDistributionName(distributionPath string) string {
+	paths := strings.Split(distributionPath, constant.PATH_SEPARATOR)
 	distributionName := strings.TrimSuffix(paths[len(paths)-1], ".zip")
 	viper.Set(constant.PRODUCT_NAME, distributionName)
-	logger.Debug(fmt.Sprintf("Distribution name set in to the viper config"))
+	logger.Debug(fmt.Sprintf("Distribution name set in to the viper config successfully"))
 	return distributionName
 }
 
@@ -631,14 +615,13 @@ func copyResourceFilesToTempDir(resourceFilesMap map[string]bool) error {
 			if isMandatory {
 				return err
 			} else {
-				util.PrintInfo(fmt.Sprintf("Optional resource file '%s' not copied.", filename))
+				logger.Info(fmt.Sprintf("Optional resource file '%s' not copied.", filename))
 			}
 		}
 	}
 	return nil
 }
 
-//Todo to a util function
 // This function saves update descriptor after modifying the file_changes section.
 func saveUpdateDescriptor(updateDescriptorFilename string, data []byte) error {
 	updateName := viper.GetString(constant.UPDATE_NAME)
