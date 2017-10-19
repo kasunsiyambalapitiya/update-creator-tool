@@ -32,6 +32,7 @@ import (
 	"os"
 	"io"
 	"github.com/mholt/archiver"
+	"gopkg.in/yaml.v2"
 )
 
 // This struct is used to store file/directory information.
@@ -357,7 +358,24 @@ func checkDistributionExists(distributionPath, distributionState string) {
 	logger.Debug(fmt.Sprintf("The %s distribution exists in %s location", distributionState, distributionPath))
 }
 
+// This function will set the update name which will be used when creating the update zip.
+func getUpdateName(updateDescriptor *util.UpdateDescriptor, updateNamePrefix string) string {
+	// Read the corresponding details from the struct
+	platformVersion := updateDescriptor.Platform_version
+	updateNumber := updateDescriptor.Update_number
+	updateName := updateNamePrefix + "-" + platformVersion + "-" + updateNumber
+	return updateName
+}
 
+//Todo refactor this to a util function
+// This function will marshal the update-descriptor.yaml file.
+func marshalUpdateDescriptor(updateDescriptor *util.UpdateDescriptor) ([]byte, error) {
+	data, err := yaml.Marshal(&updateDescriptor)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
 
 // This function will return a zip.ReadCloser of the give zip file.
 func getZipReader(distributionPath string) *zip.ReadCloser {
@@ -600,6 +618,74 @@ func copyResourceFilesToTemp() {
 	err := copyResourceFilesToTempDir(resourceFiles)
 	util.HandleErrorAndExit(err, errors.New("Error occurred while copying resource files."))
 	logger.Debug(fmt.Sprintf("Copying mandatory files of an update to temp location completed successfully"))
+}
+
+// This will return a map of files which would be copied to the temp directory before creating the update zip. Key is
+// the file name and value is whether the file is mandatory or not.
+func getResourceFiles() map[string]bool {
+	filesMap := make(map[string]bool)
+	// Get the mandatory resource files and add to the the map
+	for _, file := range viper.GetStringSlice(constant.RESOURCE_FILES_MANDATORY) {
+		filesMap[file] = true
+	}
+	// Get the mandatory optional files and add to the the map
+	for _, file := range viper.GetStringSlice(constant.RESOURCE_FILES_OPTIONAL) {
+		filesMap[file] = false
+	}
+	return filesMap
+}
+
+// This function will copy resource files to the temp directory.
+func copyResourceFilesToTempDir(resourceFilesMap map[string]bool) error {
+	// Create the directories if they are not available
+	updateName := viper.GetString(constant.UPDATE_NAME)
+	destination := path.Join(constant.TEMP_DIR, updateName, constant.CARBON_HOME)
+	util.CreateDirectory(destination)
+	// Iterate through all resource files
+	for filename, isMandatory := range resourceFilesMap {
+		updateRoot := viper.GetString(constant.UPDATE_ROOT)
+		updateName := viper.GetString(constant.UPDATE_NAME)
+		source := path.Join(updateRoot, filename)
+		destination := path.Join(constant.TEMP_DIR, updateName, filename)
+		// Copy the file
+		err := util.CopyFile(source, destination)
+		if err != nil {
+			// If an error occurs while copying, if the file is a mandatory file, return an error. If the
+			// file is not mandatory, print a message and continue.
+			if isMandatory {
+				return err
+			} else {
+				util.PrintInfo(fmt.Sprintf("Optional resource file '%s' not copied.", filename))
+			}
+		}
+	}
+	return nil
+}
+
+//Todo to a util function
+// This function will save update descriptor after modifying the file_changes section.
+func saveUpdateDescriptor(updateDescriptorFilename string, data []byte) error {
+	updateName := viper.GetString(constant.UPDATE_NAME)
+	destination := path.Join(constant.TEMP_DIR, updateName, updateDescriptorFilename)
+	// Open a new file for writing only
+	file, err := os.OpenFile(
+		destination,
+		os.O_WRONLY|os.O_TRUNC|os.O_CREATE,
+		0600,
+	)
+	defer file.Close()
+	if err != nil {
+		return err
+	}
+	// The update number will always have enclosing "" to indicate it is an string. So we need to remove that.
+	updatedData := strings.Replace(string(data), "\"", "", 2)
+	modifiedData := []byte(updatedData)
+	// Write bytes to file
+	_, err = file.Write(modifiedData)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // This is used to copy modified and newly added files to the temp location for creating the update zip.
