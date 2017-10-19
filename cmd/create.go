@@ -795,10 +795,6 @@ func readZip(location string) (node, error) {
 
 		var relativePath string = util.GetRelativePath(file)
 
-		// Replace all \ with /. Otherwise it will cause issues in Windows OS.
-		relativePath = filepath.ToSlash(relativePath)
-		logger.Trace(fmt.Sprintf("relativePath: %s", relativePath))
-
 		// Add the file to root node
 		AddToRootNode(&rootNode, strings.Split(relativePath, "/"), file.FileInfo().IsDir(), md5Hash)
 		if !file.FileInfo().IsDir() {
