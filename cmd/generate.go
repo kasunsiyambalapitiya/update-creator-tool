@@ -184,17 +184,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 			fileName = strings.TrimSuffix(fileName, "/")
 		}
 		// Get the relative location of the file
-		var relativeLocation string
-
-		if strings.Contains(fileName, "/") {
-			relativeLocation = strings.SplitN(fileName, "/", 2)[1]
-		} else {
-			relativeLocation = ""
-		}
-
-		// Replace all \ with /. Otherwise it will cause issues in Windows OS
-		relativeLocation = filepath.ToSlash(relativeLocation)
-		logger.Trace(fmt.Sprintf("relativeLocation:%s", relativeLocation))
+		relativeLocation := util.GetRelativePath(file)
 
 		fileNameStrings := strings.Split(fileName, "/")
 		fileName = fileNameStrings[len(fileNameStrings)-1]
@@ -238,18 +228,8 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		if strings.HasSuffix(fileName, "/") {
 			fileName = strings.TrimSuffix(fileName, "/")
 		}
-		//ToDo make getting relative location a util method and use it in both create and generate cmds
 		// Get the relative location of the file
-		var relativeLocation string
-		if strings.Contains(fileName, "/") {
-			relativeLocation = strings.SplitN(fileName, "/", 2)[1]
-		} else {
-			relativeLocation = ""
-		}
-
-		// Replace all \ with /. Otherwise it will cause issues in Windows OS
-		relativeLocation = filepath.ToSlash(relativeLocation)
-		logger.Trace(fmt.Sprintf("relativeLocation: %s", relativeLocation))
+		relativeLocation := util.GetRelativePath(file)
 
 		fileNameStrings := strings.Split(fileName, "/")
 		fileName = fileNameStrings[len(fileNameStrings)-1]
