@@ -86,4 +86,6 @@ const (
 	JIRA_KEY_DEFAULT     = "ADD_JIRA_KEY_HERE/GITHUB_ISSUE_URL"
 	JIRA_NA              = "N/A"
 	JIRA_SUMMARY_DEFAULT = "ADD_JIRA_SUMMARY_HERE/GITHUB_ISSUE_SUMMARY"
+	DISTRIBUTION         = "Distribution"
+	UPDATE               = "Update"
 )
