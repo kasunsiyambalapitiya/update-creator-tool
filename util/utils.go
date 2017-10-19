@@ -37,6 +37,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/wso2/update-creator-tool/constant"
 	"gopkg.in/yaml.v2"
+	"archive/zip"
 )
 
 var logger = log.Logger()
@@ -461,4 +462,15 @@ func IsZipFile(archiveType, archiveFilePath string) {
 		HandleErrorAndExit(errors.New(fmt.Sprintf("%s must be a zip file. Entered file '%s' is not a valid zip file" +
 			".", archiveType, archiveFilePath)))
 	}
+}
+
+// This function will return the relative path of the give file.
+// file	file which needs to obtain relative path
+func GetRelativePath(file *zip.File) (relativePath string){
+	if strings.Contains(file.Name, "/") {
+		 relativePath = strings.SplitN(file.Name, "/", 2)[1]
+	} else {
+		relativePath = file.Name
+	}
+	return
 }
