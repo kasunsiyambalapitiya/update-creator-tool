@@ -139,9 +139,9 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 
 	// Get zipReaders of both distributions
 	updatedDistributionReader := getZipReader(updatedDistPath)
-	logger.Debug("Zip reader used for reading updated distribution created successfully")
+	logger.Debug(fmt.Sprintf("Zip reader used for reading updated %s created successfully",distributionName))
 	previousDistributionReader := getZipReader(previousDistPath)
-	logger.Debug("Zip reader used for reading previous distribution created successfully")
+	logger.Debug(fmt.Sprintf("Zip reader used for reading previous released %s created successfully",distributionName))
 
 	defer updatedDistributionReader.Close()
 	defer previousDistributionReader.Close()
@@ -149,20 +149,19 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	// RootNode is what we use as the root of the updated distribution when we populate tree like structure
 	rootNodeOfUpdatedDistribution := createNewNode()
 	rootNodeOfUpdatedDistribution, err = readZip(updatedDistributionReader, &rootNodeOfUpdatedDistribution)
-	logger.Debug("root node of the updated distribution received")
 	util.HandleErrorAndExit(err)
-	logger.Debug("Reading updated distribution zip finished")
-	logger.Debug("Reading previously released distribution zip for finding removed and modified files")
-	logger.Info(fmt.Sprintf("Reading the previous %s. to identify removed and modified files, Please wait...",
-		distributionName))
+	logger.Debug(fmt.Sprintf("Node tree for updated %s created successfully",distributionName))
+	logger.Debug(fmt.Sprintf("Reading updated %s completed successfully",distributionName))
+	logger.Info(fmt.Sprintf("Reading previously released %s. Please wait...",distributionName))
 
-	// Maps for modified, changed and removed files from the update
+	// Maps for storing modified, changed and removed files from the update
 	modifiedFiles := make(map[string]struct{})
 	removedFiles := make(map[string]struct{})
 	addedFiles := make(map[string]struct{})
 
 	// Iterate through each file to identify modified and removed files from the update
-	logger.Debug(fmt.Sprintf("Finding modified and removed files between updated and previous distributions"))
+	logger.Debug(fmt.Sprintf("Finding modified and removed files between updated and previous released %s",
+		distributionName))
 	for _, file := range previousDistributionReader.Reader.File {
 		// Open the file for calculating MD5
 		zippedFile, err := file.Open()
@@ -432,7 +431,7 @@ func AddToRootNode(root *node, path []string, isDir bool, md5Hash string){
 			root.childNodes[path[0]] = &newNode
 			node = &newNode
 		}
-		// Recursively call the function for the rest of the path elements.
+		// Recursively call the function for the rest of the path elements
 		AddToRootNode(node, path[1:], isDir, md5Hash)
 	}
 }
