@@ -37,12 +37,12 @@ import (
 
 // This struct used to store directory structure of the distribution.
 type node struct {
-	name             string
-	isDir            bool
-	relativeLocation string
-	parent           *node
-	childNodes       map[string]*node
-	md5Hash          string
+	name         string
+	isDir        bool
+	relativePath string
+	parent       *node
+	childNodes   map[string]*node
+	md5Hash      string
 }
 
 // Values used to print help command.
@@ -185,16 +185,16 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 			fileName = strings.TrimSuffix(fileName, "/")
 		}
 		// Get the relative location of the file
-		relativeLocation := util.GetRelativePath(file)
+		relativePath := util.GetRelativePath(file)
 
 		fileNameStrings := strings.Split(fileName, "/")
 		fileName = fileNameStrings[len(fileNameStrings)-1]
 		logger.Trace(fmt.Sprintf("File Name %s", fileName))
-		if relativeLocation != "" && !file.FileInfo().IsDir() {
+		if relativePath != "" && !file.FileInfo().IsDir() {
 			// Finding modified files
-			findModifiedFiles(&rootNodeOfUpdatedDistribution, fileName, md5Hash, relativeLocation, modifiedFiles)
+			findModifiedFiles(&rootNodeOfUpdatedDistribution, fileName, md5Hash, relativePath, modifiedFiles)
 			// Finding removed files
-			findRemovedOrNewlyAddedFiles(&rootNodeOfUpdatedDistribution, fileName, relativeLocation, removedFiles)
+			findRemovedOrNewlyAddedFiles(&rootNodeOfUpdatedDistribution, fileName, relativePath, removedFiles)
 		}
 	}
 	logger.Debug(fmt.Sprintf("Finding modified and removed files between the given 2 distributions completed " +
@@ -227,14 +227,14 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 			fileName = strings.TrimSuffix(fileName, "/")
 		}
 		// Get the relative location of the file
-		relativeLocation := util.GetRelativePath(file)
+		relativePath := util.GetRelativePath(file)
 
 		fileNameStrings := strings.Split(fileName, "/")
 		fileName = fileNameStrings[len(fileNameStrings)-1]
 		logger.Trace(fmt.Sprintf("File Name %s", fileName))
 		// Finding newly added files
-		if relativeLocation != "" && !file.FileInfo().IsDir() {
-			findRemovedOrNewlyAddedFiles(&rootNodeOfPreviousDistribution, fileName, relativeLocation, addedFiles)
+		if relativePath != "" && !file.FileInfo().IsDir() {
+			findRemovedOrNewlyAddedFiles(&rootNodeOfPreviousDistribution, fileName, relativePath, addedFiles)
 		}
 		//zipReader.Close() // if this is causing panic we need to close it here
 	}
@@ -406,10 +406,10 @@ func AddToRootNode(root *node, path []string, isDir bool, md5Hash string) *node 
 		newNode.name = path[0]
 		newNode.isDir = isDir
 		newNode.md5Hash = md5Hash
-		if len(root.relativeLocation) == 0 {
-			newNode.relativeLocation = path[0]
+		if len(root.relativePath) == 0 {
+			newNode.relativePath = path[0]
 		} else {
-			newNode.relativeLocation = root.relativeLocation + "/" + path[0]
+			newNode.relativePath = root.relativePath + "/" + path[0]
 		}
 		newNode.parent = root
 		root.childNodes[path[0]] = &newNode
@@ -423,10 +423,10 @@ func AddToRootNode(root *node, path []string, isDir bool, md5Hash string) *node 
 			newNode := createNewNode()
 			newNode.name = path[0]
 			newNode.isDir = true
-			if len(root.relativeLocation) == 0 {
-				newNode.relativeLocation = path[0]
+			if len(root.relativePath) == 0 {
+				newNode.relativePath = path[0]
 			} else {
-				newNode.relativeLocation = root.relativeLocation + "/" + path[0]
+				newNode.relativePath = root.relativePath + "/" + path[0]
 			}
 			newNode.parent = root
 			root.childNodes[path[0]] = &newNode
@@ -449,43 +449,43 @@ func getDistributionName(distributionPath string) string {
 }
 
 // This function identifies modified files between given two distributions.
-func findModifiedFiles(root *node, fileName string, md5Hash string, relativeLocation string,
+func findModifiedFiles(root *node, fileName string, md5Hash string, relativePath string,
 	modifiedFiles map[string]struct{}) {
-	logger.Trace(fmt.Sprintf("Checking %s file for modifications in %s relative path", fileName, relativeLocation))
+	logger.Trace(fmt.Sprintf("Checking %s file for modifications in %s relative path", fileName, relativePath))
 	// Check whether the given fileName is in the child Nodes
 	childNode, found := root.childNodes[fileName]
-	if found && !childNode.isDir && childNode.relativeLocation == relativeLocation && childNode.md5Hash !=
+	if found && !childNode.isDir && childNode.relativePath == relativePath && childNode.md5Hash !=
 		md5Hash {
 		logger.Trace(fmt.Sprintf("The file %s exists in the both distributions with mismatch md5, meaning they are "+
 			"modified", fileName))
 
-		modifiedFiles[childNode.relativeLocation] = struct{}{}
+		modifiedFiles[childNode.relativePath] = struct{}{}
 		logger.Trace(fmt.Sprintf("Modified file %s is added to the modifiedFiles map", fileName))
 	}
 	// Regardless of whether the file is found or not, iterate through all sub directories to find all matches
 	for _, childNode := range root.childNodes {
 		if childNode.isDir {
-			findModifiedFiles(childNode, fileName, md5Hash, relativeLocation, modifiedFiles)
+			findModifiedFiles(childNode, fileName, md5Hash, relativePath, modifiedFiles)
 		}
 	}
 	logger.Trace(fmt.Sprintf("Checking %s file exists in %s relative path for modifications completed", fileName,
-		relativeLocation))
+		relativePath))
 }
 
 // This function identifies removed and newly added files between given two distributions.
-func findRemovedOrNewlyAddedFiles(root *node, fileName string, relativeLocation string, matches map[string]struct{}) {
+func findRemovedOrNewlyAddedFiles(root *node, fileName string, relativePath string, matches map[string]struct{}) {
 	logger.Trace(fmt.Sprintf("Checking %s file to identify it as a removed or newly added in %s relative path",
-		fileName, relativeLocation))
+		fileName, relativePath))
 	// Check whether the given file exists in the given relative path in any child node
-	found := pathExists(root, relativeLocation, false)
+	found := pathExists(root, relativePath, false)
 
 	if !found {
 		logger.Trace(fmt.Sprintf("The %s file is not found in the given relative path %s, so it can be either "+
-			"a removed or newly added file", fileName, relativeLocation))
-		matches[relativeLocation] = struct{}{}
+			"a removed or newly added file", fileName, relativePath))
+		matches[relativePath] = struct{}{}
 	} else {
 		logger.Trace(fmt.Sprintf("The %s file is found in the given relative path %s, so it is neither a removed or "+
-			"newly added file", fileName, relativeLocation))
+			"newly added file", fileName, relativePath))
 	}
 }
 
@@ -549,7 +549,7 @@ func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]st
 				updateDescriptor.File_changes.Removed_files = append(updateDescriptor.File_changes.Removed_files,
 					featurePrefix+removedFeatureName)
 				// ToDo ask shall we put "/" at the end of the directory to indicate it is a directory, this will not
-				// cause troubles with the node.relativeLocation as we are not using nodes or any files in updated
+				// cause troubles with the node.relativePath as we are not using nodes or any files in updated
 				// distribution for removing files in the previous distribution. We just remove those in the previous
 				// distribution
 			}
