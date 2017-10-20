@@ -32,6 +32,7 @@ import (
 	"syscall"
 	"time"
 
+	"archive/zip"
 	"github.com/fatih/color"
 	"github.com/ian-kent/go-log/log"
 	"github.com/pkg/errors"
@@ -461,4 +462,16 @@ func IsZipFile(archiveType, archiveFilePath string) {
 		HandleErrorAndExit(errors.New(fmt.Sprintf("%s must be a zip file. Entered file '%s' is not a valid zip file"+
 			".", archiveType, archiveFilePath)))
 	}
+}
+
+// This function will return the relative path of the given file.
+// file	file in which the relative path is to be obtained
+func GetRelativePath(file *zip.File) (relativePath string) {
+	if strings.Contains(file.Name, "/") {
+		relativePath = strings.SplitN(file.Name, "/", 2)[1]
+	} else {
+		relativePath = file.Name
+	}
+	logger.Trace(fmt.Sprintf("relativePath: %s", relativePath))
+	return
 }
