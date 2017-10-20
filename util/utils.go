@@ -458,7 +458,7 @@ func ProcessString(data, delimiter string, trimAll bool) string {
 // archiveFilePath	path to the archive file
 func IsZipFile(archiveType, archiveFilePath string) {
 	if !strings.HasSuffix(archiveFilePath, ".zip") {
-		HandleErrorAndExit(errors.New(fmt.Sprintf("%s must be a zip file. Entered file '%s' is not a valid zip file" +
+		HandleErrorAndExit(errors.New(fmt.Sprintf("%s must be a zip file. Entered file '%s' is not a valid zip file"+
 			".", archiveType, archiveFilePath)))
 	}
 }
