@@ -53,9 +53,9 @@ var (
 	This command will generate a new update zip by comparing the diff between the updated distribution and the
 	previous released distribution. It is required to run wum-uc init first and pass update directory location
 	provided for init as the third input.
-	<update_dist_loc>	the location of the updated distribution
-	<prev_dist_loc>		the location of the previous distribution
-	<update_dir>		the location of the update directory where init was ran
+	<update_dist_loc>	path to the updated distribution
+	<prev_dist_loc>		path to the previous distribution
+	<update_dir>		path to the update directory where init was ran
 	`)
 )
 
@@ -85,6 +85,9 @@ func initializeGenerateCommand(cmd *cobra.Command, args []string) {
 }
 
 // This function generates an update zip by comparing the diff between given two distributions.
+// updatedDistPath	path to the updated distribution
+// previousDistPath	path to the previous distribution
+// updateDirectoryPath	path to the update directory where init was ran
 func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath string) {
 	// Set log level
 	setLogLevel()
@@ -192,7 +195,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 			// Finding modified files
 			findModifiedFiles(&rootNodeOfUpdatedDistribution, fileName, md5Hash, relativePath, modifiedFiles)
 			// Finding removed files
-			findRemovedOrNewlyAddedFiles(&rootNodeOfUpdatedDistribution, fileName, relativePath, removedFiles)
+			findNonExistentFiles(&rootNodeOfUpdatedDistribution, fileName, relativePath, removedFiles)
 		}
 	}
 	logger.Debug(fmt.Sprintf("Finding modified and removed files between the given two %s distributions completed "+
@@ -227,7 +230,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		fileName = fileNameStrings[len(fileNameStrings)-1]
 		if relativePath != "" && !file.FileInfo().IsDir() {
 			// Finding newly added files
-			findRemovedOrNewlyAddedFiles(&rootNodeOfPreviousDistribution, fileName, relativePath, addedFiles)
+			findNonExistentFiles(&rootNodeOfPreviousDistribution, fileName, relativePath, addedFiles)
 		}
 		//zipReader.Close() // if this is causing panic we need to close it here
 	}
@@ -242,7 +245,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	logger.Debug("Number of added files : ", len(addedFiles))
 
 	// Update added,removed and modified files in the updateDescriptor struct
-	alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles, updateDescriptor)
+	modifyUpdateDescriptor(modifiedFiles, removedFiles, addedFiles, updateDescriptor)
 
 	// Copy resource files in the update location to a temp directory
 	copyResourceFilesToTemp()
@@ -302,6 +305,8 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 }
 
 //This function checks for the availability of the given file in the given update directory location.
+// updateDirectoryPath	path to the update directory where init was ran
+// fileName	name of the file
 func checkFileExists(updateDirectoryPath, fileName string) {
 	// Construct the relevant file location
 	updateDescriptorPath := path.Join(updateDirectoryPath, fileName)
@@ -316,6 +321,8 @@ func checkFileExists(updateDirectoryPath, fileName string) {
 }
 
 // This function checks whether the given distribution exists.
+// updateDirectoryPath	path to the update directory where init was ran
+// distributionState	state of the distribution
 func checkDistributionExists(distributionPath, distributionState string) {
 	exists, err := util.IsFileExists(distributionPath)
 	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while reading '%s' distribution at '%s' ",
@@ -328,6 +335,8 @@ func checkDistributionExists(distributionPath, distributionState string) {
 }
 
 // This function returns the update name which will be used when creating the update zip.
+// updateDescriptor	pointer of formed updateDescriptor struct
+// updateNamePrefix	prefix of the update name
 func getUpdateName(updateDescriptor *util.UpdateDescriptor, updateNamePrefix string) string {
 	// Read the corresponding details from the struct
 	platformVersion := updateDescriptor.Platform_version
@@ -337,6 +346,7 @@ func getUpdateName(updateDescriptor *util.UpdateDescriptor, updateNamePrefix str
 }
 
 // This function marshals the update-descriptor.yaml file.
+// updateDescriptor	pointer of updateDescriptor to be marshaled
 func marshalUpdateDescriptor(updateDescriptor *util.UpdateDescriptor) ([]byte, error) {
 	data, err := yaml.Marshal(&updateDescriptor)
 	if err != nil {
@@ -345,7 +355,8 @@ func marshalUpdateDescriptor(updateDescriptor *util.UpdateDescriptor) ([]byte, e
 	return data, nil
 }
 
-// This function returns a zip.ReadCloser for the given zip file.
+// This function returns a zip.ReadCloser for the given distribution.
+// distributionPath	path to the distribution
 func getZipReader(distributionPath string) *zip.ReadCloser {
 	zipReader, err := zip.OpenReader(distributionPath)
 	if err != nil {
@@ -362,6 +373,8 @@ func createNewNode() node {
 }
 
 // This function reads the zip file in the given location and returns the root node of the formed tree.
+// zipReader	zip.ReadCloser pointer used for reading the distribution
+// rootNode	node pointer which is to be used as the root node of the tree of nodes
 func readZip(zipReader *zip.ReadCloser, rootNode *node) (node, error) {
 	// Iterate through each file in the zip file
 	for _, file := range zipReader.Reader.File {
@@ -390,6 +403,10 @@ func readZip(zipReader *zip.ReadCloser, rootNode *node) (node, error) {
 }
 
 // This function adds a new node to given root node.
+// root	pointer of the root node which current node is to be added as a child
+// path	slice formed from relative path of the selected zipped file
+// isDir	type of the selected zipped file
+// md5Hash	md5hash of the selected zip file
 func AddToRootNode(root *node, path []string, isDir bool, md5Hash string) {
 	logger.Trace("Checking: %s : %s", path[0], path)
 
@@ -432,6 +449,7 @@ func AddToRootNode(root *node, path []string, isDir bool, md5Hash string) {
 }
 
 // This function returns the distribution name of the given zip file and sets it as viper config.
+// distributionPath	path to the distribution
 func getDistributionName(distributionPath string) string {
 	paths := strings.Split(distributionPath, constant.PATH_SEPARATOR)
 	distributionName := strings.TrimSuffix(paths[len(paths)-1], ".zip")
@@ -441,6 +459,8 @@ func getDistributionName(distributionPath string) string {
 }
 
 // This function identifies modified files between given two distributions.
+// root	root node of the tree of nodes
+// fileName
 func findModifiedFiles(root *node, fileName string, md5Hash string, relativePath string,
 	modifiedFiles map[string]struct{}) {
 	logger.Trace(fmt.Sprintf("Checking %s file for modifications in %s relative path", fileName,
@@ -459,7 +479,7 @@ func findModifiedFiles(root *node, fileName string, md5Hash string, relativePath
 }
 
 // This function identifies removed and newly added files between given two distributions.
-func findRemovedOrNewlyAddedFiles(root *node, fileName string, relativePath string, matches map[string]struct{}) {
+func findNonExistentFiles(root *node, fileName string, relativePath string, matches map[string]struct{}) {
 	logger.Trace(fmt.Sprintf("Checking %s file to identify it as a removed or newly added in %s relative path",
 		fileName, relativePath))
 	// Check whether the given file exists in the given relative path in any child node
@@ -503,7 +523,7 @@ func nodeExists(rootNode *node, path []string, isDir bool) (bool, *node) {
 }
 
 // This function updates the updateDescriptor with the added, removed and modified files.
-func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]struct{},
+func modifyUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]struct{},
 	updateDescriptor *util.UpdateDescriptor) {
 	logger.Debug(fmt.Sprintf("Altering UpdateDescriptor started"))
 	featurePrefix := "wso2/lib/features/"
