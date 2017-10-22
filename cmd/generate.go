@@ -195,8 +195,8 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 			findRemovedOrNewlyAddedFiles(&rootNodeOfUpdatedDistribution, fileName, relativePath, removedFiles)
 		}
 	}
-	logger.Debug(fmt.Sprintf("Finding modified and removed files between the given two %s distributions completed " +
-		"successfully",distributionName))
+	logger.Debug(fmt.Sprintf("Finding modified and removed files between the given two %s distributions completed "+
+		"successfully", distributionName))
 
 	// Identifying newly added files from update
 	// Reading previous distribution zip file
@@ -210,7 +210,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	logger.Info(fmt.Sprintf("Reading updated %s. Please wait...", distributionName))
 
 	// Iterating through updated pack to identify the newly added files
-	logger.Debug(fmt.Sprintf("Finding newly added files between updated and previous released %s",distributionName))
+	logger.Debug(fmt.Sprintf("Finding newly added files between updated and previous released %s", distributionName))
 	for _, file := range updatedDistributionReader.Reader.File {
 		// MD5 of the file is not calculated as we are filtering only for added files
 		// Name of the file
@@ -231,8 +231,8 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		}
 		//zipReader.Close() // if this is causing panic we need to close it here
 	}
-	logger.Debug(fmt.Sprintf("Finding newly added files between the given two %s distributions completed " +
-		"successfully",distributionName))
+	logger.Debug(fmt.Sprintf("Finding newly added files between the given two %s distributions completed "+
+		"successfully", distributionName))
 
 	logger.Info("Modified Files : ", modifiedFiles)
 	logger.Debug("Number of modified files : ", len(modifiedFiles))
@@ -443,22 +443,16 @@ func getDistributionName(distributionPath string) string {
 // This function identifies modified files between given two distributions.
 func findModifiedFiles(root *node, fileName string, md5Hash string, relativePath string,
 	modifiedFiles map[string]struct{}) {
-	logger.Trace(fmt.Sprintf("Checking %s file for modifications in %s relative path started", fileName,
+	logger.Trace(fmt.Sprintf("Checking %s file for modifications in %s relative path", fileName,
 		relativePath))
-	// Check whether the given fileName is in the child Nodes
-	childNode, found := root.childNodes[fileName]
-	if found && childNode.relativePath == relativePath && childNode.md5Hash != md5Hash {
+	// Check whether the given file exists in the given relative path in any child node
+	found, node := pathExists(root, relativePath, false)
+	if found && node.md5Hash != md5Hash {
 		logger.Trace(fmt.Sprintf("The file %s exists in the both distributions with mismatched md5, so the file is "+
 			"being modified", fileName))
 
-		modifiedFiles[childNode.relativePath] = struct{}{}
+		modifiedFiles[node.relativePath] = struct{}{}
 		logger.Trace(fmt.Sprintf("Modified file %s added to the modifiedFiles map successfully", fileName))
-	}
-	// Regardless of whether the file is found or not, iterate through all sub directories to find all matches
-	for _, childNode := range root.childNodes {
-		if childNode.isDir {
-			findModifiedFiles(childNode, fileName, md5Hash, relativePath, modifiedFiles)
-		}
 	}
 	logger.Trace(fmt.Sprintf("Checking %s file exists in %s relative path for modifications completed", fileName,
 		relativePath))
@@ -469,7 +463,7 @@ func findRemovedOrNewlyAddedFiles(root *node, fileName string, relativePath stri
 	logger.Trace(fmt.Sprintf("Checking %s file to identify it as a removed or newly added in %s relative path",
 		fileName, relativePath))
 	// Check whether the given file exists in the given relative path in any child node
-	found := pathExists(root, relativePath, false)
+	found, _ := pathExists(root, relativePath, false)
 
 	if !found {
 		logger.Trace(fmt.Sprintf("The %s file not found in the given relative path %s, so it can either be"+
@@ -483,12 +477,12 @@ func findRemovedOrNewlyAddedFiles(root *node, fileName string, relativePath stri
 
 // This function is a helper function which calls nodeExists() and checks whether a node exists in the given path and
 // the type(file/dir) is correct.
-func pathExists(rootNode *node, relativePath string, isDir bool) bool {
+func pathExists(rootNode *node, relativePath string, isDir bool) (bool, *node) {
 	return nodeExists(rootNode, strings.Split(relativePath, "/"), isDir)
 }
 
 // This function checks whether a node exists in the given path and the type(file/dir) is correct.
-func nodeExists(rootNode *node, path []string, isDir bool) bool {
+func nodeExists(rootNode *node, path []string, isDir bool) (bool, *node) {
 	logger.Trace(fmt.Sprintf("All: %v", rootNode.childNodes))
 	logger.Trace(fmt.Sprintf("Checking: %s", path[0]))
 	childNode, found := rootNode.childNodes[path[0]]
@@ -500,12 +494,12 @@ func nodeExists(rootNode *node, path []string, isDir bool) bool {
 		if len(path) > 1 {
 			return nodeExists(childNode, path[1:], isDir)
 		} else {
-			return childNode.isDir == isDir
+			return childNode.isDir == isDir, childNode
 		}
 	}
-	// If the path element is not found, return false
+	// If the path element is not found, return false and nil for node
 	logger.Trace(fmt.Sprintf("%s NOT found", path[0]))
-	return false
+	return false, nil
 }
 
 // This function updates the updateDescriptor with the added, removed and modified files.
