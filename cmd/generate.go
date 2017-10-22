@@ -53,9 +53,9 @@ var (
 	This command will generate a new update zip by comparing the diff between the updated distribution and the
 	previous released distribution. It is required to run wum-uc init first and pass update directory location
 	provided for init as the third input.
-	<update_dist_loc>	the location of the updated distribution
-	<prev_dist_loc>		the location of the previous distribution
-	<update_dir>		the location of the update directory where init was ran
+	<update_dist_loc>	path to the updated distribution
+	<prev_dist_loc>		path to the previous distribution
+	<update_dir>		path to the update directory where init was ran
 	`)
 )
 
@@ -178,7 +178,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 
 		// Name of the file
 		fileName := file.Name
-		logger.Trace(fmt.Sprintf("file.Name: %s and md5", fileName, md5Hash))
+		logger.Trace(fmt.Sprintf("file.Name: %s and md5: %s", fileName, md5Hash))
 
 		if strings.HasSuffix(fileName, "/") {
 			fileName = strings.TrimSuffix(fileName, "/")
@@ -192,11 +192,11 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 			// Finding modified files
 			findModifiedFiles(&rootNodeOfUpdatedDistribution, fileName, md5Hash, relativePath, modifiedFiles)
 			// Finding removed files
-			findRemovedOrNewlyAddedFiles(&rootNodeOfUpdatedDistribution, fileName, relativePath, removedFiles)
+			findNonExistentFiles(&rootNodeOfUpdatedDistribution, fileName, relativePath, removedFiles)
 		}
 	}
-	logger.Debug(fmt.Sprintf("Finding modified and removed files between the given two %s distributions completed " +
-		"successfully",distributionName))
+	logger.Debug(fmt.Sprintf("Finding modified and removed files between the given two %s distributions completed "+
+		"successfully", distributionName))
 
 	// Identifying newly added files from update
 	// Reading previous distribution zip file
@@ -210,7 +210,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	logger.Info(fmt.Sprintf("Reading updated %s. Please wait...", distributionName))
 
 	// Iterating through updated pack to identify the newly added files
-	logger.Debug(fmt.Sprintf("Finding newly added files between updated and previous released %s",distributionName))
+	logger.Debug(fmt.Sprintf("Finding newly added files between updated and previous released %s", distributionName))
 	for _, file := range updatedDistributionReader.Reader.File {
 		// MD5 of the file is not calculated as we are filtering only for added files
 		// Name of the file
@@ -227,12 +227,12 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		fileName = fileNameStrings[len(fileNameStrings)-1]
 		if relativePath != "" && !file.FileInfo().IsDir() {
 			// Finding newly added files
-			findRemovedOrNewlyAddedFiles(&rootNodeOfPreviousDistribution, fileName, relativePath, addedFiles)
+			findNonExistentFiles(&rootNodeOfPreviousDistribution, fileName, relativePath, addedFiles)
 		}
 		//zipReader.Close() // if this is causing panic we need to close it here
 	}
-	logger.Debug(fmt.Sprintf("Finding newly added files between the given two %s distributions completed " +
-		"successfully",distributionName))
+	logger.Debug(fmt.Sprintf("Finding newly added files between the given two %s distributions completed "+
+		"successfully", distributionName))
 
 	logger.Info("Modified Files : ", modifiedFiles)
 	logger.Debug("Number of modified files : ", len(modifiedFiles))
@@ -242,7 +242,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	logger.Debug("Number of added files : ", len(addedFiles))
 
 	// Update added,removed and modified files in the updateDescriptor struct
-	alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles, updateDescriptor)
+	modifyUpdateDescriptor(modifiedFiles, removedFiles, addedFiles, updateDescriptor)
 
 	// Copy resource files in the update location to a temp directory
 	copyResourceFilesToTemp()
@@ -257,7 +257,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 
 	// Extract newly added and modified files from the updated zip and copy them to the temp directory for
 	// creating the update zip.
-	logger.Debug(fmt.Sprintf("Begin extracting newly added and modified files from the updated zip"))
+	logger.Debug(fmt.Sprintf("Extracting newly added and modified files from the updated zip"))
 	for _, file := range updatedDistributionReader.Reader.File {
 		var fileName string
 		if strings.Contains(file.Name, "/") {
@@ -270,35 +270,36 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		_, found := addedFiles[fileName]
 		if found {
 			logger.Debug(fmt.Sprintf("Copying newly added file %s to temp location", fileName))
-			copyAlteredFileToTempDir(file, fileName)
+			copyFileToTempDir(file, fileName)
 		}
 		// Extracting modified files from the updated distribution
 		_, found = modifiedFiles[fileName]
 		if found {
-			logger.Debug(fmt.Sprintf("Copying modifite file %s to temp location", fileName))
-			copyAlteredFileToTempDir(file, fileName)
+			logger.Debug(fmt.Sprintf("Copying modified file %s to temp location", fileName))
+			copyFileToTempDir(file, fileName)
 		}
 	}
 	// Closing distribution readers
 	previousDistributionReader.Close()
 	updatedDistributionReader.Close()
 
-	logger.Debug(fmt.Sprintf("Copying newly added and modified files from updated zip to temp location completed " +
-		"successfully"))
+	logger.Debug(fmt.Sprintf("Copying newly added and modified files from updated distribution to temp location " +
+		"completed successfully"))
 
 	// Create the update zip
 	logger.Debug(fmt.Sprintf("Creating the update zip"))
-	targetDirectory := path.Join(constant.TEMP_DIR, updateName)
-	// Make targetDirectory path compatible with windows OS
-	targetDirectory = strings.Replace(targetDirectory, "/", constant.PATH_SEPARATOR, -2)
+	resourcesDirectory := path.Join(constant.TEMP_DIR, updateName)
+	// Make resourcesDirectory path compatible with windows OS
+	resourcesDirectory = strings.Replace(resourcesDirectory, "/", constant.PATH_SEPARATOR, -2)
 	updateZipName := updateName + ".zip"
-	err = archiver.Zip.Make(path.Join(updateRoot, updateZipName), []string{targetDirectory})
+	err = archiver.Zip.Make(path.Join(updateRoot, updateZipName), []string{resourcesDirectory})
 	util.HandleErrorAndExit(err)
 	logger.Debug(fmt.Sprintf("Creating the update zip completed successfully"))
 
 	// Delete the temp directory
 	util.CleanUpDirectory(path.Join(constant.TEMP_DIR))
 	logger.Debug(fmt.Sprintf("Temp directory deleted successfully"))
+	logger.Info(fmt.Sprintf("Update for %s created successfully",distributionName))
 }
 
 //This function checks for the availability of the given file in the given update directory location.
@@ -345,7 +346,7 @@ func marshalUpdateDescriptor(updateDescriptor *util.UpdateDescriptor) ([]byte, e
 	return data, nil
 }
 
-// This function returns a zip.ReadCloser for the given zip file.
+// This function returns a zip.ReadCloser for the given distribution.
 func getZipReader(distributionPath string) *zip.ReadCloser {
 	zipReader, err := zip.OpenReader(distributionPath)
 	if err != nil {
@@ -384,13 +385,13 @@ func readZip(zipReader *zip.ReadCloser, rootNode *node) (node, error) {
 		relativePath := util.GetRelativePath(file)
 
 		// Add the file to root node
-		AddToRootNode(rootNode, strings.Split(relativePath, "/"), file.FileInfo().IsDir(), md5Hash)
+		addToRootNode(rootNode, strings.Split(relativePath, "/"), file.FileInfo().IsDir(), md5Hash)
 	}
 	return *rootNode, nil
 }
 
 // This function adds a new node to given root node.
-func AddToRootNode(root *node, path []string, isDir bool, md5Hash string) {
+func addToRootNode(root *node, path []string, isDir bool, md5Hash string) {
 	logger.Trace("Checking: %s : %s", path[0], path)
 
 	// If the current path element is the last element, add it as a new node.
@@ -427,7 +428,7 @@ func AddToRootNode(root *node, path []string, isDir bool, md5Hash string) {
 			node = &newNode
 		}
 		// Recursively call the function for the rest of the path elements
-		AddToRootNode(node, path[1:], isDir, md5Hash)
+		addToRootNode(node, path[1:], isDir, md5Hash)
 	}
 }
 
@@ -443,33 +444,27 @@ func getDistributionName(distributionPath string) string {
 // This function identifies modified files between given two distributions.
 func findModifiedFiles(root *node, fileName string, md5Hash string, relativePath string,
 	modifiedFiles map[string]struct{}) {
-	logger.Trace(fmt.Sprintf("Checking %s file for modifications in %s relative path started", fileName,
+	logger.Trace(fmt.Sprintf("Checking %s file for modifications in %s relative path", fileName,
 		relativePath))
-	// Check whether the given fileName is in the child Nodes
-	childNode, found := root.childNodes[fileName]
-	if found && childNode.relativePath == relativePath && childNode.md5Hash != md5Hash {
+	// Check whether the given file exists in the given relative path in any child node
+	found, node := pathExists(root, relativePath, false)
+	if found && node.md5Hash != md5Hash {
 		logger.Trace(fmt.Sprintf("The file %s exists in the both distributions with mismatched md5, so the file is "+
 			"being modified", fileName))
 
-		modifiedFiles[childNode.relativePath] = struct{}{}
+		modifiedFiles[node.relativePath] = struct{}{}
 		logger.Trace(fmt.Sprintf("Modified file %s added to the modifiedFiles map successfully", fileName))
 	}
-	// Regardless of whether the file is found or not, iterate through all sub directories to find all matches
-	for _, childNode := range root.childNodes {
-		if childNode.isDir {
-			findModifiedFiles(childNode, fileName, md5Hash, relativePath, modifiedFiles)
-		}
-	}
-	logger.Trace(fmt.Sprintf("Checking %s file exists in %s relative path for modifications completed", fileName,
-		relativePath))
+	logger.Trace(fmt.Sprintf("Checking %s file exists in %s relative path for modifications completed successfuly",
+		fileName, relativePath))
 }
 
 // This function identifies removed and newly added files between given two distributions.
-func findRemovedOrNewlyAddedFiles(root *node, fileName string, relativePath string, matches map[string]struct{}) {
+func findNonExistentFiles(root *node, fileName string, relativePath string, matches map[string]struct{}) {
 	logger.Trace(fmt.Sprintf("Checking %s file to identify it as a removed or newly added in %s relative path",
 		fileName, relativePath))
 	// Check whether the given file exists in the given relative path in any child node
-	found := pathExists(root, relativePath, false)
+	found, _ := pathExists(root, relativePath, false)
 
 	if !found {
 		logger.Trace(fmt.Sprintf("The %s file not found in the given relative path %s, so it can either be"+
@@ -483,12 +478,12 @@ func findRemovedOrNewlyAddedFiles(root *node, fileName string, relativePath stri
 
 // This function is a helper function which calls nodeExists() and checks whether a node exists in the given path and
 // the type(file/dir) is correct.
-func pathExists(rootNode *node, relativePath string, isDir bool) bool {
+func pathExists(rootNode *node, relativePath string, isDir bool) (bool, *node) {
 	return nodeExists(rootNode, strings.Split(relativePath, "/"), isDir)
 }
 
 // This function checks whether a node exists in the given path and the type(file/dir) is correct.
-func nodeExists(rootNode *node, path []string, isDir bool) bool {
+func nodeExists(rootNode *node, path []string, isDir bool) (bool, *node) {
 	logger.Trace(fmt.Sprintf("All: %v", rootNode.childNodes))
 	logger.Trace(fmt.Sprintf("Checking: %s", path[0]))
 	childNode, found := rootNode.childNodes[path[0]]
@@ -500,22 +495,22 @@ func nodeExists(rootNode *node, path []string, isDir bool) bool {
 		if len(path) > 1 {
 			return nodeExists(childNode, path[1:], isDir)
 		} else {
-			return childNode.isDir == isDir
+			return childNode.isDir == isDir, childNode
 		}
 	}
-	// If the path element is not found, return false
+	// If the path element is not found, return false and nil for node
 	logger.Trace(fmt.Sprintf("%s NOT found", path[0]))
-	return false
+	return false, nil
 }
 
 // This function updates the updateDescriptor with the added, removed and modified files.
-func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]struct{},
+func modifyUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]struct{},
 	updateDescriptor *util.UpdateDescriptor) {
-	logger.Debug(fmt.Sprintf("Altering UpdateDescriptor started"))
+	logger.Debug(fmt.Sprintf("Modifying UpdateDescriptor"))
 	featurePrefix := "wso2/lib/features/"
 
 	// Appending modified files
-	logger.Debug(fmt.Sprintf("Appending modified files to the UpdateDescriptor started"))
+	logger.Debug(fmt.Sprintf("Appending modified files to the UpdateDescriptor"))
 	for modifiedFile, _ := range modifiedFiles {
 		updateDescriptor.File_changes.Modified_files = append(updateDescriptor.File_changes.Modified_files,
 			modifiedFile)
@@ -523,7 +518,7 @@ func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]st
 	logger.Debug(fmt.Sprintf("Appending modified files to the UpdateDescriptor finished successfully"))
 
 	// Appending removed files
-	logger.Debug(fmt.Sprintf("Appending removed files to the UpdateDescriptor started"))
+	logger.Debug(fmt.Sprintf("Appending removed files to the UpdateDescriptor"))
 	// map[string]struct{} is used here as it is trival to search for an element in a slice
 	removedFeatureNames := make(map[string]struct{})
 	for removedFile, _ := range removedFiles {
@@ -553,22 +548,22 @@ func alterUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]st
 	logger.Debug(fmt.Sprintf("Appending removed files to the UpdateDescriptor finished successfully"))
 
 	// Appending newly added files
-	logger.Debug(fmt.Sprintf("Appending newly added files to the UpdateDescriptor started"))
+	logger.Debug(fmt.Sprintf("Appending newly added files to the UpdateDescriptor"))
 	for addedFile, _ := range addedFiles {
 		updateDescriptor.File_changes.Added_files = append(updateDescriptor.File_changes.Added_files, addedFile)
 	}
 	logger.Debug(fmt.Sprintf("Appending newly added files to the UpdateDescriptor finished successfully"))
-	logger.Debug(fmt.Sprintf("Altering UpdateDescriptor finished successfully"))
+	logger.Debug(fmt.Sprintf("Modifying UpdateDescriptor finished successfully"))
 }
 
 // This function gets the resource files that exists in given update location and copies them to a temp location.
 func copyResourceFilesToTemp() {
-	logger.Debug(fmt.Sprintf("Begin copying mandatory files of an update to temp location"))
+	logger.Debug(fmt.Sprintf("Copying mandatory files of an update to temp location"))
 	// Obtain map of files to be copied to the temp directory with file name as the key and boolean specifying
 	// mandatory or optional as the value
 	resourceFiles := getResourceFiles()
 	err := copyResourceFilesToTempDir(resourceFiles)
-	util.HandleErrorAndExit(err, errors.New("Error occurred while copying resource files."))
+	util.HandleErrorAndExit(err, errors.New("error occurred while copying resource files."))
 	logger.Debug(fmt.Sprintf("Copying mandatory files of an update to temp location completed successfully"))
 }
 
@@ -591,12 +586,11 @@ func getResourceFiles() map[string]bool {
 func copyResourceFilesToTempDir(resourceFilesMap map[string]bool) error {
 	// Create the directories if they are not available
 	updateName := viper.GetString(constant.UPDATE_NAME)
+	updateRoot := viper.GetString(constant.UPDATE_ROOT)
 	destination := path.Join(constant.TEMP_DIR, updateName, constant.CARBON_HOME)
 	util.CreateDirectory(destination)
 	// Iterate through all resource files
 	for filename, isMandatory := range resourceFilesMap {
-		updateRoot := viper.GetString(constant.UPDATE_ROOT)
-		updateName := viper.GetString(constant.UPDATE_NAME)
 		source := path.Join(updateRoot, filename)
 		destination := path.Join(constant.TEMP_DIR, updateName, filename)
 		// Copy the file
@@ -639,8 +633,8 @@ func saveUpdateDescriptor(updateDescriptorFilename string, data []byte) error {
 	return nil
 }
 
-// This function copies modified and newly added files to the temp location for creating the update zip.
-func copyAlteredFileToTempDir(file *zip.File, fileName string) {
+// This function copies the given file to the temp location for creating the update zip.
+func copyFileToTempDir(file *zip.File, fileName string) {
 	// Get the update name from viper config
 	updateName := viper.GetString(constant.UPDATE_NAME)
 	destination := path.Join(constant.TEMP_DIR, updateName, constant.CARBON_HOME, fileName)
@@ -650,7 +644,7 @@ func copyAlteredFileToTempDir(file *zip.File, fileName string) {
 	// Need to create the relevant parent directories in the destination before writing to the file
 	parentDirectory := filepath.Dir(destination)
 	err := util.CreateDirectory(parentDirectory)
-	util.HandleErrorAndExit(err, fmt.Sprint("Error occured when creating the (%v) directory", parentDirectory))
+	util.HandleErrorAndExit(err, fmt.Sprintf("Error occured when creating the %s directory", parentDirectory))
 	// Open new file for writing only
 	newFile, err := os.OpenFile(destination, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
