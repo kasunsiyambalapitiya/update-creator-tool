@@ -158,10 +158,11 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	modifiedFiles := make(map[string]struct{})
 	removedFiles := make(map[string]struct{})
 	addedFiles := make(map[string]struct{})
+	removedDirectories := make(map[string]struct{})
 
-	// Iterate through each file to identify modified and removed files from the update
-	logger.Debug(fmt.Sprintf("Finding modified and removed files between updated and previous released %s",
-		distributionName))
+	// Iterate through each file to identify modified, removed files and removed directories from the update
+	logger.Debug(fmt.Sprintf("Finding modified, removed files and removed directories between updated and "+
+		"previously released %s", distributionName))
 	for _, file := range previousDistributionReader.Reader.File {
 		// Open the file for calculating MD5
 		zippedFile, err := file.Open()
@@ -180,23 +181,31 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		fileName := file.Name
 		logger.Trace(fmt.Sprintf("file.Name: %s and md5: %s", fileName, md5Hash))
 
-		if strings.HasSuffix(fileName, "/") {
-			fileName = strings.TrimSuffix(fileName, "/")
-		}
 		// Get the relative location of the file
 		relativePath := util.GetRelativePath(file)
 
 		fileNameStrings := strings.Split(fileName, "/")
-		fileName = fileNameStrings[len(fileNameStrings)-1]
-		if relativePath != "" && !file.FileInfo().IsDir() {
-			// Finding modified files
-			findModifiedFiles(&rootNodeOfUpdatedDistribution, fileName, md5Hash, relativePath, modifiedFiles)
-			// Finding removed files
-			findNonExistentFiles(&rootNodeOfUpdatedDistribution, fileName, relativePath, removedFiles)
+		if strings.HasSuffix(fileName, "/") {
+			// Extracting fileName if it is a directory
+			fileName = fileNameStrings[len(fileNameStrings)-2]
+		} else {
+			// Extracting fileName if it is a file
+			fileName = fileNameStrings[len(fileNameStrings)-1]
+		}
+		if relativePath != "" {
+			if file.FileInfo().IsDir() {
+				// Finding removed directories
+				findRemovedDirectories(&rootNodeOfUpdatedDistribution, fileName, relativePath, removedDirectories)
+			} else {
+				// Finding modified files
+				findModifiedFiles(&rootNodeOfUpdatedDistribution, fileName, md5Hash, relativePath, modifiedFiles)
+				// Finding removed files
+				findRemovedFiles(&rootNodeOfUpdatedDistribution, fileName, relativePath, removedDirectories, removedFiles)
+			}
 		}
 	}
-	logger.Debug(fmt.Sprintf("Finding modified and removed files between the given two %s distributions completed "+
-		"successfully", distributionName))
+	logger.Debug(fmt.Sprintf("Finding modified, removed files and removed directories between updated and previuosly"+
+		" released %s completed successfully", distributionName))
 
 	// Identifying newly added files from update
 	// Reading previous distribution zip file
@@ -227,7 +236,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		fileName = fileNameStrings[len(fileNameStrings)-1]
 		if relativePath != "" && !file.FileInfo().IsDir() {
 			// Finding newly added files
-			findNonExistentFiles(&rootNodeOfPreviousDistribution, fileName, relativePath, addedFiles)
+			findNewlyAddedFiles(&rootNodeOfPreviousDistribution, fileName, relativePath, addedFiles)
 		}
 		//zipReader.Close() // if this is causing panic we need to close it here
 	}
@@ -242,7 +251,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	logger.Debug("Number of added files : ", len(addedFiles))
 
 	// Update added,removed and modified files in the updateDescriptor struct
-	modifyUpdateDescriptor(modifiedFiles, removedFiles, addedFiles, updateDescriptor)
+	modifyUpdateDescriptor(modifiedFiles, removedFiles, addedFiles, removedDirectories, updateDescriptor)
 
 	// Copy resource files in the update location to a temp directory
 	copyResourceFilesToTemp()
@@ -298,8 +307,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 
 	// Delete the temp directory
 	util.CleanUpDirectory(path.Join(constant.TEMP_DIR))
-	logger.Debug(fmt.Sprintf("Temp directory deleted successfully"))
-	logger.Info(fmt.Sprintf("Update for %s created successfully",distributionName))
+	logger.Info(fmt.Sprintf("Update for %s created successfully", distributionName))
 }
 
 //This function checks for the availability of the given file in the given update directory location.
@@ -459,20 +467,93 @@ func findModifiedFiles(root *node, fileName string, md5Hash string, relativePath
 		fileName, relativePath))
 }
 
-// This function identifies removed and newly added files between given two distributions.
-func findNonExistentFiles(root *node, fileName string, relativePath string, matches map[string]struct{}) {
-	logger.Trace(fmt.Sprintf("Checking %s file to identify it as a removed or newly added in %s relative path",
+// This function identifies removed directory paths between given two distributions.
+func findRemovedDirectories(root *node, fileName string, relativePath string, removedDirectoryPaths map[string]struct{}) {
+	logger.Trace(fmt.Sprintf("Checking the existance of %s directory in %s relative path", fileName, relativePath))
+	// Check whether the given directory exists in the given relative path in any child node
+	found, _ := pathExists(root, relativePath, true)
+
+	if !found {
+		logger.Trace(fmt.Sprintf("The %s directory not found in the given %s relative path", fileName, relativePath))
+		parentDirExits := false
+		// Check whether its parent directory has already been added for removal
+		if len(removedDirectoryPaths) != 0 {
+			for parentDirectory, _ := range removedDirectoryPaths {
+				if strings.HasPrefix(relativePath, parentDirectory) {
+					parentDirExits = true
+					logger.Trace(fmt.Sprintf("The parent directory of %s directory has already been added for "+
+						"removal", relativePath))
+				}
+			}
+			// Add the directory to removedDirectoryPaths map if its parent directory has not been listed for removal
+			if !parentDirExits {
+				logger.Trace(fmt.Sprintf("The parent directory of %s directory has not been added for removal",
+					relativePath))
+				removedDirectoryPaths[relativePath] = struct{}{}
+				logger.Trace(fmt.Sprintf("Removed %s directory added to the removedDirectoryPaths map successfully",
+					relativePath))
+			}
+		} else {
+			logger.Trace(fmt.Sprintf("The %s directory not found in the given %s relative path, its been removed "+
+				"from the update", fileName, relativePath))
+			removedDirectoryPaths[relativePath] = struct{}{}
+			logger.Trace(fmt.Sprintf("Removed %s directory added to the removedDirectoryPaths map successfully",
+				relativePath))
+		}
+	} else {
+		logger.Trace(fmt.Sprintf("The %s directory found in the given relative path %s, it is not a removed "+
+			"directory", fileName, relativePath))
+	}
+}
+
+// This function identifies removed files between given two distributions in which their parent directories are not
+// listed for removal.
+func findRemovedFiles(root *node, fileName string, relativePath string, removedDirectoryPaths map[string]struct{}, removedFiles map[string]struct{}) {
+	logger.Trace(fmt.Sprintf("Checking %s file in %s relative path to identify it as a removed file",
 		fileName, relativePath))
 	// Check whether the given file exists in the given relative path in any child node
 	found, _ := pathExists(root, relativePath, false)
 
 	if !found {
-		logger.Trace(fmt.Sprintf("The %s file not found in the given relative path %s, so it can either be"+
-			"a removed or newly added file", fileName, relativePath))
-		matches[relativePath] = struct{}{}
+		logger.Trace(fmt.Sprintf("The %s file not found in the given %s relative path", fileName, relativePath))
+		parentDirExits := false
+		// Check whether its parent directory has already been added for removal
+		if len(removedDirectoryPaths) != 0 {
+			for parentDirectory, _ := range removedDirectoryPaths {
+				if strings.HasPrefix(relativePath, parentDirectory) {
+					parentDirExits = true
+					logger.Trace(fmt.Sprintf("The parent directory of %s file has already been added for removal",
+						relativePath))
+				}
+			}
+		}
+		// Add the file to removedFiles map if its parent directory has not been listed for removal
+		if !parentDirExits {
+			logger.Trace(fmt.Sprintf("The parent directory of %s has not been added for removal", relativePath))
+			removedFiles[relativePath] = struct{}{}
+			logger.Trace(fmt.Sprintf("Removed %s file added to the removedFiles map successfully", relativePath))
+		}
 	} else {
-		logger.Trace(fmt.Sprintf("The %s file found in the given relative path %s, so it is neither a removed or "+
-			"newly added file", fileName, relativePath))
+		logger.Trace(fmt.Sprintf("The %s file found in the given relative path %s, it is not a removed file",
+			fileName, relativePath))
+	}
+}
+
+// This function identifies newly added files between given two distributions.
+func findNewlyAddedFiles(root *node, fileName string, relativePath string, addedFiles map[string]struct{}) {
+	logger.Trace(fmt.Sprintf("Checking %s file to identify it as a newly added in %s relative path",
+		fileName, relativePath))
+	// Check whether the given file exists in the given relative path in any child node
+	found, _ := pathExists(root, relativePath, false)
+
+	if !found {
+		logger.Trace(fmt.Sprintf("The %s file not found in the given relative path %s, so it is a newly added file",
+			fileName, relativePath))
+		addedFiles[relativePath] = struct{}{}
+		logger.Trace(fmt.Sprintf("Newly added %s file added to the addedFiles map successfully", relativePath))
+	} else {
+		logger.Trace(fmt.Sprintf("The %s file found in the given relative path %s, it is not a newly added file",
+			fileName, relativePath))
 	}
 }
 
@@ -504,10 +585,9 @@ func nodeExists(rootNode *node, path []string, isDir bool) (bool, *node) {
 }
 
 // This function updates the updateDescriptor with the added, removed and modified files.
-func modifyUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]struct{},
+func modifyUpdateDescriptor(modifiedFiles, removedFiles, addedFiles, removedDirectories map[string]struct{},
 	updateDescriptor *util.UpdateDescriptor) {
 	logger.Debug(fmt.Sprintf("Modifying UpdateDescriptor"))
-	featurePrefix := "wso2/lib/features/"
 
 	// Appending modified files
 	logger.Debug(fmt.Sprintf("Appending modified files to the UpdateDescriptor"))
@@ -517,35 +597,19 @@ func modifyUpdateDescriptor(modifiedFiles, removedFiles, addedFiles map[string]s
 	}
 	logger.Debug(fmt.Sprintf("Appending modified files to the UpdateDescriptor finished successfully"))
 
-	// Appending removed files
-	logger.Debug(fmt.Sprintf("Appending removed files to the UpdateDescriptor"))
-	// map[string]struct{} is used here as it is trival to search for an element in a slice
-	removedFeatureNames := make(map[string]struct{})
-	for removedFile, _ := range removedFiles {
-		// Need to keep track of the features being removed as we only specify the relevant feature directories to be
-		// removed on update-descriptor.yaml, without mentioning the files and subdirectories in them
-		if strings.HasPrefix(removedFile, featurePrefix) {
-			// Extracting the relevant feature name to be saved in the map for future filtering
-			removedFeatureName := strings.SplitN(strings.TrimPrefix(removedFile, featurePrefix), "/", 2)[0]
-			_, found := removedFeatureNames[removedFeatureName]
-			// If the removedFeature's root directory which is in "wso2/lib/features/", is present in the map of
-			// removedFeatureNames, it's root directory has already been added for removal
-			if !found {
-				removedFeatureNames[removedFeatureName] = struct{}{}
-				// Adding only the root directory of the removed feature to the updateDescriptor for removal
-				updateDescriptor.File_changes.Removed_files = append(updateDescriptor.File_changes.Removed_files,
-					featurePrefix+removedFeatureName)
-				// ToDo ask shall we put "/" at the end of the directory to indicate it is a directory, this will not
-				// cause troubles with the node.relativePath as we are not using nodes or any files in updated
-				// distribution for removing files in the previous distribution. We just remove those in the previous
-				// distribution
-			}
-		} else {
-			updateDescriptor.File_changes.Removed_files = append(updateDescriptor.File_changes.Removed_files,
-				removedFile)
-		}
+	// Appending removed files and directories
+	logger.Debug(fmt.Sprintf("Appending removed files and directories to the UpdateDescriptor"))
+	// Appending removed directories
+	for removedDirectory, _ := range removedDirectories {
+		updateDescriptor.File_changes.Removed_files = append(updateDescriptor.File_changes.Removed_files,
+			removedDirectory)
 	}
-	logger.Debug(fmt.Sprintf("Appending removed files to the UpdateDescriptor finished successfully"))
+	// Appending removed files
+	for removedFile, _ := range removedFiles {
+		updateDescriptor.File_changes.Removed_files = append(updateDescriptor.File_changes.Removed_files,
+			removedFile)
+	}
+	logger.Debug(fmt.Sprintf("Appending removed files and directories to the UpdateDescriptor finished successfully"))
 
 	// Appending newly added files
 	logger.Debug(fmt.Sprintf("Appending newly added files to the UpdateDescriptor"))
