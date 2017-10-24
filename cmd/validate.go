@@ -171,19 +171,19 @@ func validateUpdateZip(updateZipPath, previousDistPath string) {
 
 	// RootNode is what we use as the root of the update zip when populating tree like structure
 	rootNodeOfUpdatezip := createNewNode()
-	rootNodeOfUpdatezip, err = readZip(updateZipReader, &rootNodeOfUpdatezip)
+	rootNodeOfUpdatezip, err = readZip(updateZipReader, rootNodeOfUpdatezip)
 	util.HandleErrorAndExit(err)
 	logger.Debug(fmt.Sprintf("Node tree for update zip created successfully"))
 	logger.Debug(fmt.Sprintf("Reading update zip completed successfully"))
 
 	// Check whether the added files exists in the update zip
 	logger.Info(fmt.Sprintf("Checking for existance of added files in the update zip"))
-	checkFileExistsInNodeTree(&rootNodeOfUpdatezip, prefixedAddedFiles, "update zip")
+	checkFileExistsInNodeTree(rootNodeOfUpdatezip, prefixedAddedFiles, "update zip")
 	logger.Info(fmt.Sprintf("Checking for existance of added files in the update zip completed successfully"))
 
 	// Check whether the modified files exists in the update zip
 	logger.Debug(fmt.Sprintf("Checking for existance of modified files in the update zip"))
-	checkFileExistsInNodeTree(&rootNodeOfUpdatezip, prefixedModifiedFiles, "update zip")
+	checkFileExistsInNodeTree(rootNodeOfUpdatezip, prefixedModifiedFiles, "update zip")
 	logger.Debug(fmt.Sprintf("Checking for existance of modified files in the update zip completed successfully"))
 
 	// Delete temp directory
@@ -191,14 +191,14 @@ func validateUpdateZip(updateZipPath, previousDistPath string) {
 
 	// RootNode is what we use as the root of the previous distribution when populating tree like structure
 	rootNodeOfPreviousDistribution := createNewNode()
-	rootNodeOfPreviousDistribution, err = readZip(previousDistributionReader, &rootNodeOfPreviousDistribution)
+	rootNodeOfPreviousDistribution, err = readZip(previousDistributionReader, rootNodeOfPreviousDistribution)
 	util.HandleErrorAndExit(err)
 	logger.Debug(fmt.Sprintf("Node tree for previous distribution created successfully"))
 	logger.Debug(fmt.Sprintf("Reading previous distribution completed successfully"))
 
 	// Check whether the removed files exists in the previous distribution
 	logger.Info(fmt.Sprintf("Checking for existance of removed files in the previous distribution"))
-	checkFileExistsInNodeTree(&rootNodeOfPreviousDistribution, &removedFiles, "previous distribution")
+	checkFileExistsInNodeTree(rootNodeOfPreviousDistribution, &removedFiles, "previous distribution")
 	logger.Info(fmt.Sprintf("Checking for existance of removed files in the previous distribution completed " +
 		"successfully"))
 	logger.Info(fmt.Sprintf("Validating the update zip completed successfully"))
@@ -234,7 +234,7 @@ func checkFileExistsInNodeTree(rootNode *node, files *[]string, archiveType stri
 	}
 }
 
-// This function adds the given prefix to file path
+// This function adds the given prefix to file path.
 func addPathPrefix(files *[]string) *[]string {
 	tempFiles := make([]string, 0, len(*files))
 	// Iterating through the files slice

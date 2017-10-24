@@ -148,13 +148,13 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 
 	// RootNode is what we use as the root of the updated distribution when we populate tree like structure
 	rootNodeOfUpdatedDistribution := createNewNode()
-	rootNodeOfUpdatedDistribution, err = readZip(updatedDistributionReader, &rootNodeOfUpdatedDistribution)
+	rootNodeOfUpdatedDistribution, err = readZip(updatedDistributionReader, rootNodeOfUpdatedDistribution)
 	util.HandleErrorAndExit(err)
 	logger.Debug(fmt.Sprintf("Node tree for updated %s created successfully", distributionName))
 	logger.Debug(fmt.Sprintf("Reading updated %s completed successfully", distributionName))
 	logger.Info(fmt.Sprintf("Reading previously released %s. Please wait...", distributionName))
 
-	// Maps for storing modified, changed and removed files from the update
+	// Maps for storing modified, changed, removed files and removed directories from the update
 	modifiedFiles := make(map[string]struct{})
 	removedFiles := make(map[string]struct{})
 	addedFiles := make(map[string]struct{})
@@ -181,26 +181,25 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		fileName := file.Name
 		logger.Trace(fmt.Sprintf("file.Name: %s and md5: %s", fileName, md5Hash))
 
+		if strings.HasSuffix(fileName, "/") {
+			fileName = strings.TrimSuffix(fileName, "/")
+		}
+
 		// Get the relative location of the file
 		relativePath := util.GetRelativePath(file)
 
 		fileNameStrings := strings.Split(fileName, "/")
-		if strings.HasSuffix(fileName, "/") {
-			// Extracting fileName if it is a directory
-			fileName = fileNameStrings[len(fileNameStrings)-2]
-		} else {
-			// Extracting fileName if it is a file
-			fileName = fileNameStrings[len(fileNameStrings)-1]
-		}
+		fileName = fileNameStrings[len(fileNameStrings)-1]
+
 		if relativePath != "" {
 			if file.FileInfo().IsDir() {
 				// Finding removed directories
-				findRemovedDirectories(&rootNodeOfUpdatedDistribution, fileName, relativePath, removedDirectories)
+				findRemovedDirectories(rootNodeOfUpdatedDistribution, fileName, relativePath, removedDirectories)
 			} else {
 				// Finding modified files
-				findModifiedFiles(&rootNodeOfUpdatedDistribution, fileName, md5Hash, relativePath, modifiedFiles)
+				findModifiedFiles(rootNodeOfUpdatedDistribution, fileName, md5Hash, relativePath, modifiedFiles)
 				// Finding removed files
-				findRemovedFiles(&rootNodeOfUpdatedDistribution, fileName, relativePath, removedDirectories, removedFiles)
+				findRemovedFiles(rootNodeOfUpdatedDistribution, fileName, relativePath, removedDirectories, removedFiles)
 			}
 		}
 	}
@@ -212,7 +211,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	logger.Info(fmt.Sprintf("Reading the previous %s. Please wait...", distributionName))
 	// RootNode is what we use as the root of the previous distribution when we populate tree like structure
 	rootNodeOfPreviousDistribution := createNewNode()
-	rootNodeOfPreviousDistribution, err = readZip(previousDistributionReader, &rootNodeOfPreviousDistribution)
+	rootNodeOfPreviousDistribution, err = readZip(previousDistributionReader, rootNodeOfPreviousDistribution)
 	util.HandleErrorAndExit(err)
 	logger.Debug(fmt.Sprintf("Node tree for previous released %s created successfully", distributionName))
 	logger.Debug(fmt.Sprintf("Reading previous released %s completed successfully", distributionName))
@@ -236,7 +235,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		fileName = fileNameStrings[len(fileNameStrings)-1]
 		if relativePath != "" && !file.FileInfo().IsDir() {
 			// Finding newly added files
-			findNewlyAddedFiles(&rootNodeOfPreviousDistribution, fileName, relativePath, addedFiles)
+			findNewlyAddedFiles(rootNodeOfPreviousDistribution, fileName, relativePath, addedFiles)
 		}
 		//zipReader.Close() // if this is causing panic we need to close it here
 	}
@@ -364,19 +363,19 @@ func getZipReader(distributionPath string) *zip.ReadCloser {
 }
 
 // This creates and returns a new node which has initialized its childNodes map.
-func createNewNode() node {
-	return node{
+func createNewNode() *node {
+	return &node{
 		childNodes: make(map[string]*node),
 	}
 }
 
 // This function reads the zip file in the given location and returns the root node of the formed tree.
-func readZip(zipReader *zip.ReadCloser, rootNode *node) (node, error) {
+func readZip(zipReader *zip.ReadCloser, rootNode *node) (*node, error) {
 	// Iterate through each file in the zip file
 	for _, file := range zipReader.Reader.File {
 		zippedFile, err := file.Open()
 		if err != nil {
-			return *rootNode, err
+			return rootNode, err
 		}
 		data, err := ioutil.ReadAll(zippedFile)
 		// Close zippedFile after reading its data to avoid too many open files leading to a panic
@@ -395,7 +394,7 @@ func readZip(zipReader *zip.ReadCloser, rootNode *node) (node, error) {
 		// Add the file to root node
 		addToRootNode(rootNode, strings.Split(relativePath, "/"), file.FileInfo().IsDir(), md5Hash)
 	}
-	return *rootNode, nil
+	return rootNode, nil
 }
 
 // This function adds a new node to given root node.
@@ -415,7 +414,7 @@ func addToRootNode(root *node, path []string, isDir bool, md5Hash string) {
 			newNode.relativePath = root.relativePath + "/" + path[0]
 		}
 		newNode.parent = root
-		root.childNodes[path[0]] = &newNode
+		root.childNodes[path[0]] = newNode
 	} else {
 		// If there are more path elements than 1, that means we are currently processing a directory.
 		logger.Trace(fmt.Sprintf("End not reached. checking: %v", path[0]))
@@ -432,8 +431,8 @@ func addToRootNode(root *node, path []string, isDir bool, md5Hash string) {
 				newNode.relativePath = root.relativePath + "/" + path[0]
 			}
 			newNode.parent = root
-			root.childNodes[path[0]] = &newNode
-			node = &newNode
+			root.childNodes[path[0]] = newNode
+			node = newNode
 		}
 		// Recursively call the function for the rest of the path elements
 		addToRootNode(node, path[1:], isDir, md5Hash)
@@ -571,7 +570,7 @@ func nodeExists(rootNode *node, path []string, isDir bool) (bool, *node) {
 	// If the path element is found, that means it is in the tree
 	if found {
 		// If there are more path elements than 1, continue recursively. Otherwise check whether it has the
-		// provided type(file/dir) and return.
+		// provided type(file/dir) and return
 		logger.Trace(fmt.Sprintf("%s found", path[0]))
 		if len(path) > 1 {
 			return nodeExists(childNode, path[1:], isDir)
