@@ -32,12 +32,12 @@ import (
 	"syscall"
 	"time"
 
+	"archive/zip"
 	"github.com/fatih/color"
 	"github.com/ian-kent/go-log/log"
 	"github.com/pkg/errors"
 	"github.com/wso2/update-creator-tool/constant"
 	"gopkg.in/yaml.v2"
-	"archive/zip"
 )
 
 var logger = log.Logger()
@@ -223,6 +223,10 @@ func ValidateUpdateDescriptor(updateDescriptor *UpdateDescriptor) error {
 	}
 	if len(updateDescriptor.Platform_name) == 0 {
 		return errors.New("'platform_name' field not found.")
+	}
+	platFormName := PlatformVersions[updateDescriptor.Platform_version]
+	if platFormName != updateDescriptor.Platform_name {
+		return errors.New("'platform_name' does not match with the 'platform_version'.")
 	}
 	if len(updateDescriptor.Applies_to) == 0 {
 		return errors.New("'applies_to' field not found.")
