@@ -45,7 +45,7 @@ func TestAddToRootNode(t *testing.T) {
 	isDir := false
 	hash := "hash1"
 	root := createNewNode()
-	addToRootNode(&root, strings.Split("a/b/c.jar", "/"), isDir, hash)
+	addToRootNode(root, strings.Split("a/b/c.jar", "/"), isDir, hash)
 
 	nodeName := "a"
 	nodeA, exists := root.childNodes[nodeName]
@@ -82,7 +82,7 @@ func TestAddToRootNode(t *testing.T) {
 	//Add new file
 	isDir = false
 	hash = "hash2"
-	addToRootNode(&root, strings.Split("a/b/d.jar", "/"), isDir, hash)
+	addToRootNode(root, strings.Split("a/b/d.jar", "/"), isDir, hash)
 	nodeName = "a"
 	nodeA, exists = root.childNodes[nodeName]
 	if !exists {
@@ -119,63 +119,63 @@ func TestAddToRootNode(t *testing.T) {
 
 func TestPathExists(t *testing.T) {
 	root := createNewNode()
-	addToRootNode(&root, strings.Split("a/b/c.jar", "/"), false, "hash1")
+	addToRootNode(root, strings.Split("a/b/c.jar", "/"), false, "hash1")
 
-	exists, _ := pathExists(&root, "a/b/c.jar", false)
+	exists, _ := pathExists(root, "a/b/c.jar", false)
 	expected := true
 	if expected != exists {
 		t.Errorf("Test failed, expected: %v, actual: %v", expected, exists)
 	}
 
-	exists, _ = pathExists(&root, "a/b", true)
+	exists, _ = pathExists(root, "a/b", true)
 	expected = true
 	if expected != exists {
 		t.Errorf("Test failed, expected: %v, actual: %v", expected, exists)
 	}
 
-	exists, _ = pathExists(&root, "a", true)
+	exists, _ = pathExists(root, "a", true)
 	expected = true
 	if expected != exists {
 		t.Errorf("Test failed, expected: %v, actual: %v", expected, exists)
 	}
 
-	exists,_ = pathExists(&root, "a/b/d.jar", false)
+	exists,_ = pathExists(root, "a/b/d.jar", false)
 	expected = false
 	if expected != exists {
 		t.Errorf("Test failed, expected: %v, actual: %v", expected, exists)
 	}
 
-	addToRootNode(&root, strings.Split("a/b/d.jar", "/"), false, "hash2")
+	addToRootNode(root, strings.Split("a/b/d.jar", "/"), false, "hash2")
 
-	exists,_ = pathExists(&root, "a/b/d.jar", false)
+	exists,_ = pathExists(root, "a/b/d.jar", false)
 	expected = true
 	if expected != exists {
 		t.Errorf("Test failed, expected: %v, actual: %v", expected, exists)
 	}
 
-	exists,_ = pathExists(&root, "a/d.jar", false)
+	exists,_ = pathExists(root, "a/d.jar", false)
 	expected = false
 	if expected != exists {
 		t.Errorf("Test failed, expected: %v, actual: %v", expected, exists)
 	}
 
-	addToRootNode(&root, strings.Split("a/d.jar", "/"), false, "hash3")
+	addToRootNode(root, strings.Split("a/d.jar", "/"), false, "hash3")
 
-	exists,_ = pathExists(&root, "a/d.jar", false)
+	exists,_ = pathExists(root, "a/d.jar", false)
 	expected = true
 	if expected != exists {
 		t.Errorf("Test failed, expected: %v, actual: %v", expected, exists)
 	}
 
-	exists,_ = pathExists(&root, "d.jar", false)
+	exists,_ = pathExists(root, "d.jar", false)
 	expected = false
 	if expected != exists {
 		t.Errorf("Test failed, expected: %v, actual: %v", expected, exists)
 	}
 
-	addToRootNode(&root, strings.Split("d.jar", "/"), false, "hash3")
+	addToRootNode(root, strings.Split("d.jar", "/"), false, "hash3")
 
-	exists,_ = pathExists(&root, "d.jar", false)
+	exists,_ = pathExists(root, "d.jar", false)
 	expected = true
 	if expected != exists {
 		t.Errorf("Test failed, expected: %v, actual: %v", expected, exists)
