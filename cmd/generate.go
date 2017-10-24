@@ -652,7 +652,9 @@ func copyResourceFilesToTempDir(resourceFilesMap map[string]bool) error {
 	updateName := viper.GetString(constant.UPDATE_NAME)
 	updateRoot := viper.GetString(constant.UPDATE_ROOT)
 	destination := path.Join(constant.TEMP_DIR, updateName, constant.CARBON_HOME)
-	util.CreateDirectory(destination)
+	err:=util.CreateDirectory(destination)
+	util.HandleErrorAndExit(err, fmt.Sprintf("Error occured when creating the %s directory", destination))
+
 	// Iterate through all resource files
 	for filename, isMandatory := range resourceFilesMap {
 		source := path.Join(updateRoot, filename)
