@@ -476,8 +476,6 @@ func GetRelativePath(file *zip.File) (relativePath string) {
 	} else {
 		relativePath = file.Name
 	}
-	// Replace all \ with /. Otherwise it will cause issues in Windows OS.
-	relativePath = filepath.ToSlash(relativePath)
 	logger.Trace(fmt.Sprintf("relativePath: %s", relativePath))
 	return
 }

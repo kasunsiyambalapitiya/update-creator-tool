@@ -255,7 +255,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	// Copy resource files in the update location to a temp directory
 	copyResourceFilesToTemp()
 
-	// Save the updateDescriptor with newly added, removed and modified files to the the update-descriptor.yaml
+	// Save the modified updateDescriptor to the the update-descriptor.yaml
 	data, err := marshalUpdateDescriptor(updateDescriptor)
 	util.HandleErrorAndExit(err, "Error occurred while marshalling the update-descriptor.")
 	err = saveUpdateDescriptor(constant.UPDATE_DESCRIPTOR_FILE, data)
@@ -267,24 +267,19 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	// creating the update zip.
 	logger.Debug(fmt.Sprintf("Extracting newly added and modified files from the updated zip"))
 	for _, file := range updatedDistributionReader.Reader.File {
-		var fileName string
-		if strings.Contains(file.Name, "/") {
-			fileName = strings.SplitN(file.Name, "/", 2)[1]
-		} else {
-			fileName = file.Name
-		}
+		relativePath := util.GetRelativePath(file)
 
 		// Extracting newly added files from the updated distribution
-		_, found := addedFiles[fileName]
+		_, found := addedFiles[relativePath]
 		if found {
-			logger.Debug(fmt.Sprintf("Copying newly added file %s to temp location", fileName))
-			copyFileToTempDir(file, fileName)
+			logger.Debug(fmt.Sprintf("Copying newly added file %s to temp location", relativePath))
+			copyFileToTempDir(file, relativePath)
 		}
 		// Extracting modified files from the updated distribution
-		_, found = modifiedFiles[fileName]
+		_, found = modifiedFiles[relativePath]
 		if found {
-			logger.Debug(fmt.Sprintf("Copying modified file %s to temp location", fileName))
-			copyFileToTempDir(file, fileName)
+			logger.Debug(fmt.Sprintf("Copying modified file %s to temp location", relativePath))
+			copyFileToTempDir(file, relativePath)
 		}
 	}
 	// Closing distribution readers
@@ -583,7 +578,7 @@ func nodeExists(rootNode *node, path []string, isDir bool) (bool, *node) {
 	return false, nil
 }
 
-// This function updates the updateDescriptor with the added, removed and modified files.
+// This function modifies the updateDescriptor with the added, removed, modified files and removed directories.
 func modifyUpdateDescriptor(modifiedFiles, removedFiles, addedFiles, removedDirectories map[string]struct{},
 	updateDescriptor *util.UpdateDescriptor) {
 	logger.Debug(fmt.Sprintf("Modifying UpdateDescriptor"))
@@ -626,8 +621,8 @@ func copyResourceFilesToTemp() {
 	// mandatory or optional as the value
 	resourceFiles := getResourceFiles()
 	err := copyResourceFilesToTempDir(resourceFiles)
-	util.HandleErrorAndExit(err, errors.New("error occurred while copying resource files."))
-	logger.Debug(fmt.Sprintf("Copying mandatory files of an update to temp location completed successfully"))
+	util.HandleErrorAndExit(err, errors.New("error occurred while copying resource files"))
+	logger.Debug(fmt.Sprintf("Copying resource files of an update to temp location completed successfully"))
 }
 
 // This returns a map of files which would be copied to the temp directory before creating the update zip. Key is
@@ -651,7 +646,7 @@ func copyResourceFilesToTempDir(resourceFilesMap map[string]bool) error {
 	updateName := viper.GetString(constant.UPDATE_NAME)
 	updateRoot := viper.GetString(constant.UPDATE_ROOT)
 	destination := path.Join(constant.TEMP_DIR, updateName, constant.CARBON_HOME)
-	err:=util.CreateDirectory(destination)
+	err := util.CreateDirectory(destination)
 	util.HandleErrorAndExit(err, fmt.Sprintf("Error occured when creating the %s directory", destination))
 
 	// Iterate through all resource files
