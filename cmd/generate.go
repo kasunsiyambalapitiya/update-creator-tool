@@ -47,10 +47,11 @@ type node struct {
 
 // Values used to print help command.
 var (
-	generateCmdUse       = "generate <update_dist_loc> <prev_dist_loc> <update_dir>"
-	generateCmdShortDesc = "Generate a new update"
+	generateCmdUse       = "generate <newly_released_feature>"
+	generateCmdShortDesc = "Generate updates zips for all the products that goes along with the given feature "
 	generateCmdLongDesc  = dedent.Dedent(`
-	This command will generate a new update zip by comparing the diff between the updated distribution and the
+	This command will generate new update zips for all the products that goes along with the given feature
+	between the updated distribution and the
 	previous released distribution. It is required to run wum-uc init first and pass update directory location
 	provided for init as the third input.
 	<update_dist_loc>	path to the updated distribution
@@ -77,18 +78,36 @@ func init() {
 
 // This function will be called when the generate command is called.
 func initializeGenerateCommand(cmd *cobra.Command, args []string) {
-	if len(args) != 3 {
+	if len(args) != 1 {
 		util.HandleErrorAndExit(errors.New("invalid number of arguments. Run 'wum-uc generate --help' to " +
 			"view help"))
 	}
-	generateUpdate(args[0], args[1], args[2])
+	generateUpdate(args[0])
 }
 
-// This function generates an update zip by comparing the diff between given two distributions.
-func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath string) {
+// This function generates update zips for the products released with the give feature.
+func generateUpdate(releasedFeature string) {
 	// Set log level
 	setLogLevel()
 	logger.Debug("[generate] command called")
+
+	// Filter out the feature name and the version
+	featureName, _ := getFeatureNameAndVersion(releasedFeature)
+	// Get the map of products being affected by the released feature from API call
+	getAffectedProducts(featureName)
+	// Get the locations of previous and updated distributions from API call
+
+	// Generate the update for all the products
+
+	// Identify changed files
+
+	// Extract only the relevant files from updated distributions
+
+	// Filter out only the lasted gz file (Next at the server, as it is having all the detail instructions)
+
+	// Create a detailed update-descriptor for server
+
+	// Create a mini update-descriptor for update
 
 	// Check whether the given update directory exists
 	exists, err := util.IsDirectoryExists(updateDirectoryPath)
@@ -307,7 +326,23 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	logger.Info(fmt.Sprintf("Update for %s created successfully", distributionName))
 }
 
-//This function checks for the availability of the given file in the given update directory location.
+// This function returns the feature name and the version
+func getFeatureNameAndVersion(releasedFeature string) (featureName, featureVersion string) {
+	// Check whether the releasedFeature
+	releasedFeatureStrings := strings.Split(releasedFeature, ".feature-")
+	featureName = releasedFeatureStrings[0]
+	featureVersion = releasedFeatureStrings[1]
+	return
+}
+
+// This function returns the products released with the given feature
+func getAffectedProducts(featureName string) map[string]string {
+	affectedProducts := make(map[string]string)
+	apiUrl := util.GetAffectedProductsAPIURL()
+
+}
+
+// This function checks for the availability of the given file in the given update directory location.
 func checkFileExists(updateDirectoryPath, fileName string) {
 	// Construct the relevant file location
 	updateDescriptorPath := path.Join(updateDirectoryPath, fileName)

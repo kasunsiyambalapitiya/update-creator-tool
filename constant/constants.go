@@ -88,4 +88,10 @@ const (
 	JIRA_SUMMARY_DEFAULT = "ADD_JIRA_SUMMARY_HERE/GITHUB_ISSUE_SUMMARY"
 	DISTRIBUTION         = "Distribution"
 	UPDATE               = "Update"
+
+	HeaderAuthorization  = "Authorization"
+	HeaderContentType    = "Content-Type"
+	HeaderAccept         = "Accept"
+	HeaderValueApplicationJSON = "application/json"
+	WSO2APICallTimeout = 5
 )

@@ -479,3 +479,64 @@ func GetRelativePath(file *zip.File) (relativePath string) {
 	logger.Trace(fmt.Sprintf("relativePath: %s", relativePath))
 	return
 }
+
+// Todo
+func GetAffectedProductsAPIURL() string {
+	return "https://api.updates.wso2.com"
+}
+
+//todo
+func InvokeGETRequest(url string) *http.Response {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		HandleUnableToConnectErrorAndExit(err)
+	}
+
+	//req.Header.Add(HeaderAuthorization, "Bearer "+updateRepo.AccessToken)
+	req.Header.Add(constant.HeaderAccept,constant.HeaderValueApplicationJSON)
+	return makeAPICall(req)
+}
+
+//Todo
+// Make an API call. If the call fails with status 401, renew access token and retry.
+func makeAPICall(req *http.Request) *http.Response {
+	// Invoke request
+	timeout := time.Duration(constant.WSO2APICallTimeout * time.Minute)
+	httpResp := invokeRequest(req, timeout)
+
+	// Either 404, 200, or 401
+	/*if httpResp.StatusCode == http.StatusUnauthorized {
+		// Expired token. Renew Access Token and update config. If the refresh token is
+		// invalid, Authenticate() will notify and exit.
+		Authenticate()
+
+		wConfig := GetWUMConfig()
+		_, enabledURepo := wConfig.GetEnabledRepo()
+
+		Logf("Retrying failed request with renewed Access Token...")
+		req.Header.Set(HeaderAuthorization, "Bearer "+enabledURepo.AccessToken)
+
+		return invokeRequest(req, timeout)
+	}*/
+
+	return httpResp
+}
+
+// Invoke the client request and handle error scenarios
+func invokeRequest(req *http.Request, timeout time.Duration) *http.Response {
+	httpResp := SendRequest(req, timeout)
+	Logf("Status Code: %v\n", httpResp.Status)
+
+	handleErrorResponses(httpResp)
+
+	return httpResp
+}
+
+// Todo
+// Handle the situation where we cannot connect to WSO2 Update.
+func HandleUnableToConnectErrorAndExit(err error) {
+	if err != nil {
+		PrintError(fmt.Sprintf("wum-uc: %v %s", "unable to connect to WSO2", err.Error()))
+	}
+	os.Exit(1)
+}
