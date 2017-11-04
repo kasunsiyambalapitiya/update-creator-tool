@@ -47,15 +47,15 @@ type node struct {
 
 // Values used to print help command.
 var (
-	generateCmdUse       = "generate <update_dist_loc> <prev_dist_loc> <update_dir>"
+	generateCmdUse       = "generate <update_dir> <update_dist_loc> <prev_dist_loc>"
 	generateCmdShortDesc = "Generate a new update"
 	generateCmdLongDesc  = dedent.Dedent(`
 	This command will generate a new update zip by comparing the diff between the updated distribution and the
 	previous released distribution. It is required to run wum-uc init first and pass update directory location
 	provided for init as the third input.
-	<update_dist_loc>	path to the updated distribution
-	<prev_dist_loc>		path to the previous distribution
 	<update_dir>		path to the update directory where init was ran
+	<update_dist_loc>	path to the updated distribution of product 1
+	<prev_dist_loc>		path to the previous distribution of product 2
 	`)
 )
 
@@ -77,7 +77,7 @@ func init() {
 
 // This function will be called when the generate command is called.
 func initializeGenerateCommand(cmd *cobra.Command, args []string) {
-	if len(args) != 3 {
+	if len(args)/2 != 1 {
 		util.HandleErrorAndExit(errors.New("invalid number of arguments. Run 'wum-uc generate --help' to " +
 			"view help"))
 	}
@@ -85,7 +85,7 @@ func initializeGenerateCommand(cmd *cobra.Command, args []string) {
 }
 
 // This function generates an update zip by comparing the diff between given two distributions.
-func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath string) {
+func generateUpdate(updateDirectoryPath, updatedDistPath, previousDistPath string) {
 	// Set log level
 	setLogLevel()
 	logger.Debug("[generate] command called")
@@ -244,6 +244,8 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	}
 	logger.Debug(fmt.Sprintf("Finding newly added files between the given two %s distributions completed "+
 		"successfully", distributionName))
+	// Filterout only the last profile.gz of each runtime
+	filterOutLatestProfileGz(removedFiles, addedFiles)
 
 	logger.Info("Modified Files : ", modifiedFiles)
 	logger.Debug("Number of modified files : ", len(modifiedFiles))
@@ -305,6 +307,11 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	// Delete the temp directory
 	util.CleanUpDirectory(path.Join(constant.TEMP_DIR))
 	logger.Info(fmt.Sprintf("Update for %s created successfully", distributionName))
+}
+
+// This function filterout the lastest profile.gz file of each runtime
+func filterOutLatestProfileGz(removedFiles, addedFiles map[string]struct{}){
+	for
 }
 
 //This function checks for the availability of the given file in the given update directory location.
