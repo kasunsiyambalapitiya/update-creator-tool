@@ -335,22 +335,7 @@ func IsDirectoryExists(location string) (bool, error) {
 	}
 }
 
-// Check whether the given location contains a file
-func IsFileExists(location string) (bool, error) {
-	locationInfo, err := os.Stat(location)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		} else {
-			return false, err
-		}
-	}
-	if locationInfo.IsDir() {
-		return false, nil
-	} else {
-		return true, nil
-	}
-}
+
 
 // This function is used to handle errors (print proper error message and exit if an error exists)
 func HandleErrorAndExit(err error, customMessage ...interface{}) {

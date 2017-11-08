@@ -1,17 +1,3 @@
-// Copyright (c) 2017, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package cmd
 
 import (
@@ -20,18 +6,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/mholt/archiver"
-	"github.com/renstrom/dedent"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"github.com/wso2/update-creator-tool/constant"
-	"github.com/wso2/update-creator-tool/util"
-	"gopkg.in/yaml.v2"
-	"io"
+	"github.com/fatih/color"
+
 	"io/ioutil"
 	"os"
-	"path"
-	"path/filepath"
 	"strings"
 )
 
@@ -45,91 +23,18 @@ type node struct {
 	md5Hash      string
 }
 
-// Values used to print help command.
-var (
-	generateCmdUse       = "generate <update_dist_loc> <prev_dist_loc> <update_dir>"
-	generateCmdShortDesc = "Generate a new update"
-	generateCmdLongDesc  = dedent.Dedent(`
-	This command will generate a new update zip by comparing the diff between the updated distribution and the
-	previous released distribution. It is required to run wum-uc init first and pass update directory location
-	provided for init as the third input.
-	<update_dist_loc>	path to the updated distribution
-	<prev_dist_loc>		path to the previous distribution
-	<update_dir>		path to the update directory where init was ran
-	`)
-)
-
-// GenerateCmd represents the generate command.
-var generateCmd = &cobra.Command{
-	Use:   generateCmdUse,
-	Short: generateCmdShortDesc,
-	Long:  generateCmdLongDesc,
-	Run:   initializeGenerateCommand,
-}
-
-// This function will be called first and this will add flags to the command.
-func init() {
-	RootCmd.AddCommand(generateCmd)
-
-	generateCmd.Flags().BoolVarP(&isDebugLogsEnabled, "debug", "d", util.EnableDebugLogs, "Enable debug logs")
-	generateCmd.Flags().BoolVarP(&isTraceLogsEnabled, "trace", "t", util.EnableTraceLogs, "Enable trace logs")
-}
-
-// This function will be called when the generate command is called.
-func initializeGenerateCommand(cmd *cobra.Command, args []string) {
-	if len(args) != 3 {
-		util.HandleErrorAndExit(errors.New("invalid number of arguments. Run 'wum-uc generate --help' to " +
-			"view help"))
-	}
-	generateUpdate(args[0], args[1], args[2])
-}
-
 // This function generates an update zip by comparing the diff between given two distributions.
-func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath string) {
-	// Set log level
-	setLogLevel()
-	logger.Debug("[generate] command called")
-
-	// Check whether the given update directory exists
-	exists, err := util.IsDirectoryExists(updateDirectoryPath)
-	util.HandleErrorAndExit(err, "Error occurred while reading the update directory")
-	logger.Debug(fmt.Sprintf("Exists: %v", exists))
-	if !exists {
-		util.HandleErrorAndExit(errors.New(fmt.Sprintf("directory does not exist at '%s'. Update location "+
-			"must be a directory.", updateDirectoryPath)))
-	}
-	updateRoot := strings.TrimSuffix(updateDirectoryPath, constant.PATH_SEPARATOR)
-	logger.Debug(fmt.Sprintf("UpdateRoot: %s\n", updateRoot))
-	viper.Set(constant.UPDATE_ROOT, updateRoot)
-
-	// Check whether the update-descriptor.yaml file exists in the update directory
-	checkFileExists(updateDirectoryPath, constant.UPDATE_DESCRIPTOR_FILE)
-
-	// Check whether the LICENSE.txt file file exists in the update directory
-	checkFileExists(updateDirectoryPath, constant.LICENSE_FILE)
+func generateUpdate(updatedDistPath, previousDistPath string) {
 
 	// Check whether the given distributions exists
 	checkDistributionExists(updatedDistPath, "updated")
 	checkDistributionExists(previousDistPath, "previous")
 
 	// Check whether the given distributions are zip files
-	util.IsZipFile("updated distribution", updatedDistPath)
+	isZipFile("updated distribution", updatedDistPath)
 	logger.Debug(fmt.Sprintf("Provided updated distribution is a zip file"))
-	util.IsZipFile("previous distribution", previousDistPath)
+	isZipFile("previous distribution", previousDistPath)
 	logger.Debug(fmt.Sprintf("Provided previous distribution is a zip file"))
-
-	// Read update-descriptor.yaml and parse it to UpdateDescriptor struct
-	updateDescriptor, err := util.LoadUpdateDescriptor(constant.UPDATE_DESCRIPTOR_FILE, updateDirectoryPath)
-	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred when reading '%s' file.",
-		constant.UPDATE_DESCRIPTOR_FILE))
-
-	// Validate the file format of the update-descriptor.yaml
-	err = util.ValidateUpdateDescriptor(updateDescriptor)
-	util.HandleErrorAndExit(err, fmt.Sprintf("'%s' format is incorrect.", constant.UPDATE_DESCRIPTOR_FILE))
-
-	// Set the update name which will be used when creating the update zip file
-	updateName := getUpdateName(updateDescriptor, constant.UPDATE_NAME_PREFIX)
-	viper.Set(constant.UPDATE_NAME, updateName)
 
 	// Identify modified, added and removed files by comparing the diff between two given distributions
 	// Get the distribution name
@@ -146,10 +51,10 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	defer updatedDistributionReader.Close()
 	defer previousDistributionReader.Close()
 
-	// RootNode is what we use as the root of the updated distribution when we populate tree like structure
+	// RootNode is what we use as the root of the updated distribution when populating the tree like structure
 	rootNodeOfUpdatedDistribution := createNewNode()
-	rootNodeOfUpdatedDistribution, err = readZip(updatedDistributionReader, rootNodeOfUpdatedDistribution)
-	util.HandleErrorAndExit(err)
+	rootNodeOfUpdatedDistribution, err := readZip(updatedDistributionReader, rootNodeOfUpdatedDistribution)
+	handleErrorAndExit(err)
 	logger.Debug(fmt.Sprintf("Node tree for updated %s created successfully", distributionName))
 	logger.Debug(fmt.Sprintf("Reading updated %s completed successfully", distributionName))
 	logger.Info(fmt.Sprintf("Reading previously released %s. Please wait...", distributionName))
@@ -167,11 +72,11 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		// Open the file for calculating MD5
 		zippedFile, err := file.Open()
 		if err != nil {
-			util.HandleErrorAndExit(err)
+			handleErrorAndExit(err)
 		}
 		data, err := ioutil.ReadAll(zippedFile)
 		if err != nil {
-			util.HandleErrorAndExit(err)
+			handleErrorAndExit(err)
 		}
 		// Don't use defer here as too many open files will cause a panic
 		zippedFile.Close()
@@ -189,7 +94,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 		}
 
 		// Get the relative location of the file
-		relativePath := util.GetRelativePath(file)
+		relativePath := getRelativePath(file)
 
 		fileNameStrings := strings.Split(fileName, "/")
 		fileName = fileNameStrings[len(fileNameStrings)-1]
@@ -212,10 +117,10 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 	// Identifying newly added files from update
 	// Reading previous distribution zip file
 	logger.Info(fmt.Sprintf("Reading the previous %s. Please wait...", distributionName))
-	// RootNode is what we use as the root of the previous distribution when we populate tree like structure
+	// RootNode is what we use as the root of the previous distribution when populating tree like structure
 	rootNodeOfPreviousDistribution := createNewNode()
 	rootNodeOfPreviousDistribution, err = readZip(previousDistributionReader, rootNodeOfPreviousDistribution)
-	util.HandleErrorAndExit(err)
+	handleErrorAndExit(err)
 	logger.Debug(fmt.Sprintf("Node tree for previous released %s created successfully", distributionName))
 	logger.Debug(fmt.Sprintf("Reading previous released %s completed successfully", distributionName))
 	logger.Info(fmt.Sprintf("Reading updated %s. Please wait...", distributionName))
@@ -232,7 +137,7 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 			fileName = strings.TrimSuffix(fileName, "/")
 		}
 		// Get the relative location of the file
-		relativePath := util.GetRelativePath(file)
+		relativePath := getRelativePath(file)
 
 		fileNameStrings := strings.Split(fileName, "/")
 		fileName = fileNameStrings[len(fileNameStrings)-1]
@@ -240,122 +145,85 @@ func generateUpdate(updatedDistPath, previousDistPath, updateDirectoryPath strin
 			// Finding newly added files
 			findNewlyAddedFiles(rootNodeOfPreviousDistribution, fileName, relativePath, addedFiles)
 		}
-		//zipReader.Close() // if this is causing panic we need to close it here
+		//zipReader.Close() // if this is causing panic close it here
 	}
 	logger.Debug(fmt.Sprintf("Finding newly added files between the given two %s distributions completed "+
 		"successfully", distributionName))
 
 	logger.Info("Modified Files : ", modifiedFiles)
 	logger.Debug("Number of modified files : ", len(modifiedFiles))
+	logger.Info("Removed Directories : ",removedDirectories)
+	logger.Debug("Number of Removed Directories : ", len(removedDirectories))
 	logger.Info("Removed Files : ", removedFiles)
 	logger.Debug("Number of removed files : ", len(removedFiles))
 	logger.Info("Added Files : ", addedFiles)
 	logger.Debug("Number of added files : ", len(addedFiles))
-
-	// Update added,removed and modified files in the updateDescriptor struct
-	modifyUpdateDescriptor(modifiedFiles, removedFiles, addedFiles, removedDirectories, updateDescriptor)
-
-	// Copy resource files in the update location to a temp directory
-	copyResourceFilesToTemp()
-
-	// Save the modified updateDescriptor to the the update-descriptor.yaml
-	data, err := marshalUpdateDescriptor(updateDescriptor)
-	util.HandleErrorAndExit(err, "Error occurred while marshalling the update-descriptor.")
-	err = saveUpdateDescriptor(constant.UPDATE_DESCRIPTOR_FILE, data)
-	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while saving the (%v).",
-		constant.UPDATE_DESCRIPTOR_FILE))
-	logger.Debug(fmt.Sprintf("update-descriptor.yaml updated successfully"))
-
-	// Extract newly added and modified files from the updated zip and copy them to the temp directory for
-	// creating the update zip.
-	logger.Debug(fmt.Sprintf("Extracting newly added and modified files from the updated zip"))
-	for _, file := range updatedDistributionReader.Reader.File {
-		relativePath := util.GetRelativePath(file)
-
-		// Extracting newly added files from the updated distribution
-		_, found := addedFiles[relativePath]
-		if found {
-			logger.Debug(fmt.Sprintf("Copying newly added file %s to temp location", relativePath))
-			copyFileToTempDir(file, relativePath)
-		}
-		// Extracting modified files from the updated distribution
-		_, found = modifiedFiles[relativePath]
-		if found {
-			logger.Debug(fmt.Sprintf("Copying modified file %s to temp location", relativePath))
-			copyFileToTempDir(file, relativePath)
-		}
-	}
-	// Closing distribution readers
-	previousDistributionReader.Close()
-	updatedDistributionReader.Close()
-
-	logger.Debug(fmt.Sprintf("Copying newly added and modified files from updated distribution to temp location " +
-		"completed successfully"))
-
-	// Create the update zip
-	logger.Debug(fmt.Sprintf("Creating the update zip"))
-	resourcesDirectory := path.Join(constant.TEMP_DIR, updateName)
-	// Make resourcesDirectory path compatible with windows OS
-	resourcesDirectory = strings.Replace(resourcesDirectory, "/", constant.PATH_SEPARATOR, -2)
-	updateZipName := updateName + ".zip"
-	err = archiver.Zip.Make(path.Join(updateRoot, updateZipName), []string{resourcesDirectory})
-	util.HandleErrorAndExit(err)
-	logger.Debug(fmt.Sprintf("Creating the update zip completed successfully"))
-
-	// Delete the temp directory
-	util.CleanUpDirectory(path.Join(constant.TEMP_DIR))
-	logger.Info(fmt.Sprintf("Update for %s created successfully", distributionName))
-}
-
-//This function checks for the availability of the given file in the given update directory location.
-func checkFileExists(updateDirectoryPath, fileName string) {
-	// Construct the relevant file location
-	updateDescriptorPath := path.Join(updateDirectoryPath, fileName)
-	exists, err := util.IsFileExists(updateDescriptorPath)
-	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while reading the '%v'",
-		fileName))
-	if !exists {
-		util.HandleErrorAndExit(errors.New(fmt.Sprintf("'%s' not found at '%s' directory.",
-			fileName, updateDirectoryPath)))
-	}
-	logger.Debug(fmt.Sprintf("%s exists in given update directory location", fileName))
 }
 
 // This function checks whether the given distribution exists.
 func checkDistributionExists(distributionPath, distributionState string) {
-	exists, err := util.IsFileExists(distributionPath)
-	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while reading '%s' distribution at '%s' ",
+	exists, err := isFileExists(distributionPath)
+	handleErrorAndExit(err, fmt.Sprintf("Error occurred while reading '%s' distribution at '%s' ",
 		distributionState, distributionPath))
 	if !exists {
-		util.HandleErrorAndExit(errors.New(fmt.Sprintf("file does not exist at '%s'. '%s' distribution must "+
+		handleErrorAndExit(errors.New(fmt.Sprintf("file does not exist at '%s'. '%s' distribution must "+
 			"be a zip file.", distributionPath, distributionState)))
 	}
 	logger.Debug(fmt.Sprintf("The %s distribution exists in %s location", distributionState, distributionPath))
 }
 
-// This function returns the update name which will be used when creating the update zip.
-func getUpdateName(updateDescriptor *util.UpdateDescriptor, updateNamePrefix string) string {
-	// Read the corresponding details from the struct
-	platformVersion := updateDescriptor.Platform_version
-	updateNumber := updateDescriptor.Update_number
-	updateName := updateNamePrefix + "-" + platformVersion + "-" + updateNumber
-	return updateName
+// Check whether the given location contains a file
+func isFileExists(location string) (bool, error) {
+	locationInfo, err := os.Stat(location)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		} else {
+			return false, err
+		}
+	}
+	if locationInfo.IsDir() {
+		return false, nil
+	} else {
+		return true, nil
+	}
 }
 
-// This function marshals the update-descriptor.yaml file.
-func marshalUpdateDescriptor(updateDescriptor *util.UpdateDescriptor) ([]byte, error) {
-	data, err := yaml.Marshal(&updateDescriptor)
-	if err != nil {
-		return nil, err
+// This function checks whether the given file is a zip file.
+// archiveType 		type of the archive
+// archiveFilePath	path to the archive file
+func isZipFile(archiveType, archiveFilePath string) {
+	if !strings.HasSuffix(archiveFilePath, ".zip") {
+		handleErrorAndExit(errors.New(fmt.Sprintf("%s must be a zip file. Entered file '%s' does "+
+			"not have .zip extension.", archiveType, archiveFilePath)))
 	}
-	return data, nil
+}
+
+// This function is used to handle errors (print proper error message and exit if an error exists)
+func handleErrorAndExit(err error, customMessage ...interface{}) {
+	if err != nil {
+		// Call the printError method and exit
+		if len(customMessage) == 0 {
+			printError(fmt.Sprintf("%s", err.Error()))
+		} else {
+			printError(append(customMessage, err.Error())...)
+		}
+		os.Exit(1)
+	}
+}
+
+// This function is used to print error messages
+func printError(args ...interface{}) {
+	color.Set(color.FgRed, color.Bold)
+	fmt.Println(append(append([]interface{}{"\n[ERROR]"}, args...), "\n")...)
+	color.Unset()
 }
 
 // This function returns a zip.ReadCloser for the given distribution.
 func getZipReader(distributionPath string) *zip.ReadCloser {
 	zipReader, err := zip.OpenReader(distributionPath)
 	if err != nil {
-		util.HandleErrorAndExit(err)
+		handleErrorAndExit(err)
 	}
 	return zipReader
 }
@@ -377,7 +245,7 @@ func readZip(zipReader *zip.ReadCloser, rootNode *node) (*node, error) {
 		}
 		data, err := ioutil.ReadAll(zippedFile)
 		if err != nil {
-			util.HandleErrorAndExit(err)
+			handleErrorAndExit(err)
 		}
 		// Close zippedFile after reading its data to avoid too many open files leading to a panic
 		zippedFile.Close()
@@ -390,12 +258,24 @@ func readZip(zipReader *zip.ReadCloser, rootNode *node) (*node, error) {
 		// Get the relative path of the file
 		logger.Trace(fmt.Sprintf("file.Name: %s", file.Name))
 
-		relativePath := util.GetRelativePath(file)
+		relativePath := getRelativePath(file)
 
 		// Add the file to root node
 		addToRootNode(rootNode, strings.Split(relativePath, "/"), file.FileInfo().IsDir(), md5Hash)
 	}
 	return rootNode, nil
+}
+
+// This function will return the relative path of the given file.
+// file	file in which the relative path is to be obtained
+func getRelativePath(file *zip.File) (relativePath string) {
+	if strings.Contains(file.Name, "/") {
+		relativePath = strings.SplitN(file.Name, "/", 2)[1]
+	} else {
+		relativePath = file.Name
+	}
+	logger.Trace(fmt.Sprintf("relativePath: %s", relativePath))
+	return
 }
 
 // This function adds a new node to given root node.
@@ -440,12 +320,10 @@ func addToRootNode(root *node, path []string, isDir bool, md5Hash string) {
 	}
 }
 
-// This function returns the distribution name of the given zip file and sets it as viper config.
+// This function returns the distribution name of the given zip file.
 func getDistributionName(distributionPath string) string {
-	paths := strings.Split(distributionPath, constant.PATH_SEPARATOR)
+	paths := strings.Split(distributionPath, string(os.PathSeparator))
 	distributionName := strings.TrimSuffix(paths[len(paths)-1], ".zip")
-	viper.Set(constant.PRODUCT_NAME, distributionName)
-	logger.Debug(fmt.Sprintf("Distribution name set in to the viper config successfully"))
 	return distributionName
 }
 
@@ -582,152 +460,4 @@ func nodeExists(rootNode *node, path []string, isDir bool) (bool, *node) {
 	// If the path element is not found, return false and nil for node
 	logger.Trace(fmt.Sprintf("%s NOT found", path[0]))
 	return false, nil
-}
-
-// This function modifies the updateDescriptor with the added, removed, modified files and removed directories.
-func modifyUpdateDescriptor(modifiedFiles, removedFiles, addedFiles, removedDirectories map[string]struct{},
-	updateDescriptor *util.UpdateDescriptor) {
-	logger.Debug(fmt.Sprintf("Modifying UpdateDescriptor"))
-
-	// Appending modified files
-	logger.Debug(fmt.Sprintf("Appending modified files to the UpdateDescriptor"))
-	for modifiedFile, _ := range modifiedFiles {
-		updateDescriptor.File_changes.Modified_files = append(updateDescriptor.File_changes.Modified_files,
-			modifiedFile)
-	}
-	logger.Debug(fmt.Sprintf("Appending modified files to the UpdateDescriptor finished successfully"))
-
-	// Appending removed files and directories
-	logger.Debug(fmt.Sprintf("Appending removed files and directories to the UpdateDescriptor"))
-	// Appending removed directories
-	for removedDirectory, _ := range removedDirectories {
-		updateDescriptor.File_changes.Removed_files = append(updateDescriptor.File_changes.Removed_files,
-			removedDirectory)
-	}
-	// Appending removed files
-	for removedFile, _ := range removedFiles {
-		updateDescriptor.File_changes.Removed_files = append(updateDescriptor.File_changes.Removed_files,
-			removedFile)
-	}
-	logger.Debug(fmt.Sprintf("Appending removed files and directories to the UpdateDescriptor finished successfully"))
-
-	// Appending newly added files
-	logger.Debug(fmt.Sprintf("Appending newly added files to the UpdateDescriptor"))
-	for addedFile, _ := range addedFiles {
-		updateDescriptor.File_changes.Added_files = append(updateDescriptor.File_changes.Added_files, addedFile)
-	}
-	logger.Debug(fmt.Sprintf("Appending newly added files to the UpdateDescriptor finished successfully"))
-	logger.Debug(fmt.Sprintf("Modifying UpdateDescriptor finished successfully"))
-}
-
-// This function gets the resource files that exists in given update location and copies them to a temp location.
-func copyResourceFilesToTemp() {
-	logger.Debug(fmt.Sprintf("Copying mandatory files of an update to temp location"))
-	// Obtain map of files to be copied to the temp directory with file name as the key and boolean specifying
-	// mandatory or optional as the value
-	resourceFiles := getResourceFiles()
-	err := copyResourceFilesToTempDir(resourceFiles)
-	util.HandleErrorAndExit(err, errors.New("error occurred while copying resource files"))
-	logger.Debug(fmt.Sprintf("Copying resource files of an update to temp location completed successfully"))
-}
-
-// This returns a map of files which would be copied to the temp directory before creating the update zip. Key is
-// the file name and value is whether the file is mandatory or not.
-func getResourceFiles() map[string]bool {
-	filesMap := make(map[string]bool)
-	// Get the mandatory resource files and add to the the map
-	for _, file := range viper.GetStringSlice(constant.RESOURCE_FILES_MANDATORY) {
-		filesMap[file] = true
-	}
-	// Get the mandatory optional files and add to the the map
-	for _, file := range viper.GetStringSlice(constant.RESOURCE_FILES_OPTIONAL) {
-		filesMap[file] = false
-	}
-	return filesMap
-}
-
-// This function copies resource files to the temp directory.
-func copyResourceFilesToTempDir(resourceFilesMap map[string]bool) error {
-	// Create the directories if they are not available
-	updateName := viper.GetString(constant.UPDATE_NAME)
-	updateRoot := viper.GetString(constant.UPDATE_ROOT)
-	destination := path.Join(constant.TEMP_DIR, updateName, constant.CARBON_HOME)
-	err := util.CreateDirectory(destination)
-	util.HandleErrorAndExit(err, fmt.Sprintf("Error occured when creating the %s directory", destination))
-
-	// Iterate through all resource files
-	for filename, isMandatory := range resourceFilesMap {
-		source := path.Join(updateRoot, filename)
-		destination := path.Join(constant.TEMP_DIR, updateName, filename)
-		// Copy the file
-		err := util.CopyFile(source, destination)
-		if err != nil {
-			// If an error occurs while copying, if the file is a mandatory file, return an error. If the file is not
-			// mandatory, print a message and continue
-			if isMandatory {
-				return err
-			} else {
-				logger.Info(fmt.Sprintf("Optional resource file '%s' not copied.", filename))
-			}
-		}
-	}
-	return nil
-}
-
-// This function saves update descriptor after modifying the file_changes section.
-func saveUpdateDescriptor(updateDescriptorFilename string, data []byte) error {
-	updateName := viper.GetString(constant.UPDATE_NAME)
-	destination := path.Join(constant.TEMP_DIR, updateName, updateDescriptorFilename)
-	// Open a new file for writing only
-	file, err := os.OpenFile(
-		destination,
-		os.O_WRONLY|os.O_TRUNC|os.O_CREATE,
-		0600,
-	)
-	defer file.Close()
-	if err != nil {
-		return err
-	}
-	// The update number will always have enclosing "" to indicate it is an string. So we need to remove that
-	updatedData := strings.Replace(string(data), "\"", "", 2)
-	modifiedData := []byte(updatedData)
-	// Write bytes to file
-	_, err = file.Write(modifiedData)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// This function copies the given file to the temp location for creating the update zip.
-func copyFileToTempDir(file *zip.File, fileName string) {
-	// Get the update name from viper config
-	updateName := viper.GetString(constant.UPDATE_NAME)
-	destination := path.Join(constant.TEMP_DIR, updateName, constant.CARBON_HOME, fileName)
-	// Replace all / with OS specific path separators to handle OSs like Windows
-	destination = strings.Replace(destination, "/", constant.PATH_SEPARATOR, -1)
-
-	// Need to create the relevant parent directories in the destination before writing to the file
-	parentDirectory := filepath.Dir(destination)
-	err := util.CreateDirectory(parentDirectory)
-	util.HandleErrorAndExit(err, fmt.Sprintf("Error occured when creating the %s directory", parentDirectory))
-	// Open new file for writing only
-	newFile, err := os.OpenFile(destination, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
-	if err != nil {
-		util.HandleErrorAndExit(err, fmt.Sprintf("Error occured when opening the (%s) file for writing", destination))
-	}
-	defer newFile.Close()
-
-	zippedFile, err := file.Open()
-	if err != nil {
-		util.HandleErrorAndExit(err, fmt.Sprintf("Error occured when opening the (%s)file", fileName))
-	}
-
-	// Copying the contents of the file
-	_, err = io.Copy(newFile, zippedFile)
-	if err != nil {
-		util.HandleErrorAndExit(err, fmt.Sprintf("Error occured when copying the content of (%s)file to temp",
-			fileName))
-	}
-	zippedFile.Close()
 }
