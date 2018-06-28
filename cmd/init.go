@@ -60,6 +60,7 @@ file_changes:
   added_files: []
   removed_files: []
   modified_files: []`)
+	isSampleEnabled bool
 )
 
 // initCmd represents the validate command
@@ -76,23 +77,20 @@ func init() {
 
 	initCmd.Flags().BoolVarP(&isDebugLogsEnabled, "debug", "d", util.EnableDebugLogs, "Enable debug logs")
 	initCmd.Flags().BoolVarP(&isTraceLogsEnabled, "trace", "t", util.EnableTraceLogs, "Enable trace logs")
-
-	initCmd.Flags().BoolP("sample", "s", false, "Show sample file")
-	viper.BindPFlag(constant.SAMPLE, initCmd.Flags().Lookup("sample"))
+	initCmd.Flags().BoolVarP(&isSampleEnabled, "sample", "s", false, "Show sample file")
 }
 
 //This function will be called when the create command is called.
 func initializeInitCommand(cmd *cobra.Command, args []string) {
 	logger.Debug("[Init] called")
+	if isSampleEnabled {
+		logger.Debug("-s flag found. Printing sample...")
+		fmt.Println(initCmdExample)
+	}
 	switch len(args) {
 	case 0:
-		if viper.GetBool(constant.SAMPLE) {
-			logger.Debug("-s flag found. Printing sample...")
-			fmt.Println(initCmdExample)
-		} else {
-			logger.Debug("-s flag not found. Initializing current working directory.")
-			initCurrentDirectory()
-		}
+		logger.Debug("Initializing current working directory.")
+		initCurrentDirectory()
 	case 1:
 		logger.Debug("Initializing directory:", args[0])
 		initDirectory(args[0])
