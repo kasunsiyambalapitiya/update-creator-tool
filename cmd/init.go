@@ -216,23 +216,7 @@ func initDirectory(destination string) {
 //This function will set values to the update-descriptor.yaml and update-descriptorV2.yaml.
 func setValuesForUpdateDescriptors(updateDescriptor *util.UpdateDescriptor, updateDescriptorV2 *util.UpdateDescriptorV2) {
 	logger.Debug("Setting values for update descriptors:")
-	util.PrintInBold("Enter update number")
-	updateNumber, err := util.GetUserInput()
-	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-	updateDescriptor.Update_number = updateNumber
-	updateDescriptorV2.Update_number = updateNumber
-
-	util.PrintInBold("Enter platform name")
-	platformName, err := util.GetUserInput()
-	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-	updateDescriptor.Platform_name = platformName
-	updateDescriptorV2.Platform_name = platformName
-
-	util.PrintInBold("Enter platform version")
-	platformVersion, err := util.GetUserInput()
-	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-	updateDescriptor.Platform_version = platformVersion
-	updateDescriptorV2.Platform_version = platformVersion
+	setCommonValuesForBothUpdateDescriptors(updateDescriptor, updateDescriptorV2)
 
 	util.PrintInBold("Enter description")
 	description, err := util.GetUserInput()
@@ -252,7 +236,7 @@ func setValuesForUpdateDescriptors(updateDescriptor *util.UpdateDescriptor, upda
 		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 		if strings.ToLower(jiraKey) == "done" {
 			if len(bugFixes) == 0 {
-				bugFixes["N/A"] = "N/A"
+				bugFixes[constant.JIRA_NA] = constant.JIRA_NA
 			}
 			return
 		}
@@ -261,13 +245,33 @@ func setValuesForUpdateDescriptors(updateDescriptor *util.UpdateDescriptor, upda
 		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 		if strings.ToLower(jiraSummary) == "done" {
 			if len(bugFixes) == 0 {
-				bugFixes["N/A"] = "N/A"
+				bugFixes[constant.JIRA_NA] = constant.JIRA_NA
 			}
 			return
 		}
 		bugFixes[jiraKey] = jiraSummary
 	}
 	logger.Debug(fmt.Sprintf("bug_fixes: %v", bugFixes))
+}
+
+func setCommonValuesForBothUpdateDescriptors(updateDescriptor *util.UpdateDescriptor, updateDescriptorV2 *util.UpdateDescriptorV2) {
+	util.PrintInBold("Enter update number")
+	updateNumber, err := util.GetUserInput()
+	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+	updateDescriptor.Update_number = updateNumber
+	updateDescriptorV2.Update_number = updateNumber
+
+	util.PrintInBold("Enter platform name")
+	platformName, err := util.GetUserInput()
+	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+	updateDescriptor.Platform_name = platformName
+	updateDescriptorV2.Platform_name = platformName
+
+	util.PrintInBold("Enter platform version")
+	platformVersion, err := util.GetUserInput()
+	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+	updateDescriptor.Platform_version = platformVersion
+	updateDescriptorV2.Platform_version = platformVersion
 }
 
 //This function will process the readme file and extract details to populate update-descriptor.
@@ -337,9 +341,7 @@ func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
 	} else {
 		//If error occurred, set default values
 		logger.Debug(fmt.Sprintf("Error occurred while processing PATCH_ID_REGEX: %v", err))
-		updateDescriptor.Update_number = constant.UPDATE_NO_DEFAULT
-		updateDescriptor.Platform_name = constant.PLATFORM_NAME_DEFAULT
-		updateDescriptor.Platform_version = constant.PLATFORM_VERSION_DEFAULT
+		setCommonValuesForBothUpdateDescriptors(updateDescriptor, updateDescriptorV2)
 	}
 
 	// Compile the regex
@@ -363,7 +365,10 @@ func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
 	} else {
 		//If error occurred, set default value
 		logger.Debug(fmt.Sprintf("Error occurred while processing APPLIES_TO_REGEX: %v", err))
-		updateDescriptor.Applies_to = constant.APPLIES_TO_DEFAULT
+		util.PrintInBold("Enter applies to")
+		appliesTo, err := util.GetUserInput()
+		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+		updateDescriptor.Applies_to = appliesTo
 	}
 
 	// Compile the regex
@@ -378,6 +383,7 @@ func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
 			logger.Debug("No matching results found for ASSOCIATED_JIRAS_REGEX. Setting default values.")
 			updateDescriptor.Bug_fixes[constant.JIRA_NA] = constant.JIRA_NA
 		} else {
+			=======================================
 			// If Jiras found, get summary for all Jiras
 			logger.Debug("Matching results found for ASSOCIATED_JIRAS_REGEX")
 			for i, match := range allResult {
