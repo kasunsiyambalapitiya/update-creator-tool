@@ -217,21 +217,31 @@ func initDirectory(destination string) {
 func setValuesForUpdateDescriptors(updateDescriptor *util.UpdateDescriptor, updateDescriptorV2 *util.UpdateDescriptorV2) {
 	logger.Debug("Setting values for update descriptors:")
 	setCommonValuesForBothUpdateDescriptors(updateDescriptor, updateDescriptorV2)
+	setDescription(updateDescriptor)
+	setAppliesTo(updateDescriptor)
+	setBugFixes(updateDescriptor)
+}
 
-	util.PrintInBold("Enter description")
-	description, err := util.GetUserInput()
-	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-	updateDescriptor.Description = description
-
+func setAppliesTo(updateDescriptor *util.UpdateDescriptor) {
 	util.PrintInBold("Enter applies to")
 	appliesTo, err := util.GetUserInput()
 	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 	updateDescriptor.Applies_to = appliesTo
+}
 
+func setDescription(updateDescriptor *util.UpdateDescriptor) {
+	util.PrintInBold("Enter description")
+	description, err := util.GetUserInput()
+	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+	updateDescriptor.Description = description
+}
+
+func setBugFixes(updateDescriptor *util.UpdateDescriptor) {
 	util.PrintInBold("Enter Bug fixes, please enter 'done' when you are finished adding")
 	bugFixes := make(map[string]string)
 	for {
-		util.PrintInBold("Enter JIRA_KEY")
+		// Todo refactor them to constants, and change constant.JIRA_KEY_DEFAULT
+		util.PrintInBold("Enter JIRA_KEY/GITHUB ISSUE URL")
 		jiraKey, err := util.GetUserInput()
 		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 		if strings.ToLower(jiraKey) == "done" {
@@ -240,7 +250,7 @@ func setValuesForUpdateDescriptors(updateDescriptor *util.UpdateDescriptor, upda
 			}
 			return
 		}
-		util.PrintInBold("Enter SUMMARY")
+		util.PrintInBold("Enter JIRA_KEY SUMMARY/GITHUB_ISSUE_SUMMARY")
 		jiraSummary, err := util.GetUserInput()
 		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 		if strings.ToLower(jiraSummary) == "done" {
@@ -252,6 +262,7 @@ func setValuesForUpdateDescriptors(updateDescriptor *util.UpdateDescriptor, upda
 		bugFixes[jiraKey] = jiraSummary
 	}
 	logger.Debug(fmt.Sprintf("bug_fixes: %v", bugFixes))
+	updateDescriptor.Bug_fixes = bugFixes
 }
 
 func setCommonValuesForBothUpdateDescriptors(updateDescriptor *util.UpdateDescriptor, updateDescriptorV2 *util.UpdateDescriptorV2) {
@@ -365,10 +376,7 @@ func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
 	} else {
 		//If error occurred, set default value
 		logger.Debug(fmt.Sprintf("Error occurred while processing APPLIES_TO_REGEX: %v", err))
-		util.PrintInBold("Enter applies to")
-		appliesTo, err := util.GetUserInput()
-		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-		updateDescriptor.Applies_to = appliesTo
+		setAppliesTo(updateDescriptor)
 	}
 
 	// Compile the regex
@@ -383,7 +391,6 @@ func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
 			logger.Debug("No matching results found for ASSOCIATED_JIRAS_REGEX. Setting default values.")
 			updateDescriptor.Bug_fixes[constant.JIRA_NA] = constant.JIRA_NA
 		} else {
-			=======================================
 			// If Jiras found, get summary for all Jiras
 			logger.Debug("Matching results found for ASSOCIATED_JIRAS_REGEX")
 			for i, match := range allResult {
@@ -397,8 +404,7 @@ func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
 		//If error occurred, set default values
 		logger.Debug(fmt.Sprintf("Error occurred while processing ASSOCIATED_JIRAS_REGEX: %v", err))
 		logger.Debug("Setting default values to bug_fixes")
-		updateDescriptor.Bug_fixes = make(map[string]string)
-		updateDescriptor.Bug_fixes[constant.JIRA_KEY_DEFAULT] = constant.JIRA_SUMMARY_DEFAULT
+		setBugFixes(updateDescriptor)
 	}
 
 	// Compile the regex
@@ -412,11 +418,12 @@ func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
 			updateDescriptor.Description = util.ProcessString(result[1], "\n", false)
 		} else {
 			logger.Debug(fmt.Sprintf("No matching results found for DESCRIPTION_REGEX: %v", result))
+			setDescription(updateDescriptor)
 		}
 	} else {
 		//If error occurred, set default values
 		logger.Debug(fmt.Sprintf("Error occurred while processing DESCRIPTION_REGEX: %v", err))
-		updateDescriptor.Description = constant.DESCRIPTION_DEFAULT
+		setDescription(updateDescriptor)
 	}
 	logger.Debug("Processing README finished")
 }
