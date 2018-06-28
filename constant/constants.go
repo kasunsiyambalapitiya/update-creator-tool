@@ -89,13 +89,13 @@ const (
 	DISTRIBUTION         = "Distribution"
 	UPDATE               = "Update"
 
-	LICENSE_URL = "LICENSE_URL"
+	LICENSE_URL          = "LICENSE_URL"
 	LICENSE_DOWNLOAD_URL = "https://wso2.com/license/wso2-update/LICENSE.txt"
-	LICENSE_MD5 = "LICENSE_MD5"
-	LICENSE_MD5_URL = "https://wso2.com/license/wso2-update/LICENSE.txt.md5"
+	LICENSE_MD5          = "LICENSE_MD5"
+	LICENSE_MD5_URL      = "https://wso2.com/license/wso2-update/LICENSE.txt.md5"
 
-	NOT_A_CONTRIBUTION_URL = "NOT_A_CONTRIBUTION_URL"
+	NOT_A_CONTRIBUTION_URL          = "NOT_A_CONTRIBUTION_URL"
 	NOT_A_CONTRIBUTION_DOWNLOAD_URL = "https://wso2.com/license/wso2-update/NOT_A_CONTRIBUTION.txt"
-	NOT_A_CONTRIBUTION_MD5 = "NOT_A_CONTRIBUTION_MD5"
-	NOT_A_CONTRIBUTION_MD5_URL = "https://wso2.com/license/wso2-update/NOT_A_CONTRIBUTION.txt.md5"
+	NOT_A_CONTRIBUTION_MD5          = "NOT_A_CONTRIBUTION_MD5"
+	NOT_A_CONTRIBUTION_MD5_URL      = "https://wso2.com/license/wso2-update/NOT_A_CONTRIBUTION.txt.md5"
 )

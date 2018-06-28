@@ -43,18 +43,38 @@ import (
 var logger = log.Logger()
 
 // struct which is used to read update-descriptor.yaml
+//Todo
 type UpdateDescriptor struct {
 	Update_number    string
 	Platform_version string
 	Platform_name    string
-	Applies_to       string
-	Bug_fixes        map[string]string
-	Description      string
-	File_changes     struct {
-		Added_files    []string
-		Removed_files  []string
-		Modified_files []string
-	}
+	//Applies_to       string
+	Bug_fixes    map[string]string
+	Description  string
+	File_changes File_changes
+}
+
+type File_changes struct {
+	Added_files    []string
+	Removed_files  []string
+	Modified_files []string
+}
+
+type Product_Changes struct {
+	Product_name    string
+	Product_version string
+	File_Changes    File_changes
+	Bug_fixes       map[string]string
+	Description     string
+}
+
+type UpdateDescriptor3 struct {
+	Update_number       string
+	Platform_version    string
+	Platform_name       string
+	Compatible_products []Product_Changes
+	Applicable_products []Product_Changes
+	Notify_products     []Product_Changes
 }
 
 // Structs to get the summary field from the jira response
@@ -144,9 +164,6 @@ func ProcessUserPreference(preference string) int {
 		return constant.YES
 	} else if strings.ToLower(preference) == "no" || (len(preference) == 1 && strings.ToLower(preference) == "n") {
 		return constant.NO
-	} else if strings.ToLower(preference) == "reenter" || strings.ToLower(preference) == "re-enter" ||
-		(len(preference) == 1 && strings.ToLower(preference) == "r") {
-		return constant.REENTER
 	}
 	return constant.OTHER
 }

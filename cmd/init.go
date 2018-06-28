@@ -43,7 +43,7 @@ var (
 		README.txt file in the old patch format. If README.txt is not
 		found, it will fill values using default values which you need
 		to edit manually.`)
-
+	//Todo
 	initCmdExample = dedent.Dedent(`update_number: 0001
 platform_version: 4.4.0
 platform_name: wilkes
@@ -97,8 +97,8 @@ func initializeInitCommand(cmd *cobra.Command, args []string) {
 		logger.Debug("Initializing directory:", args[0])
 		initDirectory(args[0])
 	default:
-		logger.Debug("Invalid number of argumants:", args)
-		util.HandleErrorAndExit(errors.New("Invalid number of argumants. Run 'wum-uc init --help' to view " +
+		logger.Debug("Invalid number of arguments:", args)
+		util.HandleErrorAndExit(errors.New("Invalid number of arguments. Run 'wum-uc init --help' to view " +
 			"help."))
 	}
 }
@@ -127,6 +127,7 @@ func initDirectory(destination string) {
 			if len(preference) == 0 {
 				preference = "y"
 			}
+			// Todo to remove redudant call, call this only if error is not null
 			util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 
 			// Get the user preference
@@ -143,6 +144,7 @@ func initDirectory(destination string) {
 				skip = true
 				break userInputLoop
 			default:
+				//Todo asked, as here the for loop doesnot breaks on default, will iterate till
 				util.PrintError("Invalid preference. Enter Y for Yes or N for No.")
 			}
 		}
@@ -152,8 +154,10 @@ func initDirectory(destination string) {
 		util.HandleErrorAndExit(errors.New("Directory creation skipped. Please enter a valid directory."))
 	}
 
-	// Create a new update descriptor struct
+	// Create new update descriptor structs
+	// Todo refactor for wum3
 	updateDescriptor := util.UpdateDescriptor{}
+	updateDescriptor3 := util.UpdateDescriptor3{}
 
 	// Download the LICENSE.txt
 	downloadFile(destination, constant.LICENSE_URL, constant.LICENSE_DOWNLOAD_URL, constant.LICENSE_FILE)
@@ -163,7 +167,7 @@ func initDirectory(destination string) {
 		constant.NOT_A_CONTRIBUTION_FILE)
 
 	// Process README.txt and parse values
-	processReadMe(destination, &updateDescriptor)
+	processReadMe(destination, &updateDescriptor, &updateDescriptor3)
 
 	// Marshall the update descriptor struct
 	data, err := yaml.Marshal(&updateDescriptor)
@@ -209,10 +213,35 @@ func initDirectory(destination string) {
 		constant.UPDATE_DESCRIPTOR_FILE))
 }
 
-//This function will set default valued to the update-descriptor.yaml.
-func setUpdateDescriptorDefaultValues(updateDescriptor *util.UpdateDescriptor) {
-	logger.Debug("Setting default values:")
-	updateDescriptor.Update_number = constant.UPDATE_NO_DEFAULT
+//This function will set values to the update-descriptor.yaml and update-descriptor3.yaml.
+func setValuesForUpdateDescriptors(updateDescriptor *util.UpdateDescriptor, updateDescriptor3 *util.UpdateDescriptor3) {
+	logger.Debug("Setting values for update descriptors:")
+	util.PrintInBold("Enter update number")
+	updateNumber, err := util.GetUserInput()
+	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+	updateDescriptor.Update_number = updateNumber
+	updateDescriptor3.Update_number = updateNumber
+
+	util.PrintInBold("Enter platform name")
+	platformName, err := util.GetUserInput()
+	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+	updateDescriptor.Platform_name = platformName
+	updateDescriptor3.Platform_name = platformName
+
+	util.PrintInBold("Enter platform version")
+	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+	platformVersion, err := util.GetUserInput()
+	updateDescriptor.Platform_version = platformVersion
+	updateDescriptor3.Platform_version = platformVersion
+
+	util.PrintInBold("Enter description")
+	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+	description, err := util.GetUserInput()
+	updateDescriptor.Platform_version = description
+	updateDescriptor3.Platform_version = description
+
+	util.PrintInBold("Enter bug fixes in the form JIRA_KEY_DEFAULT:JIRA_SUMMARY_KEY")
+
 	updateDescriptor.Platform_name = constant.PLATFORM_NAME_DEFAULT
 	updateDescriptor.Platform_version = constant.PLATFORM_VERSION_DEFAULT
 	updateDescriptor.Applies_to = constant.APPLIES_TO_DEFAULT
@@ -224,9 +253,15 @@ func setUpdateDescriptorDefaultValues(updateDescriptor *util.UpdateDescriptor) {
 	logger.Debug(fmt.Sprintf("bug_fixes: %v", bugFixes))
 }
 
-//This function will process the readme file and extract details to populate update-descriptor.yaml. If some data
+func setValuesForUpdateDescriptor(updateDescriptor util.UpdateDescriptor) {
+
+}
+
+//This function will process the readme file and extract details to populate update-descriptor.
+// yaml and update-descriptor3.yaml. If some data
 // cannot be extracted, it will add default value and continue.
-func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor) {
+func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
+	updateDescriptor3 *util.UpdateDescriptor3) {
 	logger.Debug("Processing README started")
 	// Construct the README.txt path
 	readMePath := path.Join(directory, constant.README_FILE)
@@ -236,15 +271,15 @@ func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor) {
 	if err != nil {
 		// If the file does not exist or any other error occur, return without printing warning messages
 		logger.Debug(fmt.Sprintf("%s not found", readMePath))
-		setUpdateDescriptorDefaultValues(updateDescriptor)
+		setValuesForUpdateDescriptors(updateDescriptor, updateDescriptor3)
 		return
 	}
 	// Read the README.txt file
 	data, err := ioutil.ReadFile(readMePath)
 	if err != nil {
 		// If any error occurs, return without printing warning messages
-		logger.Debug(fmt.Sprintf("Error occurred and processing README: %v", err))
-		setUpdateDescriptorDefaultValues(updateDescriptor)
+		logger.Debug(fmt.Sprintf("Error occurred in processing README: %v", err))
+		setValuesForUpdateDescriptors(updateDescriptor)
 		return
 	}
 

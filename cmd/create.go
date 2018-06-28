@@ -1141,7 +1141,7 @@ func ZipFile(source, target string) error {
 		if err != nil {
 			return err
 		}
-		
+
 		defer file.Close()
 		_, err = io.Copy(writer, file)
 		return err
