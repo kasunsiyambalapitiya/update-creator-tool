@@ -126,13 +126,13 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 
 	//2) Check whether the update-descriptor.yaml file exists
 	// Construct the update-descriptor.yaml file location
-	updateDescriptorPath := path.Join(updateDirectoryPath, constant.UPDATE_DESCRIPTOR_FILE)
+	updateDescriptorPath := path.Join(updateDirectoryPath, constant.UPDATE_DESCRIPTOR_V2_FILE)
 	exists, err = util.IsFileExists(updateDescriptorPath)
 	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while reading the '%v'",
-		constant.UPDATE_DESCRIPTOR_FILE))
+		constant.UPDATE_DESCRIPTOR_V2_FILE))
 	if !exists {
 		util.HandleErrorAndExit(errors.New(fmt.Sprintf("'%s' not found at '%s' directory.",
-			constant.UPDATE_DESCRIPTOR_FILE, updateDirectoryPath)))
+			constant.UPDATE_DESCRIPTOR_V2_FILE, updateDirectoryPath)))
 	}
 	logger.Debug(fmt.Sprintf("Descriptor Exists. Location %s", updateDescriptorPath))
 
@@ -147,13 +147,13 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	util.IsZipFile(constant.DISTRIBUTION, distributionPath)
 
 	//4) Read update-descriptor.yaml and set the update name which will be used when creating the update zip file.
-	updateDescriptor, err := util.LoadUpdateDescriptor(constant.UPDATE_DESCRIPTOR_FILE, updateDirectoryPath)
+	updateDescriptor, err := util.LoadUpdateDescriptor(constant.UPDATE_DESCRIPTOR_V2_FILE, updateDirectoryPath)
 	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred when reading '%s' file.",
-		constant.UPDATE_DESCRIPTOR_FILE))
+		constant.UPDATE_DESCRIPTOR_V2_FILE))
 
 	//5) Validate the file format
 	err = util.ValidateUpdateDescriptor(updateDescriptor)
-	util.HandleErrorAndExit(err, fmt.Sprintf("'%s' format is incorrect.", constant.UPDATE_DESCRIPTOR_FILE))
+	util.HandleErrorAndExit(err, fmt.Sprintf("'%s' format is incorrect.", constant.UPDATE_DESCRIPTOR_V2_FILE))
 
 	// set the update name
 	updateName := getUpdateName(updateDescriptor, constant.UPDATE_NAME_PREFIX)
@@ -293,9 +293,9 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	// Save the update-descriptor with the updated, newly added files to the temp directory
 	data, err := marshalUpdateDescriptor(updateDescriptor)
 	util.HandleErrorAndExit(err, "Error occurred while marshalling the update-descriptor.")
-	err = saveUpdateDescriptor(constant.UPDATE_DESCRIPTOR_FILE, data)
+	err = saveUpdateDescriptor(constant.UPDATE_DESCRIPTOR_V2_FILE, data)
 	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while saving the '%v'.",
-		constant.UPDATE_DESCRIPTOR_FILE))
+		constant.UPDATE_DESCRIPTOR_V2_FILE))
 
 	// Construct the update zip name
 	updateZipName := updateName + ".zip"
@@ -1141,7 +1141,7 @@ func ZipFile(source, target string) error {
 		if err != nil {
 			return err
 		}
-		
+
 		defer file.Close()
 		_, err = io.Copy(writer, file)
 		return err
