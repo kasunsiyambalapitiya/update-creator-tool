@@ -43,32 +43,32 @@ import (
 var logger = log.Logger()
 
 // struct which is used to read update-descriptor.yaml
-//Todo
 type UpdateDescriptor struct {
 	Update_number    string
 	Platform_version string
 	Platform_name    string
-	//Applies_to       string
-	Bug_fixes    map[string]string
-	Description  string
-	File_changes File_changes
-}
-
-type File_changes struct {
-	Added_files    []string
-	Removed_files  []string
-	Modified_files []string
+	Applies_to       string
+	Bug_fixes        map[string]string
+	Description      string
+	File_changes     struct {
+		Added_files    []string
+		Removed_files  []string
+		Modified_files []string
+	}
 }
 
 type Product_Changes struct {
 	Product_name    string
 	Product_version string
-	File_Changes    File_changes
-	Bug_fixes       map[string]string
 	Description     string
+	Instructions    string
+	Bug_fixes       map[string]string
+	Added_files     []string
+	Removed_files   []string
+	Modified_files  []string
 }
 
-type UpdateDescriptor3 struct {
+type UpdateDescriptorV2 struct {
 	Update_number       string
 	Platform_version    string
 	Platform_name       string
@@ -151,11 +151,11 @@ func DeleteDirectory(path string) error {
 // This function will get user input
 func GetUserInput() (string, error) {
 	reader := bufio.NewReader(os.Stdin)
-	preference, err := reader.ReadString('\n')
+	userInput, err := reader.ReadString('\n')
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(preference), nil
+	return strings.TrimSpace(userInput), nil
 }
 
 // This function will process user input and identify the type of preference

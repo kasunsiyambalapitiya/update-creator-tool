@@ -157,7 +157,7 @@ func initDirectory(destination string) {
 	// Create new update descriptor structs
 	// Todo refactor for wum3
 	updateDescriptor := util.UpdateDescriptor{}
-	updateDescriptor3 := util.UpdateDescriptor3{}
+	updateDescriptorV2 := util.UpdateDescriptorV2{}
 
 	// Download the LICENSE.txt
 	downloadFile(destination, constant.LICENSE_URL, constant.LICENSE_DOWNLOAD_URL, constant.LICENSE_FILE)
@@ -167,7 +167,7 @@ func initDirectory(destination string) {
 		constant.NOT_A_CONTRIBUTION_FILE)
 
 	// Process README.txt and parse values
-	processReadMe(destination, &updateDescriptor, &updateDescriptor3)
+	processReadMe(destination, &updateDescriptor, &updateDescriptorV2)
 
 	// Marshall the update descriptor struct
 	data, err := yaml.Marshal(&updateDescriptor)
@@ -213,55 +213,68 @@ func initDirectory(destination string) {
 		constant.UPDATE_DESCRIPTOR_FILE))
 }
 
-//This function will set values to the update-descriptor.yaml and update-descriptor3.yaml.
-func setValuesForUpdateDescriptors(updateDescriptor *util.UpdateDescriptor, updateDescriptor3 *util.UpdateDescriptor3) {
+//This function will set values to the update-descriptor.yaml and update-descriptorV2.yaml.
+func setValuesForUpdateDescriptors(updateDescriptor *util.UpdateDescriptor, updateDescriptorV2 *util.UpdateDescriptorV2) {
 	logger.Debug("Setting values for update descriptors:")
 	util.PrintInBold("Enter update number")
 	updateNumber, err := util.GetUserInput()
 	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 	updateDescriptor.Update_number = updateNumber
-	updateDescriptor3.Update_number = updateNumber
+	updateDescriptorV2.Update_number = updateNumber
 
 	util.PrintInBold("Enter platform name")
 	platformName, err := util.GetUserInput()
 	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 	updateDescriptor.Platform_name = platformName
-	updateDescriptor3.Platform_name = platformName
+	updateDescriptorV2.Platform_name = platformName
 
 	util.PrintInBold("Enter platform version")
-	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 	platformVersion, err := util.GetUserInput()
+	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 	updateDescriptor.Platform_version = platformVersion
-	updateDescriptor3.Platform_version = platformVersion
+	updateDescriptorV2.Platform_version = platformVersion
 
 	util.PrintInBold("Enter description")
-	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 	description, err := util.GetUserInput()
-	updateDescriptor.Platform_version = description
-	updateDescriptor3.Platform_version = description
+	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+	updateDescriptor.Description = description
 
-	util.PrintInBold("Enter bug fixes in the form JIRA_KEY_DEFAULT:JIRA_SUMMARY_KEY")
+	util.PrintInBold("Enter applies to")
+	appliesTo, err := util.GetUserInput()
+	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+	updateDescriptor.Applies_to = appliesTo
 
-	updateDescriptor.Platform_name = constant.PLATFORM_NAME_DEFAULT
-	updateDescriptor.Platform_version = constant.PLATFORM_VERSION_DEFAULT
-	updateDescriptor.Applies_to = constant.APPLIES_TO_DEFAULT
-	updateDescriptor.Description = constant.DESCRIPTION_DEFAULT
-	bugFixes := map[string]string{
-		constant.JIRA_KEY_DEFAULT: constant.JIRA_SUMMARY_DEFAULT,
+	util.PrintInBold("Enter Bug fixes, please enter 'done' when you are finished adding")
+	bugFixes := make(map[string]string)
+	for {
+		util.PrintInBold("Enter JIRA_KEY")
+		jiraKey, err := util.GetUserInput()
+		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+		if strings.ToLower(jiraKey) == "done" {
+			if len(bugFixes) == 0 {
+				bugFixes["N/A"] = "N/A"
+			}
+			return
+		}
+		util.PrintInBold("Enter SUMMARY")
+		jiraSummary, err := util.GetUserInput()
+		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+		if strings.ToLower(jiraSummary) == "done" {
+			if len(bugFixes) == 0 {
+				bugFixes["N/A"] = "N/A"
+			}
+			return
+		}
+		bugFixes[jiraKey] = jiraSummary
 	}
-	updateDescriptor.Bug_fixes = bugFixes
 	logger.Debug(fmt.Sprintf("bug_fixes: %v", bugFixes))
 }
 
-func setValuesForUpdateDescriptor(updateDescriptor util.UpdateDescriptor) {
-
-}
-
 //This function will process the readme file and extract details to populate update-descriptor.
-// yaml and update-descriptor3.yaml. If some data
+// yaml and update-descriptorV2.yaml. If some data
 // cannot be extracted, it will add default value and continue.
 func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
-	updateDescriptor3 *util.UpdateDescriptor3) {
+	updateDescriptorV2 *util.UpdateDescriptorV2) {
 	logger.Debug("Processing README started")
 	// Construct the README.txt path
 	readMePath := path.Join(directory, constant.README_FILE)
@@ -271,7 +284,7 @@ func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
 	if err != nil {
 		// If the file does not exist or any other error occur, return without printing warning messages
 		logger.Debug(fmt.Sprintf("%s not found", readMePath))
-		setValuesForUpdateDescriptors(updateDescriptor, updateDescriptor3)
+		setValuesForUpdateDescriptors(updateDescriptor, updateDescriptorV2)
 		return
 	}
 	// Read the README.txt file
@@ -279,7 +292,7 @@ func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
 	if err != nil {
 		// If any error occurs, return without printing warning messages
 		logger.Debug(fmt.Sprintf("Error occurred in processing README: %v", err))
-		setValuesForUpdateDescriptors(updateDescriptor)
+		setValuesForUpdateDescriptors(updateDescriptor, updateDescriptorV2)
 		return
 	}
 
@@ -298,7 +311,9 @@ func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
 		if len(result) != 0 {
 			// Extract details
 			updateDescriptor.Update_number = result[2]
+			updateDescriptorV2.Update_number = result[2]
 			updateDescriptor.Platform_version = result[1]
+			updateDescriptorV2.Platform_version = result[1]
 			platformsMap := viper.GetStringMapString(constant.PLATFORM_VERSIONS)
 			logger.Trace(fmt.Sprintf("Platform Map: %v", platformsMap))
 			// Get the platform details from the map
@@ -306,10 +321,15 @@ func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
 			if found {
 				logger.Debug("PlatformName found in configs")
 				updateDescriptor.Platform_name = platformName
+				updateDescriptorV2.Platform_name = platformName
 			} else {
 				//If the platform name is not found, set default
 				logger.Debug("No matching platform name found for:", result[1])
-				updateDescriptor.Platform_name = constant.PLATFORM_NAME_DEFAULT
+				util.PrintInBold("Enter platform name for platform version :", result[1])
+				platformName, err := util.GetUserInput()
+				util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+				updateDescriptor.Platform_name = platformName
+				updateDescriptorV2.Platform_name = platformName
 			}
 		} else {
 			logger.Debug("PATCH_ID_REGEX results incorrect:", result)
