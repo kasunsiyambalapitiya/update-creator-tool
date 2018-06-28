@@ -27,11 +27,12 @@ const (
 	PLUGINS_DIRECTORY = "repository" + PATH_SEPARATOR + "components" + PATH_SEPARATOR + "plugins" + PATH_SEPARATOR
 
 	//constants to store resource file names
-	README_FILE             = "README.txt"
-	LICENSE_FILE            = "LICENSE.txt"
-	NOT_A_CONTRIBUTION_FILE = "NOT_A_CONTRIBUTION.txt"
-	INSTRUCTIONS_FILE       = "instructions.txt"
-	UPDATE_DESCRIPTOR_FILE  = "update-descriptor.yaml"
+	README_FILE               = "README.txt"
+	LICENSE_FILE              = "LICENSE.txt"
+	NOT_A_CONTRIBUTION_FILE   = "NOT_A_CONTRIBUTION.txt"
+	INSTRUCTIONS_FILE         = "instructions.txt"
+	UPDATE_DESCRIPTOR_V2_FILE = "update-descriptor.yaml"
+	UPDATE_DESCRIPTOR_V3_FILE = "update-descriptor3.yaml"
 
 	//Temporary directory to copy files before creating the new zip
 	TEMP_DIR = "temp"

@@ -35,7 +35,7 @@ import (
 
 var (
 	initCmdUse       = "init"
-	initCmdShortDesc = "Generate '" + constant.UPDATE_DESCRIPTOR_FILE + "' file template"
+	initCmdShortDesc = "Generate '" + constant.UPDATE_DESCRIPTOR_V2_FILE + "' file template"
 	initCmdLongDesc  = dedent.Dedent(`
 		This command will generate the 'update-descriptor.yaml' file. If
 		the user does not specify a directory, it will use the current
@@ -180,17 +180,35 @@ func initDirectory(destination string) {
 
 	//remove " enclosing the update number
 	dataStringV2 = strings.Replace(dataStringV2, "\"", "", -1)
-	logger.Debug(fmt.Sprintf("update-descriptor:\n%s", dataStringV2))
+	logger.Debug(fmt.Sprintf("update-descriptorV2:\n%s", dataStringV2))
 	dataStringV3 = strings.Replace(dataStringV3, "\"", "", -1)
-	logger.Debug(fmt.Sprintf("update-descriptorV2:\n%s", dataStringV3))
+	logger.Debug(fmt.Sprintf("update-descriptorV3:\n%s", dataStringV3))
 
-	// Construct the update descriptor file path
-	updateDescriptorFile := filepath.Join(destination, constant.UPDATE_DESCRIPTOR_FILE)
-	logger.Debug(fmt.Sprintf("updateDescriptorFile: %v", updateDescriptorFile))
+	// Construct update descriptor file paths
+	updateDescriptorFileV2 := filepath.Join(destination, constant.UPDATE_DESCRIPTOR_V2_FILE)
+	logger.Debug(fmt.Sprintf("updateDescriptorFileV2: %v", updateDescriptorFileV2))
+	updateDescriptorFileV3 := filepath.Join(destination, constant.UPDATE_DESCRIPTOR_V3_FILE)
+	logger.Debug(fmt.Sprintf("updateDescriptorFileV3: %v", updateDescriptorFileV3))
 
-	// Save the update descriptor
+	// Save update descriptors
+	absDestinationV2 := saveUpdateDescriptorInDestination(updateDescriptorFileV2, dataStringV2, destination)
+	util.PrintInfo(fmt.Sprintf("'%s' has been successfully created at '%s'.", constant.UPDATE_DESCRIPTOR_V2_FILE,
+		absDestinationV2))
+	absDestinationV3 := saveUpdateDescriptorInDestination(updateDescriptorFileV3, dataStringV3, destination)
+	util.PrintInfo(fmt.Sprintf("'%s' has been successfully created at '%s'.", constant.UPDATE_DESCRIPTOR_V3_FILE,
+		absDestinationV3))
+
+	//Print whats next
+	color.Set(color.Bold)
+	fmt.Println("\nWhat's next?")
+	color.Unset()
+	fmt.Println(fmt.Sprintf("\trun 'wum-uc init --sample' to view a sample '%s' file.",
+		constant.UPDATE_DESCRIPTOR_V2_FILE))
+}
+
+func saveUpdateDescriptorInDestination(updateDescriptorFilePath, dataString, destination string) string {
 	file, err := os.OpenFile(
-		updateDescriptorFile,
+		updateDescriptorFilePath,
 		os.O_WRONLY|os.O_TRUNC|os.O_CREATE,
 		0600,
 	)
@@ -198,7 +216,7 @@ func initDirectory(destination string) {
 	defer file.Close()
 
 	// Write bytes to file
-	_, err = file.Write([]byte(dataStringV2))
+	_, err = file.Write([]byte(dataString))
 	if err != nil {
 		util.HandleErrorAndExit(err)
 	}
@@ -208,15 +226,8 @@ func initDirectory(destination string) {
 	if err != nil {
 		absDestination = destination
 	}
-	util.PrintInfo(fmt.Sprintf("'%s' has been successfully created at '%s'.", constant.UPDATE_DESCRIPTOR_FILE,
-		absDestination))
+	return absDestination
 
-	//Print whats next
-	color.Set(color.Bold)
-	fmt.Println("\nWhat's next?")
-	color.Unset()
-	fmt.Println(fmt.Sprintf("\trun 'wum-uc init --sample' to view a sample '%s' file.",
-		constant.UPDATE_DESCRIPTOR_FILE))
 }
 
 //This function will set values to the update-descriptor.yaml and update-descriptorV2.yaml.
