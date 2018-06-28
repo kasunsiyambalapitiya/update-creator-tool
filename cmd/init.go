@@ -156,8 +156,8 @@ func initDirectory(destination string) {
 
 	// Create new update descriptor structs
 	// Todo refactor for wum3
-	updateDescriptor := util.UpdateDescriptor{}
-	updateDescriptorV2 := util.UpdateDescriptorV2{}
+	updateDescriptorV2 := util.UpdateDescriptor{}
+	updateDescriptorV3 := util.UpdateDescriptorV2{}
 
 	// Download the LICENSE.txt
 	downloadFile(destination, constant.LICENSE_URL, constant.LICENSE_DOWNLOAD_URL, constant.LICENSE_FILE)
@@ -167,16 +167,22 @@ func initDirectory(destination string) {
 		constant.NOT_A_CONTRIBUTION_FILE)
 
 	// Process README.txt and parse values
-	processReadMe(destination, &updateDescriptor, &updateDescriptorV2)
+	processReadMe(destination, &updateDescriptorV2, &updateDescriptorV3)
 
-	// Marshall the update descriptor struct
-	data, err := yaml.Marshal(&updateDescriptor)
+	// Marshall update descriptor structs
+	dataV2, err := yaml.Marshal(&updateDescriptorV2)
+	util.HandleErrorAndExit(err)
+	dataV3, err := yaml.Marshal(&updateDescriptorV3)
 	util.HandleErrorAndExit(err)
 
-	dataString := string(data)
+	dataStringV2 := string(dataV2)
+	dataStringV3 := string(dataV3)
+
 	//remove " enclosing the update number
-	dataString = strings.Replace(dataString, "\"", "", -1)
-	logger.Debug(fmt.Sprintf("update-descriptor:\n%s", dataString))
+	dataStringV2 = strings.Replace(dataStringV2, "\"", "", -1)
+	logger.Debug(fmt.Sprintf("update-descriptor:\n%s", dataStringV2))
+	dataStringV3 = strings.Replace(dataStringV3, "\"", "", -1)
+	logger.Debug(fmt.Sprintf("update-descriptorV2:\n%s", dataStringV3))
 
 	// Construct the update descriptor file path
 	updateDescriptorFile := filepath.Join(destination, constant.UPDATE_DESCRIPTOR_FILE)
@@ -192,7 +198,7 @@ func initDirectory(destination string) {
 	defer file.Close()
 
 	// Write bytes to file
-	_, err = file.Write([]byte(dataString))
+	_, err = file.Write([]byte(dataStringV2))
 	if err != nil {
 		util.HandleErrorAndExit(err)
 	}
@@ -214,29 +220,29 @@ func initDirectory(destination string) {
 }
 
 //This function will set values to the update-descriptor.yaml and update-descriptorV2.yaml.
-func setValuesForUpdateDescriptors(updateDescriptor *util.UpdateDescriptor, updateDescriptorV2 *util.UpdateDescriptorV2) {
+func setValuesForUpdateDescriptors(updateDescriptorV2 *util.UpdateDescriptor, updateDescriptorV3 *util.UpdateDescriptorV2) {
 	logger.Debug("Setting values for update descriptors:")
-	setCommonValuesForBothUpdateDescriptors(updateDescriptor, updateDescriptorV2)
-	setDescription(updateDescriptor)
-	setAppliesTo(updateDescriptor)
-	setBugFixes(updateDescriptor)
+	setCommonValuesForBothUpdateDescriptors(updateDescriptorV2, updateDescriptorV3)
+	setDescription(updateDescriptorV2)
+	setAppliesTo(updateDescriptorV2)
+	setBugFixes(updateDescriptorV2)
 }
 
-func setAppliesTo(updateDescriptor *util.UpdateDescriptor) {
+func setAppliesTo(updateDescriptorV2 *util.UpdateDescriptor) {
 	util.PrintInBold("Enter applies to")
 	appliesTo, err := util.GetUserInput()
 	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-	updateDescriptor.Applies_to = appliesTo
+	updateDescriptorV2.Applies_to = appliesTo
 }
 
-func setDescription(updateDescriptor *util.UpdateDescriptor) {
+func setDescription(updateDescriptorV2 *util.UpdateDescriptor) {
 	util.PrintInBold("Enter description")
 	description, err := util.GetUserInput()
 	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-	updateDescriptor.Description = description
+	updateDescriptorV2.Description = description
 }
 
-func setBugFixes(updateDescriptor *util.UpdateDescriptor) {
+func setBugFixes(updateDescriptorV2 *util.UpdateDescriptor) {
 	util.PrintInBold("Enter Bug fixes, please enter 'done' when you are finished adding")
 	bugFixes := make(map[string]string)
 	for {
@@ -262,34 +268,34 @@ func setBugFixes(updateDescriptor *util.UpdateDescriptor) {
 		bugFixes[jiraKey] = jiraSummary
 	}
 	logger.Debug(fmt.Sprintf("bug_fixes: %v", bugFixes))
-	updateDescriptor.Bug_fixes = bugFixes
+	updateDescriptorV2.Bug_fixes = bugFixes
 }
 
-func setCommonValuesForBothUpdateDescriptors(updateDescriptor *util.UpdateDescriptor, updateDescriptorV2 *util.UpdateDescriptorV2) {
+func setCommonValuesForBothUpdateDescriptors(updateDescriptorV2 *util.UpdateDescriptor, updateDescriptorV3 *util.UpdateDescriptorV2) {
 	util.PrintInBold("Enter update number")
 	updateNumber, err := util.GetUserInput()
 	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-	updateDescriptor.Update_number = updateNumber
 	updateDescriptorV2.Update_number = updateNumber
+	updateDescriptorV3.Update_number = updateNumber
 
 	util.PrintInBold("Enter platform name")
 	platformName, err := util.GetUserInput()
 	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-	updateDescriptor.Platform_name = platformName
 	updateDescriptorV2.Platform_name = platformName
+	updateDescriptorV3.Platform_name = platformName
 
 	util.PrintInBold("Enter platform version")
 	platformVersion, err := util.GetUserInput()
 	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-	updateDescriptor.Platform_version = platformVersion
 	updateDescriptorV2.Platform_version = platformVersion
+	updateDescriptorV3.Platform_version = platformVersion
 }
 
 //This function will process the readme file and extract details to populate update-descriptor.
 // yaml and update-descriptorV2.yaml. If some data
 // cannot be extracted, it will add default value and continue.
-func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
-	updateDescriptorV2 *util.UpdateDescriptorV2) {
+func processReadMe(directory string, updateDescriptorV2 *util.UpdateDescriptor,
+	updateDescriptorV3 *util.UpdateDescriptorV2) {
 	logger.Debug("Processing README started")
 	// Construct the README.txt path
 	readMePath := path.Join(directory, constant.README_FILE)
@@ -299,7 +305,7 @@ func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
 	if err != nil {
 		// If the file does not exist or any other error occur, return without printing warning messages
 		logger.Debug(fmt.Sprintf("%s not found", readMePath))
-		setValuesForUpdateDescriptors(updateDescriptor, updateDescriptorV2)
+		setValuesForUpdateDescriptors(updateDescriptorV2, updateDescriptorV3)
 		return
 	}
 	// Read the README.txt file
@@ -307,7 +313,7 @@ func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
 	if err != nil {
 		// If any error occurs, return without printing warning messages
 		logger.Debug(fmt.Sprintf("Error occurred in processing README: %v", err))
-		setValuesForUpdateDescriptors(updateDescriptor, updateDescriptorV2)
+		setValuesForUpdateDescriptors(updateDescriptorV2, updateDescriptorV3)
 		return
 	}
 
@@ -325,26 +331,26 @@ func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
 		// capturing groups are identified.
 		if len(result) != 0 {
 			// Extract details
-			updateDescriptor.Update_number = result[2]
 			updateDescriptorV2.Update_number = result[2]
-			updateDescriptor.Platform_version = result[1]
+			updateDescriptorV3.Update_number = result[2]
 			updateDescriptorV2.Platform_version = result[1]
+			updateDescriptorV3.Platform_version = result[1]
 			platformsMap := viper.GetStringMapString(constant.PLATFORM_VERSIONS)
 			logger.Trace(fmt.Sprintf("Platform Map: %v", platformsMap))
 			// Get the platform details from the map
 			platformName, found := platformsMap[result[1]]
 			if found {
 				logger.Debug("PlatformName found in configs")
-				updateDescriptor.Platform_name = platformName
 				updateDescriptorV2.Platform_name = platformName
+				updateDescriptorV3.Platform_name = platformName
 			} else {
 				//If the platform name is not found, set default
 				logger.Debug("No matching platform name found for:", result[1])
 				util.PrintInBold("Enter platform name for platform version :", result[1])
 				platformName, err := util.GetUserInput()
 				util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-				updateDescriptor.Platform_name = platformName
 				updateDescriptorV2.Platform_name = platformName
+				updateDescriptorV3.Platform_name = platformName
 			}
 		} else {
 			logger.Debug("PATCH_ID_REGEX results incorrect:", result)
@@ -352,7 +358,7 @@ func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
 	} else {
 		//If error occurred, set default values
 		logger.Debug(fmt.Sprintf("Error occurred while processing PATCH_ID_REGEX: %v", err))
-		setCommonValuesForBothUpdateDescriptors(updateDescriptor, updateDescriptorV2)
+		setCommonValuesForBothUpdateDescriptors(updateDescriptorV2, updateDescriptorV3)
 	}
 
 	// Compile the regex
@@ -364,11 +370,11 @@ func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
 		// If it does not appear, result size will be 3.
 		if len(result) == 2 {
 			// If the result size is 2, we know that 1st index contains the 1st capturing group.
-			updateDescriptor.Applies_to = util.ProcessString(result[1], ", ", true)
+			updateDescriptorV2.Applies_to = util.ProcessString(result[1], ", ", true)
 		} else if len(result) == 3 {
 			// If the result size is 3, 1st or 2nd string might contain the match. So we concat them
 			// together and trim the spaces. If one field has an empty string, it will be trimmed.
-			updateDescriptor.Applies_to = util.ProcessString(strings.TrimSpace(result[1]+result[2]), ", ",
+			updateDescriptorV2.Applies_to = util.ProcessString(strings.TrimSpace(result[1]+result[2]), ", ",
 				true)
 		} else {
 			logger.Debug("No matching results found for APPLIES_TO_REGEX:", result)
@@ -376,7 +382,7 @@ func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
 	} else {
 		//If error occurred, set default value
 		logger.Debug(fmt.Sprintf("Error occurred while processing APPLIES_TO_REGEX: %v", err))
-		setAppliesTo(updateDescriptor)
+		setAppliesTo(updateDescriptorV2)
 	}
 
 	// Compile the regex
@@ -385,11 +391,11 @@ func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
 		// Get all matches because there might be multiple Jiras.
 		allResult := regex.FindAllStringSubmatch(stringData, -1)
 		logger.Trace(fmt.Sprintf("APPLIES_TO_REGEX result: %v", allResult))
-		updateDescriptor.Bug_fixes = make(map[string]string)
+		updateDescriptorV2.Bug_fixes = make(map[string]string)
 		// If no Jiras found, set 'N/A: N/A' as the value
 		if len(allResult) == 0 {
 			logger.Debug("No matching results found for ASSOCIATED_JIRAS_REGEX. Setting default values.")
-			updateDescriptor.Bug_fixes[constant.JIRA_NA] = constant.JIRA_NA
+			updateDescriptorV2.Bug_fixes[constant.JIRA_NA] = constant.JIRA_NA
 		} else {
 			// If Jiras found, get summary for all Jiras
 			logger.Debug("Matching results found for ASSOCIATED_JIRAS_REGEX")
@@ -397,14 +403,14 @@ func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
 				// Regex has a one capturing group. So the jira ID will be in the 1st index.
 				logger.Debug(fmt.Sprintf("%d: %s", i, match[1]))
 				logger.Debug(fmt.Sprintf("ASSOCIATED_JIRAS_REGEX results is correct: %v", match))
-				updateDescriptor.Bug_fixes[match[1]] = util.GetJiraSummary(match[1])
+				updateDescriptorV2.Bug_fixes[match[1]] = util.GetJiraSummary(match[1])
 			}
 		}
 	} else {
 		//If error occurred, set default values
 		logger.Debug(fmt.Sprintf("Error occurred while processing ASSOCIATED_JIRAS_REGEX: %v", err))
 		logger.Debug("Setting default values to bug_fixes")
-		setBugFixes(updateDescriptor)
+		setBugFixes(updateDescriptorV2)
 	}
 
 	// Compile the regex
@@ -415,15 +421,15 @@ func processReadMe(directory string, updateDescriptor *util.UpdateDescriptor,
 		logger.Trace(fmt.Sprintf("DESCRIPTION_REGEX result: %v", result))
 		// If there is a match, process it and store it
 		if len(result) != 0 {
-			updateDescriptor.Description = util.ProcessString(result[1], "\n", false)
+			updateDescriptorV2.Description = util.ProcessString(result[1], "\n", false)
 		} else {
 			logger.Debug(fmt.Sprintf("No matching results found for DESCRIPTION_REGEX: %v", result))
-			setDescription(updateDescriptor)
+			setDescription(updateDescriptorV2)
 		}
 	} else {
 		//If error occurred, set default values
 		logger.Debug(fmt.Sprintf("Error occurred while processing DESCRIPTION_REGEX: %v", err))
-		setDescription(updateDescriptor)
+		setDescription(updateDescriptorV2)
 	}
 	logger.Debug("Processing README finished")
 }
