@@ -137,7 +137,7 @@ func startValidation(updateFilePath, distributionLocation string) {
 }
 
 // This function compares the files in the update and the distribution.
-func compare(updateFileMap, distributionFileMap map[string]bool, updateDescriptor *util.UpdateDescriptor) error {
+func compare(updateFileMap, distributionFileMap map[string]bool, updateDescriptor *util.UpdateDescriptorV2) error {
 	updateName := viper.GetString(constant.UPDATE_NAME)
 	for filePath := range updateFileMap {
 		logger.Debug(fmt.Sprintf("Searching: %s", filePath))
@@ -166,9 +166,9 @@ func compare(updateFileMap, distributionFileMap map[string]bool, updateDescripto
 }
 
 // This function will read the update zip at the the given location.
-func readUpdateZip(filename string) (map[string]bool, *util.UpdateDescriptor, error) {
+func readUpdateZip(filename string) (map[string]bool, *util.UpdateDescriptorV2, error) {
 	fileMap := make(map[string]bool)
-	updateDescriptor := util.UpdateDescriptor{}
+	updateDescriptor := util.UpdateDescriptorV2{}
 
 	isNotAContributionFileFound := false
 	isASecPatch := false

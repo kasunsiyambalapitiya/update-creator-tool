@@ -43,7 +43,7 @@ import (
 var logger = log.Logger()
 
 // struct which is used to read update-descriptor.yaml
-type UpdateDescriptor struct {
+type UpdateDescriptorV2 struct {
 	Update_number    string
 	Platform_version string
 	Platform_name    string
@@ -68,13 +68,22 @@ type Product_Changes struct {
 	Modified_files  []string
 }
 
-type UpdateDescriptorV2 struct {
+type UpdateDescriptorV3 struct {
 	Update_number       string
 	Platform_version    string
 	Platform_name       string
 	Compatible_products []Product_Changes
 	Applicable_products []Product_Changes
 	Notify_products     []Product_Changes
+}
+
+type PartialUpdateRequestInfo struct {
+	Update_number    string
+	Platform_version string
+	Platform_name    string
+	Added_files      []string
+	Removed_files    []string
+	Modified_files   []string
 }
 
 // Structs to get the summary field from the jira response
@@ -194,13 +203,13 @@ func IsUserPreferencesValid(preferences []string, noOfAvailableChoices int) (boo
 }
 
 // This function will read update-descriptor.yaml
-func LoadUpdateDescriptor(filename, updateDirectoryPath string) (*UpdateDescriptor, error) {
+func LoadUpdateDescriptor(filename, updateDirectoryPath string) (*UpdateDescriptorV2, error) {
 	//Construct the file path
 	updateDescriptorPath := filepath.Join(updateDirectoryPath, filename)
 	logger.Debug(fmt.Sprintf("updateDescriptorPath: %s", updateDescriptorPath))
 
 	//Read the file
-	updateDescriptor := UpdateDescriptor{}
+	updateDescriptor := UpdateDescriptorV2{}
 	yamlFile, err := ioutil.ReadFile(updateDescriptorPath)
 	if err != nil {
 		return nil, err
@@ -215,7 +224,7 @@ func LoadUpdateDescriptor(filename, updateDirectoryPath string) (*UpdateDescript
 }
 
 // This function will validate the update-descriptor.yaml
-func ValidateUpdateDescriptor(updateDescriptor *UpdateDescriptor) error {
+func ValidateUpdateDescriptor(updateDescriptor *UpdateDescriptorV2) error {
 	if len(updateDescriptor.Update_number) == 0 {
 		return errors.New("'update_number' field not found.")
 	}

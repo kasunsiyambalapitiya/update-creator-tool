@@ -43,23 +43,43 @@ var (
 		README.txt file in the old patch format. If README.txt is not
 		found, it will fill values using default values which you need
 		to edit manually.`)
-	//Todo
-	initCmdExample = dedent.Dedent(`update_number: 0001
-platform_version: 4.4.0
-platform_name: wilkes
-applies_to: All the products based on carbon 4.4.1
-bug_fixes:
-  CARBON-15395: Upgrade Hazelcast version to 3.5.2
-  <Multiple JIRAs or GITHUB Issues>
-description: |
-  This update contain the relavent fixes for upgrading Hazelcast version
-  to its latest 3.5.2 version. When applying this update it requires a
-  full cluster estart since if the nodes has multiple client versions of
-  Hazelcast it can cause issues during connectivity.
-file_changes:
-  added_files: []
-  removed_files: []
-  modified_files: []`)
+	initCmdExampleV1 = dedent.Dedent(`
+		update_number: 0001
+		platform_version: 4.4.0
+		platform_name: wilkes
+		applies_to: All the products based on carbon 4.4.1
+		bug_fixes:
+		  CARBON-15395: Upgrade Hazelcast version to 3.5.2
+		  <Multiple JIRAs or GITHUB Issues>
+		description: |
+		  This update contain the relavent fixes for upgrading Hazelcast version
+		  to its latest 3.5.2 version. When applying this update it requires a
+		  full cluster estart since if the nodes has multiple client versions of;
+		  Hazelcast it can cause issues during connectivity.
+		file_changes:
+		  added_files: []
+		  removed_files: []
+		  modified_files: []
+		`)
+	initCmdExampleV2 = dedent.Dedent(`
+		update_number: 2000
+		platform_name: wilkes
+		platform_version: 4.4.0
+		compatible_products:
+		- product_name: wso2am
+		 product_version: 2.1.0.sec
+		 description: "Description"
+		 instructions: "Instructions"
+		 bug_fixes:
+		   N/A: N/A
+		 added_files: []
+		 removed_files:
+		 - repository/components/plugins/org.wso2.carbon.logging.admin.ui_4.4.7.jar
+		 modified_files:
+		 - repository/components/plugins/activity-all_5.21.0.wso2v1.jar
+		applicable_products: []
+		notify-products: []
+		`)
 	isSampleEnabled bool
 )
 
@@ -85,19 +105,21 @@ func initializeInitCommand(cmd *cobra.Command, args []string) {
 	logger.Debug("[Init] called")
 	if isSampleEnabled {
 		logger.Debug("-s flag found. Printing sample...")
-		fmt.Println(initCmdExample)
-	}
-	switch len(args) {
-	case 0:
-		logger.Debug("Initializing current working directory.")
-		initCurrentDirectory()
-	case 1:
-		logger.Debug("Initializing directory:", args[0])
-		initDirectory(args[0])
-	default:
-		logger.Debug("Invalid number of arguments:", args)
-		util.HandleErrorAndExit(errors.New("Invalid number of arguments. Run 'wum-uc init --help' to view " +
-			"help."))
+		fmt.Printf("Sample update-descriptor.yaml \n %s \n\nSample update-descriptor3.yaml \n %s \n", initCmdExampleV1,
+			initCmdExampleV2)
+	} else {
+		switch len(args) {
+		case 0:
+			logger.Debug("Initializing current working directory.")
+			initCurrentDirectory()
+		case 1:
+			logger.Debug("Initializing directory:", args[0])
+			initDirectory(args[0])
+		default:
+			logger.Debug("Invalid number of arguments:", args)
+			util.HandleErrorAndExit(errors.New("Invalid number of arguments. Run 'wum-uc init --help' to view " +
+				"help."))
+		}
 	}
 }
 
@@ -153,9 +175,8 @@ func initDirectory(destination string) {
 	}
 
 	// Create new update descriptor structs
-	// Todo refactor for wum3
-	updateDescriptorV2 := util.UpdateDescriptor{}
-	updateDescriptorV3 := util.UpdateDescriptorV2{}
+	updateDescriptorV2 := util.UpdateDescriptorV2{}
+	updateDescriptorV3 := util.UpdateDescriptorV3{}
 
 	// Download the LICENSE.txt
 	downloadFile(destination, constant.LICENSE_URL, constant.LICENSE_DOWNLOAD_URL, constant.LICENSE_FILE)
@@ -229,7 +250,7 @@ func saveUpdateDescriptorInDestination(updateDescriptorFilePath, dataString, des
 }
 
 //This function will set values to the update-descriptor.yaml and update-descriptorV2.yaml.
-func setValuesForUpdateDescriptors(updateDescriptorV2 *util.UpdateDescriptor, updateDescriptorV3 *util.UpdateDescriptorV2) {
+func setValuesForUpdateDescriptors(updateDescriptorV2 *util.UpdateDescriptorV2, updateDescriptorV3 *util.UpdateDescriptorV3) {
 	logger.Debug("Setting values for update descriptors:")
 	setCommonValuesForBothUpdateDescriptors(updateDescriptorV2, updateDescriptorV3)
 	setDescription(updateDescriptorV2)
@@ -237,63 +258,66 @@ func setValuesForUpdateDescriptors(updateDescriptorV2 *util.UpdateDescriptor, up
 	setBugFixes(updateDescriptorV2)
 }
 
-func setAppliesTo(updateDescriptorV2 *util.UpdateDescriptor) {
-	util.PrintInBold("Enter applies to")
+func setAppliesTo(updateDescriptorV2 *util.UpdateDescriptorV2) {
+	util.PrintInBold("Enter applies to: ")
 	appliesTo, err := util.GetUserInput()
 	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 	updateDescriptorV2.Applies_to = appliesTo
 }
 
-func setDescription(updateDescriptorV2 *util.UpdateDescriptor) {
-	util.PrintInBold("Enter description")
+func setDescription(updateDescriptorV2 *util.UpdateDescriptorV2) {
+	util.PrintInBold("Enter description: ")
 	description, err := util.GetUserInput()
 	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 	updateDescriptorV2.Description = description
 }
 
-func setBugFixes(updateDescriptorV2 *util.UpdateDescriptor) {
+func setBugFixes(updateDescriptorV2 *util.UpdateDescriptorV2) {
 	util.PrintInBold("Enter Bug fixes, please enter 'done' when you are finished adding")
+	fmt.Println()
 	bugFixes := make(map[string]string)
 	for {
-		// Todo refactor them to constants, and change constant.JIRA_KEY_DEFAULT
-		util.PrintInBold("Enter JIRA_KEY/GITHUB ISSUE URL")
+		// Todo refactor them to constants, and change constant.JIRA_KEY_DEFAULT and try to make them on using ||
+		util.PrintInBold("Enter JIRA_KEY/GITHUB ISSUE URL: ")
 		jiraKey, err := util.GetUserInput()
 		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 		if strings.ToLower(jiraKey) == "done" {
 			if len(bugFixes) == 0 {
 				bugFixes[constant.JIRA_NA] = constant.JIRA_NA
 			}
+			logger.Debug(fmt.Sprintf("bug_fixes: %v", bugFixes))
+			updateDescriptorV2.Bug_fixes = bugFixes
 			return
 		}
-		util.PrintInBold("Enter JIRA_KEY SUMMARY/GITHUB_ISSUE_SUMMARY")
+		util.PrintInBold("Enter JIRA_KEY SUMMARY/GITHUB_ISSUE_SUMMARY: ")
 		jiraSummary, err := util.GetUserInput()
 		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 		if strings.ToLower(jiraSummary) == "done" {
 			if len(bugFixes) == 0 {
 				bugFixes[constant.JIRA_NA] = constant.JIRA_NA
 			}
+			logger.Debug(fmt.Sprintf("bug_fixes: %v", bugFixes))
+			updateDescriptorV2.Bug_fixes = bugFixes
 			return
 		}
 		bugFixes[jiraKey] = jiraSummary
 	}
-	logger.Debug(fmt.Sprintf("bug_fixes: %v", bugFixes))
-	updateDescriptorV2.Bug_fixes = bugFixes
 }
 
-func setCommonValuesForBothUpdateDescriptors(updateDescriptorV2 *util.UpdateDescriptor, updateDescriptorV3 *util.UpdateDescriptorV2) {
-	util.PrintInBold("Enter update number")
+func setCommonValuesForBothUpdateDescriptors(updateDescriptorV2 *util.UpdateDescriptorV2, updateDescriptorV3 *util.UpdateDescriptorV3) {
+	util.PrintInBold("Enter update number: ")
 	updateNumber, err := util.GetUserInput()
 	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 	updateDescriptorV2.Update_number = updateNumber
 	updateDescriptorV3.Update_number = updateNumber
 
-	util.PrintInBold("Enter platform name")
+	util.PrintInBold("Enter platform name: ")
 	platformName, err := util.GetUserInput()
 	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 	updateDescriptorV2.Platform_name = platformName
 	updateDescriptorV3.Platform_name = platformName
 
-	util.PrintInBold("Enter platform version")
+	util.PrintInBold("Enter platform version: ")
 	platformVersion, err := util.GetUserInput()
 	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 	updateDescriptorV2.Platform_version = platformVersion
@@ -303,8 +327,8 @@ func setCommonValuesForBothUpdateDescriptors(updateDescriptorV2 *util.UpdateDesc
 //This function will process the readme file and extract details to populate update-descriptor.
 // yaml and update-descriptorV2.yaml. If some data
 // cannot be extracted, it will add default value and continue.
-func processReadMe(directory string, updateDescriptorV2 *util.UpdateDescriptor,
-	updateDescriptorV3 *util.UpdateDescriptorV2) {
+func processReadMe(directory string, updateDescriptorV2 *util.UpdateDescriptorV2,
+	updateDescriptorV3 *util.UpdateDescriptorV3) {
 	logger.Debug("Processing README started")
 	// Construct the README.txt path
 	readMePath := path.Join(directory, constant.README_FILE)
