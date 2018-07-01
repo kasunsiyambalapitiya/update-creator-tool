@@ -33,9 +33,11 @@ import (
 	"time"
 
 	"archive/zip"
+	"bytes"
 	"github.com/fatih/color"
 	"github.com/ian-kent/go-log/log"
 	"github.com/pkg/errors"
+	"github.com/spf13/viper"
 	"github.com/wso2/update-creator-tool/constant"
 	"gopkg.in/yaml.v2"
 )
@@ -551,13 +553,24 @@ func GetContentFromUrl(url string) ([]byte, error) {
 }
 
 //Todo doc
-func CreatePartialUpdateRequestInfo(updateDescriptorV2 *UpdateDescriptorV2) (
-	partialUpdateRequestInfo *PartialUpdateFileRequest) {
-	partialUpdateRequestInfo.Update_number = updateDescriptorV2.Update_number
-	partialUpdateRequestInfo.Platform_name = updateDescriptorV2.Platform_name
-	partialUpdateRequestInfo.Platform_version = updateDescriptorV2.Platform_version
-	partialUpdateRequestInfo.Added_files = updateDescriptorV2.File_changes.Added_files
-	partialUpdateRequestInfo.Modified_files = updateDescriptorV2.File_changes.Modified_files
-	partialUpdateRequestInfo.Removed_files = updateDescriptorV2.File_changes.Removed_files
+func createPartialUpdateFileRequest(updateDescriptorV2 *UpdateDescriptorV2) (
+	partialUpdateFileRequest *PartialUpdateFileRequest) {
+	partialUpdateFileRequest.Update_number = updateDescriptorV2.Update_number
+	partialUpdateFileRequest.Platform_name = updateDescriptorV2.Platform_name
+	partialUpdateFileRequest.Platform_version = updateDescriptorV2.Platform_version
+	partialUpdateFileRequest.Added_files = updateDescriptorV2.File_changes.Added_files
+	partialUpdateFileRequest.Modified_files = updateDescriptorV2.File_changes.Modified_files
+	partialUpdateFileRequest.Removed_files = updateDescriptorV2.File_changes.Removed_files
 	return
 }
+
+//Todo doc and logs
+func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) {
+	// Create partial update request
+	partialUpdateFileRequest := createPartialUpdateFileRequest(updateDescriptorV2)
+	requestBody := new(bytes.Buffer)
+	if err := json.NewEncoder(requestBody).Encode(partialUpdateFileRequest); err != nil {
+		HandleErrorAndExit(err)
+	}
+	// Invoke the API
+	apiURL := GetWUMUCConfigs().URL

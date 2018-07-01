@@ -300,8 +300,8 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while saving the '%v'.",
 		constant.UPDATE_DESCRIPTOR_V2_FILE))
 
-	// Create partial update request
-	partialUpdateFileRequest := util.CreatePartialUpdateRequestInfo(updateDescriptorV2)
+	// Get partial updated file changes
+	util.GetPartialUpdatedFiles(updateDescriptorV2)
 
 	// Construct the update zip name
 	updateZipName := updateName + ".zip"
