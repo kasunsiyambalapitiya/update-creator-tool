@@ -167,7 +167,7 @@ func TestIsUserPreferencesValid(t *testing.T) {
 }
 
 func TestValidateUpdateDescriptor(t *testing.T) {
-	updateDescriptor := UpdateDescriptor{}
+	updateDescriptor := UpdateDescriptorV2{}
 	err := ValidateUpdateDescriptor(&updateDescriptor)
 	if err == nil {
 		t.Error("Test failed. Error expected")

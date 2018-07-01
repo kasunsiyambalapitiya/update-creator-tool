@@ -115,7 +115,7 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	//1) Check whether the given update directory exists
 	exists, err := util.IsDirectoryExists(updateDirectoryPath)
 	util.HandleErrorAndExit(err, "Error occurred while reading the update directory")
-	logger.Debug(fmt.Sprintf("exists: %v", exists))
+	logger.Debug(fmt.Sprintf("Directory %s exists: %v", updateDirectoryPath, exists))
 	if !exists {
 		util.HandleErrorAndExit(errors.New(fmt.Sprintf("Directory does not exist at '%s'. Update location "+
 			"must be a directory.", updateDirectoryPath)))
@@ -124,17 +124,10 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	logger.Debug(fmt.Sprintf("updateRoot: %s\n", updateRoot))
 	viper.Set(constant.UPDATE_ROOT, updateRoot)
 
-	//2) Check whether the update-descriptor.yaml file exists
-	// Construct the update-descriptor.yaml file location
-	updateDescriptorPath := path.Join(updateDirectoryPath, constant.UPDATE_DESCRIPTOR_V2_FILE)
-	exists, err = util.IsFileExists(updateDescriptorPath)
-	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while reading the '%v'",
-		constant.UPDATE_DESCRIPTOR_V2_FILE))
-	if !exists {
-		util.HandleErrorAndExit(errors.New(fmt.Sprintf("'%s' not found at '%s' directory.",
-			constant.UPDATE_DESCRIPTOR_V2_FILE, updateDirectoryPath)))
-	}
-	logger.Debug(fmt.Sprintf("Descriptor Exists. Location %s", updateDescriptorPath))
+	//Todo check for both files
+	//2) Check whether the update-descriptor.yaml and update-descriptor3.yaml files exist
+	checkUpdateDescriptors(updateDirectoryPath, constant.UPDATE_DESCRIPTOR_V2_FILE)
+	checkUpdateDescriptors(updateDirectoryPath, constant.UPDATE_DESCRIPTOR_V3_FILE)
 
 	//3) Check whether the given distribution exists
 	exists, err = util.IsFileExists(distributionPath)
@@ -147,16 +140,16 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	util.IsZipFile(constant.DISTRIBUTION, distributionPath)
 
 	//4) Read update-descriptor.yaml and set the update name which will be used when creating the update zip file.
-	updateDescriptor, err := util.LoadUpdateDescriptor(constant.UPDATE_DESCRIPTOR_V2_FILE, updateDirectoryPath)
+	updateDescriptorV2, err := util.LoadUpdateDescriptor(constant.UPDATE_DESCRIPTOR_V2_FILE, updateDirectoryPath)
 	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred when reading '%s' file.",
 		constant.UPDATE_DESCRIPTOR_V2_FILE))
 
 	//5) Validate the file format
-	err = util.ValidateUpdateDescriptor(updateDescriptor)
+	err = util.ValidateUpdateDescriptor(updateDescriptorV2)
 	util.HandleErrorAndExit(err, fmt.Sprintf("'%s' format is incorrect.", constant.UPDATE_DESCRIPTOR_V2_FILE))
 
 	// set the update name
-	updateName := getUpdateName(updateDescriptor, constant.UPDATE_NAME_PREFIX)
+	updateName := getUpdateName(updateDescriptorV2, constant.UPDATE_NAME_PREFIX)
 	viper.Set(constant.UPDATE_NAME, updateName)
 
 	// Get ignored files. These files wont be stored in the data structure. So matches will not be searched for
@@ -223,9 +216,9 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 		case 0:
 			// Handle the no match situation
 			logger.Debug("\nNo match found\n")
-			err := handleNoMatch(directoryName, true, allFilesMap, &rootNode, updateDescriptor)
+			err := handleNoMatch(directoryName, true, allFilesMap, &rootNode, updateDescriptorV2)
 			util.HandleErrorAndExit(err)
-		// Single match found in the distribution for the given directory
+			// Single match found in the distribution for the given directory
 		case 1:
 			// Handle the single match situation
 			logger.Debug("\nSingle match found\n")
@@ -235,14 +228,14 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 			for _, node := range matches {
 				match = node
 			}
-			err := handleSingleMatch(directoryName, match, true, allFilesMap, &rootNode, updateDescriptor)
+			err := handleSingleMatch(directoryName, match, true, allFilesMap, &rootNode, updateDescriptorV2)
 			util.HandleErrorAndExit(err)
-		// Multiple matches found in the distribution for the given directory
+			// Multiple matches found in the distribution for the given directory
 		default:
 			// Handle the multiple matches situation
 			logger.Debug("\nMultiple matches found\n")
 			err := handleMultipleMatches(directoryName, true, matches, allFilesMap, &rootNode,
-				updateDescriptor)
+				updateDescriptorV2)
 			util.HandleErrorAndExit(err)
 		}
 	}
@@ -262,9 +255,9 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 		case 0:
 			// Handle the no match situation
 			logger.Debug("No match found\n")
-			err := handleNoMatch(fileName, false, allFilesMap, &rootNode, updateDescriptor)
+			err := handleNoMatch(fileName, false, allFilesMap, &rootNode, updateDescriptorV2)
 			util.HandleErrorAndExit(err)
-		// Single match found in the distribution for the given file
+			// Single match found in the distribution for the given file
 		case 1:
 			// Handle the single match situation
 			logger.Debug("Single match found\n")
@@ -274,13 +267,13 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 			for _, node := range matches {
 				match = node
 			}
-			err := handleSingleMatch(fileName, match, false, allFilesMap, &rootNode, updateDescriptor)
+			err := handleSingleMatch(fileName, match, false, allFilesMap, &rootNode, updateDescriptorV2)
 			util.HandleErrorAndExit(err)
-		// Multiple matches found in the distribution for the given file
+			// Multiple matches found in the distribution for the given file
 		default:
 			// Handle the multiple matches situation
 			logger.Debug("Multiple matches found\n")
-			err := handleMultipleMatches(fileName, false, matches, allFilesMap, &rootNode, updateDescriptor)
+			err := handleMultipleMatches(fileName, false, matches, allFilesMap, &rootNode, updateDescriptorV2)
 			util.HandleErrorAndExit(err)
 		}
 	}
@@ -290,12 +283,25 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	err = copyResourceFilesToTempDir(resourceFiles)
 	util.HandleErrorAndExit(err, errors.New("Error occurred while copying resource files."))
 
-	// Save the update-descriptor with the updated, newly added files to the temp directory
-	data, err := marshalUpdateDescriptor(updateDescriptor)
-	util.HandleErrorAndExit(err, "Error occurred while marshalling the update-descriptor.")
+	// Save the updated update-descriptor with newly added, modified and removed files to the temp directory
+	util.PrintInBold("Enter relative paths of removed files, please enter 'done' when you are finished entering")
+	fmt.Println()
+	for {
+		removedFile, err := util.GetUserInput()
+		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+		if strings.ToLower(removedFile) == "done" {
+			return
+		}
+		updateDescriptorV2.File_changes.Removed_files = append(updateDescriptorV2.File_changes.Removed_files, removedFile)
+	}
+	data, err := marshalUpdateDescriptor(updateDescriptorV2)
+	util.HandleErrorAndExit(err, "Error occurred while marshalling the update-descriptorV2.")
 	err = saveUpdateDescriptor(constant.UPDATE_DESCRIPTOR_V2_FILE, data)
 	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while saving the '%v'.",
 		constant.UPDATE_DESCRIPTOR_V2_FILE))
+
+	// Get partial updated file changes
+	util.GetPartialUpdatedFiles(updateDescriptorV2)
 
 	// Construct the update zip name
 	updateZipName := updateName + ".zip"
@@ -320,8 +326,22 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	startValidation(updateZipName, distributionPath)
 }
 
+// Todo
+func checkUpdateDescriptors(updateDirectoryPath, updateDescriptor string) {
+	// Construct the update-descriptor file location
+	updateDescriptorPath := path.Join(updateDirectoryPath, updateDescriptor)
+	exists, err := util.IsFileExists(updateDescriptorPath)
+	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while reading the '%s'",
+		updateDescriptor))
+	if !exists {
+		util.HandleErrorAndExit(errors.New(fmt.Sprintf("'%s' not found at '%s' directory.",
+			updateDescriptor, updateDirectoryPath)))
+	}
+	logger.Debug(fmt.Sprintf("%s exists. Location %s", updateDescriptor, updateDescriptorPath))
+}
+
 // This function will set the update name which will be used when creating the update zip.
-func getUpdateName(updateDescriptor *util.UpdateDescriptor, updateNamePrefix string) string {
+func getUpdateName(updateDescriptor *util.UpdateDescriptorV2, updateNamePrefix string) string {
 	// Read the corresponding details from the struct
 	platformVersion := updateDescriptor.Platform_version
 	updateNumber := updateDescriptor.Update_number
@@ -332,7 +352,7 @@ func getUpdateName(updateDescriptor *util.UpdateDescriptor, updateNamePrefix str
 // This function will handle no match found for a file situations. User input is required and based on the user input,
 // this function will decide how to proceed.
 func handleNoMatch(filename string, isDir bool, allFilesMap map[string]data, rootNode *node,
-	updateDescriptor *util.UpdateDescriptor) error {
+	updateDescriptor *util.UpdateDescriptorV2) error {
 	//todo: Check OSGi bundles in the plugins directory
 	logger.Debug(fmt.Sprintf("[NO MATCH] %s", filename))
 	util.PrintInBold(fmt.Sprintf("'%s' not found in distribution. ", filename))
@@ -366,7 +386,7 @@ func handleNoMatch(filename string, isDir bool, allFilesMap map[string]data, roo
 // This function will handle the situations where the user want to add a file as a new file which was not found in the
 // distribution.
 func handleNewFile(filename string, isDir bool, rootNode *node, allFilesMap map[string]data,
-	updateDescriptor *util.UpdateDescriptor) error {
+	updateDescriptor *util.UpdateDescriptorV2) error {
 	logger.Debug(fmt.Sprintf("[HANDLE NEW] %s", filename))
 
 readDestinationLoop:
@@ -492,7 +512,7 @@ readDestinationLoop:
 
 // This function will situations where a single match is found in the distribution.
 func handleSingleMatch(filename string, matchingNode *node, isDir bool, allFilesMap map[string]data, rootNode *node,
-	updateDescriptor *util.UpdateDescriptor) error {
+	updateDescriptor *util.UpdateDescriptorV2) error {
 	logger.Debug(fmt.Sprintf("[SINGLE MATCH] %s ; match: %s", filename, matchingNode.relativeLocation))
 	updateRoot := viper.GetString(constant.UPDATE_ROOT)
 	if isDir {
@@ -555,7 +575,7 @@ func handleSingleMatch(filename string, matchingNode *node, isDir bool, allFiles
 
 // This function will handle multiple match situations. In here user input is required.
 func handleMultipleMatches(filename string, isDir bool, matches map[string]*node, allFilesMap map[string]data,
-	rootNode *node, updateDescriptor *util.UpdateDescriptor) error {
+	rootNode *node, updateDescriptor *util.UpdateDescriptorV2) error {
 
 	util.PrintInfo(fmt.Sprintf("Multiple matches found for '%s' in the distribution.", filename))
 
@@ -948,8 +968,8 @@ func getResourceFiles() map[string]bool {
 }
 
 // This function will marshal the update-descriptor.yaml file.
-func marshalUpdateDescriptor(updateDescriptor *util.UpdateDescriptor) ([]byte, error) {
-	data, err := yaml.Marshal(&updateDescriptor)
+func marshalUpdateDescriptor(updateDescriptorV2 *util.UpdateDescriptorV2) ([]byte, error) {
+	data, err := yaml.Marshal(&updateDescriptorV2)
 	if err != nil {
 		return nil, err
 	}
@@ -1042,7 +1062,7 @@ func generateLocationTable(filename string, locationsInDistribution map[string]*
 
 //This function will copy the file/directory from update to temp location.
 func copyFile(filename string, locationInUpdate, relativeLocationInTemp string, rootNode *node,
-	updateDescriptor *util.UpdateDescriptor) error {
+	updateDescriptor *util.UpdateDescriptorV2) error {
 	logger.Debug(fmt.Sprintf("[FINAL][COPY ROOT] Name: %s ; IsDir: false ; From: %s ; To: %s", filename,
 		locationInUpdate, relativeLocationInTemp))
 	updateName := viper.GetString(constant.UPDATE_NAME)

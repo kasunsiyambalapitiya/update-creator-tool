@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"archive/zip"
+	"bytes"
 	"github.com/fatih/color"
 	"github.com/ian-kent/go-log/log"
 	"github.com/pkg/errors"
@@ -77,13 +78,14 @@ type UpdateDescriptorV3 struct {
 	Notify_products     []Product_Changes
 }
 
-type PartialUpdateRequestInfo struct {
-	Update_number    string
-	Platform_version string
-	Platform_name    string
-	Added_files      []string
-	Removed_files    []string
-	Modified_files   []string
+//todo doc
+type PartialUpdateFileRequest struct {
+	Update_number    string   `json:"update-no"`
+	Platform_version string   `json:"platform-version"`
+	Platform_name    string   `json:"platform-name"`
+	Added_files      []string `json:"added-files"`
+	Removed_files    []string `json:"removed-files"`
+	Modified_files   []string `json:"modified_files"`
 }
 
 // Structs to get the summary field from the jira response
@@ -547,4 +549,52 @@ func GetContentFromUrl(url string) ([]byte, error) {
 		return []byte{}, err
 	}
 	return respBytes, nil
+}
+
+//Todo doc
+func createPartialUpdateFileRequest(updateDescriptorV2 *UpdateDescriptorV2) (
+	partialUpdateFileRequest *PartialUpdateFileRequest) {
+	partialUpdateFileRequest.Update_number = updateDescriptorV2.Update_number
+	partialUpdateFileRequest.Platform_name = updateDescriptorV2.Platform_name
+	partialUpdateFileRequest.Platform_version = updateDescriptorV2.Platform_version
+	partialUpdateFileRequest.Added_files = updateDescriptorV2.File_changes.Added_files
+	partialUpdateFileRequest.Modified_files = updateDescriptorV2.File_changes.Modified_files
+	partialUpdateFileRequest.Removed_files = updateDescriptorV2.File_changes.Removed_files
+	return
+}
+
+//Todo doc and logs
+func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) {
+	// Create partial update request
+	partialUpdateFileRequest := createPartialUpdateFileRequest(updateDescriptorV2)
+	requestBody := new(bytes.Buffer)
+	if err := json.NewEncoder(requestBody).Encode(partialUpdateFileRequest); err != nil {
+		HandleErrorAndExit(err)
+	}
+	// Invoke the API
+	apiURL := GetWUMUCConfigs().URL + "/" + constant.PARTIAL_UPDATE_LIST + "?" + constant.READ_ONLY
+	InvokePOSTRequest(apiURL, requestBody)
+}
+
+func InvokePOSTRequest(url string, body io.Reader) *http.Response {
+	request, err := http.NewRequest(http.MethodPost, url, body)
+	if err != nil {
+		HandleUnableToConnectErrorAndExit(err)
+	}
+	request.Header.Add(constant.HEADER_AUTHORIZATION, constant.HEADER_BEARER+" "+GetWUMUCConfigs().AccessToken)
+	request.Header.Add(constant.HEADER_CONTENT_TYPE, constant.HEADER_VALUE_APPLICATION_JSON)
+	return makeAPICall(request)
+}
+
+func HandleUnableToConnectErrorAndExit(err error) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "wum-uc: %v\n", "unable to connect to WSO2 Update")
+		logger.Error(err.Error())
+	}
+	fmt.Fprintf(os.Stderr, "wum: %v\n", constant.UNABLE_TO_CONNECT_WSO2_UPDATE)
+	os.Exit(1)
+}
+
+func makeAPICall(request *http.Request) *http.Response {
+
 }
