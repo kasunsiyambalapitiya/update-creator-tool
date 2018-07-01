@@ -77,13 +77,14 @@ type UpdateDescriptorV3 struct {
 	Notify_products     []Product_Changes
 }
 
-type PartialUpdateRequestInfo struct {
-	Update_number    string
-	Platform_version string
-	Platform_name    string
-	Added_files      []string
-	Removed_files    []string
-	Modified_files   []string
+//todo doc
+type PartialUpdateFileRequest struct {
+	Update_number    string   `json:"update-no"`
+	Platform_version string   `json:"platform-version"`
+	Platform_name    string   `json:"platform-name"`
+	Added_files      []string `json:"added-files"`
+	Removed_files    []string `json:"removed-files"`
+	Modified_files   []string `json:"modified_files"`
 }
 
 // Structs to get the summary field from the jira response
@@ -547,4 +548,16 @@ func GetContentFromUrl(url string) ([]byte, error) {
 		return []byte{}, err
 	}
 	return respBytes, nil
+}
+
+//Todo doc
+func CreatePartialUpdateRequestInfo(updateDescriptorV2 *UpdateDescriptorV2) (
+	partialUpdateRequestInfo *PartialUpdateFileRequest) {
+	partialUpdateRequestInfo.Update_number = updateDescriptorV2.Update_number
+	partialUpdateRequestInfo.Platform_name = updateDescriptorV2.Platform_name
+	partialUpdateRequestInfo.Platform_version = updateDescriptorV2.Platform_version
+	partialUpdateRequestInfo.Added_files = updateDescriptorV2.File_changes.Added_files
+	partialUpdateRequestInfo.Modified_files = updateDescriptorV2.File_changes.Modified_files
+	partialUpdateRequestInfo.Removed_files = updateDescriptorV2.File_changes.Removed_files
+	return
 }
