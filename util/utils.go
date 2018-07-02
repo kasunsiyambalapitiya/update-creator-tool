@@ -586,8 +586,9 @@ func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) {
 		HandleErrorAndExit(err)
 	}
 	// Invoke the API
-	apiURL := GetWUMUCConfigs().URL + "/" + constant.PARTIAL_UPDATE_LIST + "?" + constant.READ_ONLY
-	InvokePOSTRequest(apiURL, requestBody)
+	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
+		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY
+	response := InvokePOSTRequest(apiURL, requestBody)
 }
 
 func InvokePOSTRequest(url string, body io.Reader) *http.Response {
@@ -614,19 +615,18 @@ func makeAPICall(request *http.Request) *http.Response {
 	timeout := time.Duration(constant.WUMUC_API_CALL_TIMEOUT * time.Minute)
 	httpResponse := invokeRequest(request, timeout)
 
-	// Either 400, or 401
+	// When status codes are 400 or 401 we need to renew the access token
 	if httpResponse.StatusCode == http.StatusBadRequest || httpResponse.StatusCode == http.StatusUnauthorized {
 		// Expired access token. Renew the access token and update config.yaml. If the refresh token is
 		// invalid, Authenticate() will notify and exit.
 		Authenticate()
 
-		wConfig := GetWUMConfig()
-		_, enabledURepo := wConfig.GetEnabledRepo()
+		wumucConfig := GetWUMUCConfigs()
 
-		Logf("Retrying failed request with renewed Access Token...\n")
-		req.Header.Set(HeaderAuthorization, "Bearer "+enabledURepo.AccessToken)
+		log.Info("Retrying failed request with renewed Access Token...\n")
+		request.Header.Set(constant.HEADER_AUTHORIZATION, "Bearer "+wumucConfig.AccessToken)
 
-		return invokeRequest(req, timeout)
+		return invokeRequest(request, timeout)
 	}
 
 	return httpResponse
@@ -697,15 +697,12 @@ func Authenticate() {
 			RUN_WUMUC_INIT_TO_CONTINUE_MSG))
 	}
 
-	tr := RenewAccessToken(wumucConfig)
+	tokenResponse := RenewAccessToken(wumucConfig)
 
-	wumucConfig.RefreshToken = tr.RefreshToken
-	wumucConfig.AccessToken = tr.AccessToken
+	wumucConfig.RefreshToken = tokenResponse.RefreshToken
+	wumucConfig.AccessToken = tokenResponse.AccessToken
 
-	WriteConfigFile(wumucConfig, filepath.Join(GetWUMLocalRepo(), WUMConfigFileName))
-
-	// Check whether there is a new version of WUM available
-	CheckForWUMUpdates()
+	WriteConfigFile(wumucConfig, wumucConfigFilePath)
 }
 
 func RenewAccessToken(wumucConfig *WUMUCConfig) *TokenResponse {
@@ -713,7 +710,7 @@ func RenewAccessToken(wumucConfig *WUMUCConfig) *TokenResponse {
 	payload.Add("grant_type", "refresh_token")
 	payload.Add("refresh_token", wumucConfig.RefreshToken)
 	// Invoke APIM token API
-	InvokeTokenAPI(&payload, wumucConfig, constant.RENEW_REFRESH_TOKEN)
+	return InvokeTokenAPI(&payload, wumucConfig, constant.RENEW_REFRESH_TOKEN)
 
 }
 
@@ -729,9 +726,21 @@ func InvokeTokenAPI(payload *url.Values, wumucConfig *WUMUCConfig, tokenType str
 
 	response := SendRequest(request, time.Duration(constant.WUMUC_UPDATE_TOKEN_TIMEOUT*time.Minute))
 	log.Debug("Response status code %d\n", response.StatusCode)
+
 	if response.StatusCode != http.StatusAccepted && response.StatusCode != http.StatusOK {
 		tokenErrorResponse := TokenErrResp{}
-		/////////////////////
+		processResponseFromServer(response, tokenErrorResponse)
+
+		if constant.RETRIEVE_ACCESS_TOKEN == tokenType && http.StatusBadRequest == response.StatusCode && constant.
+			INVALID_GRANT == tokenErrorResponse.Error {
+			HandleUnableToConnectErrorAndExit(errors.New("Invalid credentials. Please enter valid WSO2 credentials"))
+		} else if constant.RENEW_REFRESH_TOKEN == tokenType && http.StatusBadRequest == response.StatusCode && constant.
+			INVALID_GRANT == tokenErrorResponse.Error {
+			HandleUnableToConnectErrorAndExit(errors.New("Your session has timed out, run 'wum-uc init' to continue"))
+		} else {
+			HandleUnableToConnectErrorAndExit(errors.New(tokenErrorResponse.Error + ":" + tokenErrorResponse.
+				ErrorDescription))
+		}
 	}
 	tokenResponse := TokenResponse{}
 	processResponseFromServer(response, &tokenResponse)

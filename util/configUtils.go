@@ -20,13 +20,14 @@ type WUMUCConfig struct {
 }
 
 var wumucConfig WUMUCConfig
+var wumucConfigFilePath string
 
 // Load the wum-uc configuration from the config.yaml file. If the file is does not exists
 // create a new config.yaml file and add default values.
 // Validate the configuration, if it exists.
 func LoadWUMUCConfig(wumucLocalRepo string) *WUMUCConfig {
 	wumucConfig = WUMUCConfig{}
-	wumucConfigFilePath := filepath.Join(wumucLocalRepo, constant.WUMUC_CONFIG_FILE)
+	wumucConfigFilePath = filepath.Join(wumucLocalRepo, constant.WUMUC_CONFIG_FILE)
 	exists, err := IsFileExists(wumucConfigFilePath)
 	if err != nil {
 		HandleErrorAndExit(err, fmt.Sprintf("Error occured while reading the %v file", wumucConfigFilePath))
@@ -60,6 +61,7 @@ func LoadWUMUCConfig(wumucLocalRepo string) *WUMUCConfig {
 }
 
 // Todo check the visibility too
+// Write the wumuc configuration to the config file.
 func WriteConfigFile(wumucConfig *WUMUCConfig, wumucConfigFilePath string) error {
 	data, err := yaml.Marshal(wumucConfig)
 	if err != nil {

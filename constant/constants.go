@@ -108,11 +108,16 @@ const (
 	TOKEN_API_CONTEXT                      = "token"
 	BASE64_ENCODED_CONSUMER_KEY_AND_SECRET = "cmNMWXQwcjd2azZQTTE3SVA4U3VYRDR0MjRNYTpHTlBhV2JmYVpveVhrUkdZT1FwdkIyN3EyOUlh"
 	RENEW_REFRESH_TOKEN                    = "renewRefreshToken"
-	WUMUC_UPDATE_TOKEN_TIMEOUT             = 2
-	ERROR_READING_RESPONSE_MSG             = "there is an error reading the response from WSO2 Update"
+	RETRIEVE_ACCESS_TOKEN                  = "getAccessToken"
+	INVALID_GRANT                          = "invalid_grant"
 
-	PARTIAL_UPDATE_LIST                  = "partial-update-list"
-	READ_ONLY                            = "read-only"
+	WUMUC_UPDATE_TOKEN_TIMEOUT = 2
+	ERROR_READING_RESPONSE_MSG = "there is an error reading the response from WSO2 Update"
+
+	PRODUCT_API_CONTEXT                  = "products"
+	PRODUCT_API_VERSION                  = "3.0.0"
+	APPLICABLE_PRODUCTS                  = "applicable-products"
+	FILE_LIST_ONLY                       = "fileListOnly=true"
 	UNABLE_TO_CONNECT_WSO2_UPDATE        = "there is a problem connecting to WSO2 Update please try again"
 	WUMUC_API_CALL_TIMEOUT               = 5
 	TOO_MANY_REQUESTS_ERROR_MSG          = "servers are busy at the moment. Please try again later."
