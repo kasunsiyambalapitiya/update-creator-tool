@@ -37,7 +37,6 @@ import (
 	"github.com/fatih/color"
 	"github.com/ian-kent/go-log/log"
 	"github.com/pkg/errors"
-	"github.com/spf13/viper"
 	"github.com/wso2/update-creator-tool/constant"
 	"gopkg.in/yaml.v2"
 )
@@ -573,4 +572,29 @@ func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) {
 		HandleErrorAndExit(err)
 	}
 	// Invoke the API
-	apiURL := GetWUMUCConfigs().URL
+	apiURL := GetWUMUCConfigs().URL + "/" + constant.PARTIAL_UPDATE_LIST + "?" + constant.READ_ONLY
+	InvokePOSTRequest(apiURL, requestBody)
+}
+
+func InvokePOSTRequest(url string, body io.Reader) *http.Response {
+	request, err := http.NewRequest(http.MethodPost, url, body)
+	if err != nil {
+		HandleUnableToConnectErrorAndExit(err)
+	}
+	request.Header.Add(constant.HEADER_AUTHORIZATION, constant.HEADER_BEARER+" "+GetWUMUCConfigs().AccessToken)
+	request.Header.Add(constant.HEADER_CONTENT_TYPE, constant.HEADER_VALUE_APPLICATION_JSON)
+	return makeAPICall(request)
+}
+
+func HandleUnableToConnectErrorAndExit(err error) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "wum-uc: %v\n", "unable to connect to WSO2 Update")
+		logger.Error(err.Error())
+	}
+	fmt.Fprintf(os.Stderr, "wum: %v\n", constant.UNABLE_TO_CONNECT_WSO2_UPDATE)
+	os.Exit(1)
+}
+
+func makeAPICall(request *http.Request) *http.Response {
+
+}

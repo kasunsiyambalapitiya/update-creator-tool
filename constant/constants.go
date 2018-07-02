@@ -96,13 +96,24 @@ const (
 	LICENSE_MD5          = "LICENSE_MD5"
 	LICENSE_MD5_URL      = "https://wso2.com/license/wso2-update/LICENSE.txt.md5"
 
-	NOT_A_CONTRIBUTION_URL                 = "NOT_A_CONTRIBUTION_URL"
-	NOT_A_CONTRIBUTION_DOWNLOAD_URL        = "https://wso2.com/license/wso2-update/NOT_A_CONTRIBUTION.txt"
-	NOT_A_CONTRIBUTION_MD5                 = "NOT_A_CONTRIBUTION_MD5"
-	NOT_A_CONTRIBUTION_MD5_URL             = "https://wso2.com/license/wso2-update/NOT_A_CONTRIBUTION.txt.md5"
-	WUMUC_HOME_DIR_NAME                    = ".wum-uc"
-	WUM_UC_HOME                            = "WUM_UC_HOME"
+	NOT_A_CONTRIBUTION_URL          = "NOT_A_CONTRIBUTION_URL"
+	NOT_A_CONTRIBUTION_DOWNLOAD_URL = "https://wso2.com/license/wso2-update/NOT_A_CONTRIBUTION.txt"
+	NOT_A_CONTRIBUTION_MD5          = "NOT_A_CONTRIBUTION_MD5"
+	NOT_A_CONTRIBUTION_MD5_URL      = "https://wso2.com/license/wso2-update/NOT_A_CONTRIBUTION.txt.md5"
+
+	WUMUC_HOME_DIR_NAME = ".wum-uc"
+	WUM_UC_HOME         = "WUM_UC_HOME"
+
 	WUMUC_AUTHENTICATION_URL               = "https://api.updates.wso2.com"
 	TOKEN_API_CONTEXT                      = "token"
 	BASE64_ENCODED_CONSUMER_KEY_AND_SECRET = "cmNMWXQwcjd2azZQTTE3SVA4U3VYRDR0MjRNYTpHTlBhV2JmYVpveVhrUkdZT1FwdkIyN3EyOUlh"
+	PARTIAL_UPDATE_LIST                    = "partial-update-list"
+	READ_ONLY                              = "read-only"
+	UNABLE_TO_CONNECT_WSO2_UPDATE          = "there is a problem connecting to WSO2 Update please try again"
+
+	HEADER_AUTHORIZATION          = "Authorization"
+	HEADER_BEARER                 = "Bearer"
+	HEADER_CONTENT_TYPE           = "Content-Type"
+	HEADER_ACCEPT                 = "Accept"
+	HEADER_VALUE_APPLICATION_JSON = "application/json"
 )
