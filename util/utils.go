@@ -39,6 +39,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/wso2/update-creator-tool/constant"
 	"gopkg.in/yaml.v2"
+	"net/url"
 )
 
 var logger = log.Logger()
@@ -86,6 +87,19 @@ type PartialUpdateFileRequest struct {
 	Added_files      []string `json:"added-files"`
 	Removed_files    []string `json:"removed-files"`
 	Modified_files   []string `json:"modified_files"`
+}
+
+type TokenResponse struct {
+	Scope        string `json:"scope"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"`
+	RefreshToken string `json:"refresh_token"`
+	AccessToken  string `json:"access_token"`
+}
+
+type TokenErrResp struct {
+	Error            string `json:"error"`
+	ErrorDescription string `json:"error_description"`
 }
 
 // Structs to get the summary field from the jira response
@@ -581,7 +595,7 @@ func InvokePOSTRequest(url string, body io.Reader) *http.Response {
 	if err != nil {
 		HandleUnableToConnectErrorAndExit(err)
 	}
-	request.Header.Add(constant.HEADER_AUTHORIZATION, constant.HEADER_BEARER+" "+GetWUMUCConfigs().AccessToken)
+	request.Header.Add(constant.HEADER_AUTHORIZATION, "Bearer "+GetWUMUCConfigs().AccessToken)
 	request.Header.Add(constant.HEADER_CONTENT_TYPE, constant.HEADER_VALUE_APPLICATION_JSON)
 	return makeAPICall(request)
 }
@@ -596,5 +610,143 @@ func HandleUnableToConnectErrorAndExit(err error) {
 }
 
 func makeAPICall(request *http.Request) *http.Response {
+	// Invoke request
+	timeout := time.Duration(constant.WUMUC_API_CALL_TIMEOUT * time.Minute)
+	httpResponse := invokeRequest(request, timeout)
 
+	// Either 400, or 401
+	if httpResponse.StatusCode == http.StatusBadRequest || httpResponse.StatusCode == http.StatusUnauthorized {
+		// Expired access token. Renew the access token and update config.yaml. If the refresh token is
+		// invalid, Authenticate() will notify and exit.
+		Authenticate()
+
+		wConfig := GetWUMConfig()
+		_, enabledURepo := wConfig.GetEnabledRepo()
+
+		Logf("Retrying failed request with renewed Access Token...\n")
+		req.Header.Set(HeaderAuthorization, "Bearer "+enabledURepo.AccessToken)
+
+		return invokeRequest(req, timeout)
+	}
+
+	return httpResponse
+}
+
+// Invoke the client request and handle error scenarios
+func invokeRequest(request *http.Request, timeout time.Duration) *http.Response {
+	response := SendRequest(request, timeout)
+	log.Debug("Status code %v", response.StatusCode)
+	handleErrorResponses(response)
+	return response
+}
+
+// Send the HTTP request to the server. This does not handle any error scenarios
+func SendRequest(request *http.Request, timeout time.Duration) *http.Response {
+	client := &http.Client{
+		Timeout: timeout,
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		// Here we need to print the exact error to the console. A non-2xx response doesn't cause an error.
+		// This method throws errors when the user doesn't have internet connectivity or there is an issue
+		// with the token URL or for timeout errors.
+		HandleUnableToConnectErrorAndExit(err)
+	}
+	return response
+}
+
+// Handle HTTP Status Codes of the Response
+// Notify and return if 401 or 404
+// Fail and exit if not 200, 201, or 202
+func handleErrorResponses(response *http.Response) {
+	if response.StatusCode == http.StatusTooManyRequests {
+		HandleErrorAndExit(errors.New(constant.TOO_MANY_REQUESTS_ERROR_MSG + constant.CONTINUED_ERROR_REPORT_MSG))
+	}
+
+	if response.StatusCode == http.StatusInternalServerError {
+		HandleUnableToConnectErrorAndExit(nil)
+	}
+
+	if response.StatusCode == http.StatusForbidden {
+		return
+	}
+
+	if response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusBadRequest {
+		log.Info("wum: %v\n", constant.INVALID_EXPIRED_REFRESH_TOKEN_MSG)
+		return
+	}
+
+	if response.StatusCode == http.StatusNotFound {
+		log.Info("wum: resource not found")
+		return
+	}
+
+	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusCreated &&
+		response.StatusCode != http.StatusAccepted {
+		HandleUnableToConnectErrorAndExit(nil)
+	}
+}
+
+// Renew access token and persist in the config.yaml. Token API sends a new pair of an access token and a refresh token.
+func Authenticate() {
+	wumucConfig := GetWUMUCConfigs()
+
+	// Refresh token cannot be empty.
+	if wumucConfig.RefreshToken == "" {
+		HandleErrorAndExit(errors.New(constant.YOU_HAVENT_INITIALIZED_WUMUC_YET_MSG + " " + constant.
+			RUN_WUMUC_INIT_TO_CONTINUE_MSG))
+	}
+
+	tr := RenewAccessToken(wumucConfig)
+
+	wumucConfig.RefreshToken = tr.RefreshToken
+	wumucConfig.AccessToken = tr.AccessToken
+
+	WriteConfigFile(wumucConfig, filepath.Join(GetWUMLocalRepo(), WUMConfigFileName))
+
+	// Check whether there is a new version of WUM available
+	CheckForWUMUpdates()
+}
+
+func RenewAccessToken(wumucConfig *WUMUCConfig) *TokenResponse {
+	payload := url.Values{}
+	payload.Add("grant_type", "refresh_token")
+	payload.Add("refresh_token", wumucConfig.RefreshToken)
+	// Invoke APIM token API
+	InvokeTokenAPI(&payload, wumucConfig, constant.RENEW_REFRESH_TOKEN)
+
+}
+
+// Invokes the configured token API of the API gateway. This method can be used to get access tokens
+// as well as renew access tokens using the refresh token.
+func InvokeTokenAPI(payload *url.Values, wumucConfig *WUMUCConfig, tokenType string) *TokenResponse {
+	request, err := http.NewRequest(http.MethodPost, wumucConfig.TokenURL, bytes.NewBufferString(payload.Encode()))
+	if err != nil {
+		HandleUnableToConnectErrorAndExit(err)
+	}
+	request.Header.Add(constant.HEADER_AUTHORIZATION, "Basic "+wumucConfig.AppKey)
+	request.Header.Add(constant.HEADER_CONTENT_TYPE, constant.HEADER_VALUE_X_WWW_FORM_URLENCODED)
+
+	response := SendRequest(request, time.Duration(constant.WUMUC_UPDATE_TOKEN_TIMEOUT*time.Minute))
+	log.Debug("Response status code %d\n", response.StatusCode)
+	if response.StatusCode != http.StatusAccepted && response.StatusCode != http.StatusOK {
+		tokenErrorResponse := TokenErrResp{}
+		/////////////////////
+	}
+	tokenResponse := TokenResponse{}
+	processResponseFromServer(response, &tokenResponse)
+	return &tokenResponse
+}
+
+func processResponseFromServer(response *http.Response, v interface{}) {
+	defer response.Body.Close()
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		log.Error(constant.ERROR_READING_RESPONSE_MSG)
+		HandleUnableToConnectErrorAndExit(err)
+	}
+	if err = json.Unmarshal(data, v); err != nil {
+		log.Error(constant.ERROR_READING_RESPONSE_MSG)
+		HandleUnableToConnectErrorAndExit(err)
+	}
 }

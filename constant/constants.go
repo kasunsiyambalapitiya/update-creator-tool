@@ -107,13 +107,23 @@ const (
 	WUMUC_AUTHENTICATION_URL               = "https://api.updates.wso2.com"
 	TOKEN_API_CONTEXT                      = "token"
 	BASE64_ENCODED_CONSUMER_KEY_AND_SECRET = "cmNMWXQwcjd2azZQTTE3SVA4U3VYRDR0MjRNYTpHTlBhV2JmYVpveVhrUkdZT1FwdkIyN3EyOUlh"
-	PARTIAL_UPDATE_LIST                    = "partial-update-list"
-	READ_ONLY                              = "read-only"
-	UNABLE_TO_CONNECT_WSO2_UPDATE          = "there is a problem connecting to WSO2 Update please try again"
+	RENEW_REFRESH_TOKEN                    = "renewRefreshToken"
+	WUMUC_UPDATE_TOKEN_TIMEOUT             = 2
+	ERROR_READING_RESPONSE_MSG             = "there is an error reading the response from WSO2 Update"
 
-	HEADER_AUTHORIZATION          = "Authorization"
-	HEADER_BEARER                 = "Bearer"
-	HEADER_CONTENT_TYPE           = "Content-Type"
-	HEADER_ACCEPT                 = "Accept"
-	HEADER_VALUE_APPLICATION_JSON = "application/json"
+	PARTIAL_UPDATE_LIST                  = "partial-update-list"
+	READ_ONLY                            = "read-only"
+	UNABLE_TO_CONNECT_WSO2_UPDATE        = "there is a problem connecting to WSO2 Update please try again"
+	WUMUC_API_CALL_TIMEOUT               = 5
+	TOO_MANY_REQUESTS_ERROR_MSG          = "servers are busy at the moment. Please try again later."
+	CONTINUED_ERROR_REPORT_MSG           = "if you continue to have this problem, please contact WUM team"
+	INVALID_EXPIRED_REFRESH_TOKEN_MSG    = "your session has timed out"
+	YOU_HAVENT_INITIALIZED_WUMUC_YET_MSG = "you haven't initialized wum-uc with your WSO2 credentials"
+	RUN_WUMUC_INIT_TO_CONTINUE_MSG       = "run 'wum-uc init' to continue"
+
+	HEADER_AUTHORIZATION               = "Authorization"
+	HEADER_CONTENT_TYPE                = "Content-Type"
+	HEADER_ACCEPT                      = "Accept"
+	HEADER_VALUE_APPLICATION_JSON      = "application/json"
+	HEADER_VALUE_X_WWW_FORM_URLENCODED = "application/x-www-form-urlencoded"
 )
