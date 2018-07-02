@@ -72,17 +72,18 @@ func initConfig() {
 	setDefaultValues()
 
 	// Check whether the user has specified the WUM_UC_HOME environment variable.
-	wumucHome := os.Getenv(constant.WUM_UC_HOME)
-	if wumucHome == "" {
+	WUMUCHome := os.Getenv(constant.WUM_UC_HOME)
+	if WUMUCHome == "" {
 		// User has not specified WUM_UC_HOME.
 		// Get the home directory of the current user.
 		homeDirPath, err := homedir.Dir()
 		if err != nil {
 			util.HandleErrorAndExit(err, "Cannot determine the current user's home directory.")
 		}
-		wumucHome = filepath.Join(homeDirPath, constant.WUMUC_HOME_DIR_NAME)
+		WUMUCHome = filepath.Join(homeDirPath, constant.WUMUC_HOME_DIR_NAME)
 	}
-	util.LoadWUMUCConfig(wumucHome)
+	viper.Set(constant.WUM_UC_HOME, WUMUCHome)
+	util.LoadWUMUCConfig(WUMUCHome)
 
 	viper.SetConfigName("config") // name of config file (without extension)
 	viper.AddConfigPath(".")

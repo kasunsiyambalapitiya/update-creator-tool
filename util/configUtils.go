@@ -1,3 +1,22 @@
+/*
+ * Copyright (c) 2018, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+ *
+ * WSO2 Inc. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ *
+ */
+
 package util
 
 import (
@@ -11,7 +30,7 @@ import (
 )
 
 type WUMUCConfig struct {
-	username     string
+	Username     string
 	URL          string
 	TokenURL     string
 	AppKey       string
@@ -20,13 +39,14 @@ type WUMUCConfig struct {
 }
 
 var wumucConfig WUMUCConfig
+var wumucConfigFilePath string
 
 // Load the wum-uc configuration from the config.yaml file. If the file is does not exists
 // create a new config.yaml file and add default values.
 // Validate the configuration, if it exists.
 func LoadWUMUCConfig(wumucLocalRepo string) *WUMUCConfig {
 	wumucConfig = WUMUCConfig{}
-	wumucConfigFilePath := filepath.Join(wumucLocalRepo, constant.WUMUC_CONFIG_FILE)
+	wumucConfigFilePath = filepath.Join(wumucLocalRepo, constant.WUMUC_CONFIG_FILE)
 	exists, err := IsFileExists(wumucConfigFilePath)
 	if err != nil {
 		HandleErrorAndExit(err, fmt.Sprintf("Error occured while reading the %v file", wumucConfigFilePath))
@@ -60,6 +80,7 @@ func LoadWUMUCConfig(wumucLocalRepo string) *WUMUCConfig {
 }
 
 // Todo check the visibility too
+// Write the wumuc configuration to the config file.
 func WriteConfigFile(wumucConfig *WUMUCConfig, wumucConfigFilePath string) error {
 	data, err := yaml.Marshal(wumucConfig)
 	if err != nil {

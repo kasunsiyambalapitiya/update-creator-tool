@@ -37,8 +37,11 @@ import (
 	"github.com/fatih/color"
 	"github.com/ian-kent/go-log/log"
 	"github.com/pkg/errors"
+	"github.com/spf13/viper"
 	"github.com/wso2/update-creator-tool/constant"
+	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/yaml.v2"
+	"net/url"
 )
 
 var logger = log.Logger()
@@ -58,7 +61,16 @@ type UpdateDescriptorV2 struct {
 	}
 }
 
-type Product_Changes struct {
+type UpdateDescriptorV3 struct {
+	Update_number       string
+	Platform_version    string
+	Platform_name       string
+	Compatible_products []ProductChanges
+	Applicable_products []ProductChanges
+	Notify_products     []ProductChanges
+}
+
+type ProductChanges struct {
 	Product_name    string
 	Product_version string
 	Description     string
@@ -69,15 +81,6 @@ type Product_Changes struct {
 	Modified_files  []string
 }
 
-type UpdateDescriptorV3 struct {
-	Update_number       string
-	Platform_version    string
-	Platform_name       string
-	Compatible_products []Product_Changes
-	Applicable_products []Product_Changes
-	Notify_products     []Product_Changes
-}
-
 //todo doc
 type PartialUpdateFileRequest struct {
 	Update_number    string   `json:"update-no"`
@@ -86,6 +89,38 @@ type PartialUpdateFileRequest struct {
 	Added_files      []string `json:"added-files"`
 	Removed_files    []string `json:"removed-files"`
 	Modified_files   []string `json:"modified_files"`
+}
+
+type PartialUpdatedFileResponse struct {
+	Update_number       string                   `json:"update-no"`
+	Platform_version    string                   `json:"platform-version"`
+	Platform_name       string                   `json:"platform-name"`
+	Backward_compatible bool                     `json:"backward-compatible"`
+	Applicable_products []PartialUpdatedProducts `json:"applicable-products"`
+	Compatible_products []PartialUpdatedProducts `json:"compatible-products"`
+	Notify_products     []PartialUpdatedProducts `json:"notify-products"`
+}
+
+type PartialUpdatedProducts struct {
+	Product_name   string   `json:"product-name"`
+	Base_version   string   `json:"base-version"`
+	Tag            string   `json:"tag"`
+	Added_files    []string `json:"added-files"`
+	Modified_files []string `json:"modified-files"`
+	Removed_files  []string `json:"removed-files"`
+}
+
+type TokenResponse struct {
+	Scope        string `json:"scope"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"`
+	RefreshToken string `json:"refresh_token"`
+	AccessToken  string `json:"access_token"`
+}
+
+type TokenErrResp struct {
+	Error            string `json:"error"`
+	ErrorDescription string `json:"error_description"`
 }
 
 // Structs to get the summary field from the jira response
@@ -552,28 +587,37 @@ func GetContentFromUrl(url string) ([]byte, error) {
 }
 
 //Todo doc
-func createPartialUpdateFileRequest(updateDescriptorV2 *UpdateDescriptorV2) (
-	partialUpdateFileRequest *PartialUpdateFileRequest) {
+func createPartialUpdateFileRequest(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpdateFileRequest {
+	partialUpdateFileRequest := PartialUpdateFileRequest{}
 	partialUpdateFileRequest.Update_number = updateDescriptorV2.Update_number
 	partialUpdateFileRequest.Platform_name = updateDescriptorV2.Platform_name
 	partialUpdateFileRequest.Platform_version = updateDescriptorV2.Platform_version
 	partialUpdateFileRequest.Added_files = updateDescriptorV2.File_changes.Added_files
 	partialUpdateFileRequest.Modified_files = updateDescriptorV2.File_changes.Modified_files
 	partialUpdateFileRequest.Removed_files = updateDescriptorV2.File_changes.Removed_files
-	return
+	return &partialUpdateFileRequest
 }
 
 //Todo doc and logs
-func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) {
+func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpdatedFileResponse {
 	// Create partial update request
 	partialUpdateFileRequest := createPartialUpdateFileRequest(updateDescriptorV2)
 	requestBody := new(bytes.Buffer)
 	if err := json.NewEncoder(requestBody).Encode(partialUpdateFileRequest); err != nil {
 		HandleErrorAndExit(err)
 	}
+	//todo uncomment
 	// Invoke the API
-	apiURL := GetWUMUCConfigs().URL + "/" + constant.PARTIAL_UPDATE_LIST + "?" + constant.READ_ONLY
-	InvokePOSTRequest(apiURL, requestBody)
+	/*	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
+		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY*/
+	apiURL := "http://www.mocky.io/v2/5b3ce1e13100006f006ddf51"
+	response := InvokePOSTRequest(apiURL, requestBody)
+	if response.StatusCode != http.StatusOK {
+		HandleUnableToConnectErrorAndExit(nil)
+	}
+	partialUpdatedFileResponse := PartialUpdatedFileResponse{}
+	processResponseFromServer(response, &partialUpdatedFileResponse)
+	return &partialUpdatedFileResponse
 }
 
 func InvokePOSTRequest(url string, body io.Reader) *http.Response {
@@ -581,7 +625,8 @@ func InvokePOSTRequest(url string, body io.Reader) *http.Response {
 	if err != nil {
 		HandleUnableToConnectErrorAndExit(err)
 	}
-	request.Header.Add(constant.HEADER_AUTHORIZATION, constant.HEADER_BEARER+" "+GetWUMUCConfigs().AccessToken)
+	wumucConfig := GetWUMUCConfigs()
+	request.Header.Add(constant.HEADER_AUTHORIZATION, "Bearer "+wumucConfig.AccessToken)
 	request.Header.Add(constant.HEADER_CONTENT_TYPE, constant.HEADER_VALUE_APPLICATION_JSON)
 	return makeAPICall(request)
 }
@@ -591,10 +636,254 @@ func HandleUnableToConnectErrorAndExit(err error) {
 		fmt.Fprintf(os.Stderr, "wum-uc: %v\n", "unable to connect to WSO2 Update")
 		logger.Error(err.Error())
 	}
-	fmt.Fprintf(os.Stderr, "wum: %v\n", constant.UNABLE_TO_CONNECT_WSO2_UPDATE)
+	fmt.Fprintf(os.Stderr, "wum-uc: %v\n", constant.UNABLE_TO_CONNECT_WSO2_UPDATE)
 	os.Exit(1)
 }
 
 func makeAPICall(request *http.Request) *http.Response {
+	// Invoke request
+	timeout := time.Duration(constant.WUMUC_API_CALL_TIMEOUT * time.Minute)
+	httpResponse := invokeRequest(request, timeout)
 
+	// When status codes are 400 or 401 we need to renew the access token
+	if httpResponse.StatusCode == http.StatusBadRequest || httpResponse.StatusCode == http.StatusUnauthorized {
+		// Expired access token. Renew the access token and update config.yaml. If the refresh token is
+		// invalid, Authenticate() will notify and exit.
+		Authenticate()
+
+		wumucConfig := GetWUMUCConfigs()
+
+		log.Info("Retrying request with renewed Access Token...\n")
+		request.Header.Set(constant.HEADER_AUTHORIZATION, "Bearer "+wumucConfig.AccessToken)
+		return invokeRequest(request, timeout)
+	}
+	return httpResponse
+}
+
+// Invoke the client request and handle error scenarios
+func invokeRequest(request *http.Request, timeout time.Duration) *http.Response {
+	response := SendRequest(request, timeout)
+	log.Debug("Status code %v", response.StatusCode)
+	handleErrorResponses(response)
+	return response
+}
+
+// Send the HTTP request to the server. This does not handle any error scenarios
+func SendRequest(request *http.Request, timeout time.Duration) *http.Response {
+	client := &http.Client{
+		Timeout: timeout,
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		// Here we need to print the exact error to the console. A non-2xx response doesn't cause an error.
+		// This method throws errors when the user doesn't have internet connectivity or there is an issue
+		// with the token URL or for timeout errors.
+		HandleUnableToConnectErrorAndExit(err)
+	}
+	return response
+}
+
+// Handle HTTP Status Codes of the Response
+// Notify and return if 401 or 404
+// Fail and exit if not 200, 201, or 202
+func handleErrorResponses(response *http.Response) {
+	if response.StatusCode == http.StatusTooManyRequests {
+		HandleErrorAndExit(errors.New(constant.TOO_MANY_REQUESTS_ERROR_MSG + constant.CONTINUED_ERROR_REPORT_MSG))
+	}
+
+	if response.StatusCode == http.StatusInternalServerError {
+		HandleUnableToConnectErrorAndExit(nil)
+	}
+
+	if response.StatusCode == http.StatusForbidden {
+		return
+	}
+
+	if response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusBadRequest {
+		log.Info("wum: %v\n", constant.INVALID_EXPIRED_REFRESH_TOKEN_MSG)
+		return
+	}
+
+	if response.StatusCode == http.StatusNotFound {
+		log.Info("wum: resource not found")
+		return
+	}
+
+	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusCreated &&
+		response.StatusCode != http.StatusAccepted {
+		HandleUnableToConnectErrorAndExit(nil)
+	}
+}
+
+// Get an access token from WSO2 Update with the given username and the password using the
+// 'password' grant type of Oauth2.
+// This method returns an error only if the username or password is incorrect.
+func GetAccessToken(username string, password []byte, wumucConfig *WUMUCConfig, scope string) *TokenResponse {
+	payload := url.Values{}
+	payload.Add("grant_type", "password")
+	payload.Add("username", username)
+	payload.Add("password", string(password))
+
+	if len(scope) > 0 {
+		payload.Add("scope", scope)
+	}
+	// Get an access token and a refresh token
+	fmt.Fprintln(os.Stderr, "Authenticating...")
+	return InvokeTokenAPI(&payload, wumucConfig, constant.RETRIEVE_ACCESS_TOKEN)
+}
+
+// Renew access token and persist in the config.yaml. Token API sends a new pair of an access token and a refresh token.
+func Authenticate() {
+	wumucConfig := GetWUMUCConfigs()
+
+	// Refresh token cannot be empty.
+	if wumucConfig.RefreshToken == "" {
+		HandleErrorAndExit(errors.New(constant.YOU_HAVENT_INITIALIZED_WUMUC_YET_MSG + " " + constant.
+			RUN_WUMUC_INIT_TO_CONTINUE_MSG))
+	}
+
+	tokenResponse := RenewAccessToken(wumucConfig)
+
+	wumucConfig.RefreshToken = tokenResponse.RefreshToken
+	wumucConfig.AccessToken = tokenResponse.AccessToken
+
+	WriteConfigFile(wumucConfig, wumucConfigFilePath)
+}
+
+func RenewAccessToken(wumucConfig *WUMUCConfig) *TokenResponse {
+	payload := url.Values{}
+	payload.Add("grant_type", "refresh_token")
+	payload.Add("refresh_token", wumucConfig.RefreshToken)
+	// Invoke APIM token API
+	return InvokeTokenAPI(&payload, wumucConfig, constant.RENEW_REFRESH_TOKEN)
+
+}
+
+// Invokes the configured token API of the API gateway. This method can be used to get access tokens
+// as well as renew access tokens using the refresh token.
+func InvokeTokenAPI(payload *url.Values, wumucConfig *WUMUCConfig, tokenType string) *TokenResponse {
+	request, err := http.NewRequest(http.MethodPost, wumucConfig.TokenURL, bytes.NewBufferString(payload.Encode()))
+	if err != nil {
+		HandleUnableToConnectErrorAndExit(err)
+	}
+	request.Header.Add(constant.HEADER_AUTHORIZATION, "Basic "+wumucConfig.AppKey)
+	request.Header.Add(constant.HEADER_CONTENT_TYPE, constant.HEADER_VALUE_X_WWW_FORM_URLENCODED)
+
+	response := SendRequest(request, time.Duration(constant.WUMUC_UPDATE_TOKEN_TIMEOUT*time.Minute))
+	log.Debug("Response status code %d\n", response.StatusCode)
+
+	if response.StatusCode != http.StatusAccepted && response.StatusCode != http.StatusOK {
+		tokenErrorResponse := TokenErrResp{}
+		processResponseFromServer(response, tokenErrorResponse)
+
+		if constant.RETRIEVE_ACCESS_TOKEN == tokenType && http.StatusBadRequest == response.StatusCode && constant.
+			INVALID_GRANT == tokenErrorResponse.Error {
+			HandleUnableToConnectErrorAndExit(errors.New("Invalid Credentials. " +
+				"Please enter your WSO2 credentials to continue"))
+		} else if constant.RENEW_REFRESH_TOKEN == tokenType && http.StatusBadRequest == response.StatusCode && constant.
+			INVALID_GRANT == tokenErrorResponse.Error {
+			HandleUnableToConnectErrorAndExit(errors.New("Your session has timed out, run 'wum-uc init' to continue"))
+		} else {
+			HandleUnableToConnectErrorAndExit(errors.New(tokenErrorResponse.Error + ":" + tokenErrorResponse.
+				ErrorDescription))
+		}
+	}
+	tokenResponse := TokenResponse{}
+	processResponseFromServer(response, &tokenResponse)
+	return &tokenResponse
+}
+
+func processResponseFromServer(response *http.Response, v interface{}) {
+	defer response.Body.Close()
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		log.Error(constant.ERROR_READING_RESPONSE_MSG)
+		HandleErrorAndExit(err)
+	}
+	if err = json.Unmarshal(data, v); err != nil {
+		log.Error(constant.ERROR_READING_RESPONSE_MSG)
+		HandleErrorAndExit(err)
+	}
+}
+
+// Initialize wum-uc with WSO2 credentials. If both the username and the password are specified,
+// then use them to get an access token.
+// If only the username is specified, prompt for the password.
+// If both of the username and the password are not specified, then prompt for username and
+// the password from the user. User can attempt to give credentials three times.
+func Init(username string, password []byte) {
+	log.Debug("Initializing wum-uc with user's WSO2 Credentials")
+
+	// Get WUMUC configurations
+	wumucConfig := GetWUMUCConfigs()
+	var tokenResponse *TokenResponse
+	// If user has supplied both username and password by -u and -p flags
+	if username != "" && len(password) != 0 {
+		tokenResponse = GetAccessToken(username, password, wumucConfig, "")
+	} else if len(password) == 0 {
+		if username == "" {
+			username = wumucConfig.Username
+		}
+
+		username, tokenResponse = getAccessTokenFromUserCreds(username, 1, wumucConfig)
+
+	} else {
+		HandleUnableToConnectErrorAndExit(errors.New(constant.USERNAME_PASSWORD_EMPTY_MSG))
+	}
+	WUMUCHome := viper.Get(constant.WUM_UC_HOME)
+	WUMUCHomePath := WUMUCHome.(string)
+	wumucConfig.Username = username
+	wumucConfig.RefreshToken = tokenResponse.RefreshToken
+	wumucConfig.AccessToken = tokenResponse.AccessToken
+	WriteConfigFile(wumucConfig, filepath.Join(WUMUCHomePath, constant.WUMUC_CONFIG_FILE))
+	fmt.Fprintln(os.Stderr, constant.DONE_MSG)
+}
+
+// Get credentials from the user. Maximum password attempts is 3. If the user specify both the
+// username and the password, then get an access token.
+func getAccessTokenFromUserCreds(username string, attempt int, wumucConfig *WUMUCConfig) (string, *TokenResponse) {
+	username, password := getCredentials(username)
+	// Handle empty inputs from user for both username and password
+	if (username == "" || len(password) == 0) && attempt < 3 {
+		return getAccessTokenFromUserCreds("", attempt+1, wumucConfig)
+
+	} else if (username == "" || len(password) == 0) && attempt == 3 {
+		HandleUnableToConnectErrorAndExit(errors.New("Invalid Credentials. " +
+			"Please enter your WSO2 credentials to continue"))
+	}
+
+	// Handle non-empty inputs from user for both username and password
+	tokenResponse := GetAccessToken(username, password, wumucConfig, "")
+	if tokenResponse == nil && attempt < 3 {
+		// Authentication failure
+		return getAccessTokenFromUserCreds(username, attempt+1, wumucConfig)
+
+	} else if tokenResponse == nil && attempt == 3 {
+		HandleUnableToConnectErrorAndExit(errors.New("Invalid Credentials. " +
+			"Please enter your WSO2 credentials to continue"))
+	}
+	return username, tokenResponse
+}
+
+// Prompt for the username and the password from the user.
+func getCredentials(username string) (string, []byte) {
+	var password []byte
+	fmt.Fprintln(os.Stderr, constant.ENTER_YOUR_CREDENTIALS_MSG)
+
+	if username == "" {
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Print("Email: ")
+		uName, err := reader.ReadString('\n')
+		if err != nil {
+			HandleErrorAndExit(err, constant.UNABLE_TO_READ_YOUR_INPUT_MSG)
+		}
+		username = strings.TrimSpace(uName)
+	}
+
+	fmt.Fprintf(os.Stderr, "Password for '%v': ", strings.TrimSpace(username))
+	password, err := terminal.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		HandleErrorAndExit(err, constant.UNABLE_TO_READ_YOUR_INPUT_MSG)
+	}
+	return username, password
 }
