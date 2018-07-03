@@ -59,7 +59,16 @@ type UpdateDescriptorV2 struct {
 	}
 }
 
-type Product_Changes struct {
+type UpdateDescriptorV3 struct {
+	Update_number       string
+	Platform_version    string
+	Platform_name       string
+	Compatible_products []ProductChanges
+	Applicable_products []ProductChanges
+	Notify_products     []ProductChanges
+}
+
+type ProductChanges struct {
 	Product_name    string
 	Product_version string
 	Description     string
@@ -70,15 +79,6 @@ type Product_Changes struct {
 	Modified_files  []string
 }
 
-type UpdateDescriptorV3 struct {
-	Update_number       string
-	Platform_version    string
-	Platform_name       string
-	Compatible_products []Product_Changes
-	Applicable_products []Product_Changes
-	Notify_products     []Product_Changes
-}
-
 //todo doc
 type PartialUpdateFileRequest struct {
 	Update_number    string   `json:"update-no"`
@@ -87,6 +87,24 @@ type PartialUpdateFileRequest struct {
 	Added_files      []string `json:"added-files"`
 	Removed_files    []string `json:"removed-files"`
 	Modified_files   []string `json:"modified_files"`
+}
+
+type PartialUpdatedFileResponse struct {
+	Update_number       string                   `json:"update-no"`
+	Platform_version    string                   `json:"platform-version"`
+	Platform_name       string                   `json:"platform-name"`
+	Applicable_products []PartialUpdatedProducts `json:"applicable-products"`
+	Compatible_products []PartialUpdatedProducts `json:"compatible-products"`
+	Notify_products     []PartialUpdatedProducts `json:"notify-products"`
+}
+
+type PartialUpdatedProducts struct {
+	Product_name   string   `json:"product-name"`
+	Base_version   string   `json:"base-version"`
+	Tag            string   `json:"tag"`
+	Added_files    []string `json:"added-files"`
+	Modified_files []string `json:"modified-files"`
+	Removed_files  []string `json:"removed-files"`
 }
 
 type TokenResponse struct {
@@ -566,29 +584,37 @@ func GetContentFromUrl(url string) ([]byte, error) {
 }
 
 //Todo doc
-func createPartialUpdateFileRequest(updateDescriptorV2 *UpdateDescriptorV2) (
-	partialUpdateFileRequest *PartialUpdateFileRequest) {
+func createPartialUpdateFileRequest(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpdateFileRequest {
+	partialUpdateFileRequest := PartialUpdateFileRequest{}
 	partialUpdateFileRequest.Update_number = updateDescriptorV2.Update_number
 	partialUpdateFileRequest.Platform_name = updateDescriptorV2.Platform_name
 	partialUpdateFileRequest.Platform_version = updateDescriptorV2.Platform_version
 	partialUpdateFileRequest.Added_files = updateDescriptorV2.File_changes.Added_files
 	partialUpdateFileRequest.Modified_files = updateDescriptorV2.File_changes.Modified_files
 	partialUpdateFileRequest.Removed_files = updateDescriptorV2.File_changes.Removed_files
-	return
+	return &partialUpdateFileRequest
 }
 
 //Todo doc and logs
-func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) {
+func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpdatedFileResponse {
 	// Create partial update request
 	partialUpdateFileRequest := createPartialUpdateFileRequest(updateDescriptorV2)
 	requestBody := new(bytes.Buffer)
 	if err := json.NewEncoder(requestBody).Encode(partialUpdateFileRequest); err != nil {
 		HandleErrorAndExit(err)
 	}
+	//todo uncomment
 	// Invoke the API
-	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
-		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY
+	/*	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
+		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY*/
+	apiURL := "http://www.mocky.io/v2/5b3afedb2e0000da2e158364"
 	response := InvokePOSTRequest(apiURL, requestBody)
+	if response.StatusCode != http.StatusOK {
+		HandleUnableToConnectErrorAndExit(nil)
+	}
+	partialUpdatedFileResponse := PartialUpdatedFileResponse{}
+	processResponseFromServer(response, &partialUpdatedFileResponse)
+	return &partialUpdatedFileResponse
 }
 
 func InvokePOSTRequest(url string, body io.Reader) *http.Response {
@@ -596,7 +622,8 @@ func InvokePOSTRequest(url string, body io.Reader) *http.Response {
 	if err != nil {
 		HandleUnableToConnectErrorAndExit(err)
 	}
-	request.Header.Add(constant.HEADER_AUTHORIZATION, "Bearer "+GetWUMUCConfigs().AccessToken)
+	wumucConfig := GetWUMUCConfigs()
+	request.Header.Add(constant.HEADER_AUTHORIZATION, "Bearer "+wumucConfig.AccessToken)
 	request.Header.Add(constant.HEADER_CONTENT_TYPE, constant.HEADER_VALUE_APPLICATION_JSON)
 	return makeAPICall(request)
 }
@@ -606,7 +633,7 @@ func HandleUnableToConnectErrorAndExit(err error) {
 		fmt.Fprintf(os.Stderr, "wum-uc: %v\n", "unable to connect to WSO2 Update")
 		logger.Error(err.Error())
 	}
-	fmt.Fprintf(os.Stderr, "wum: %v\n", constant.UNABLE_TO_CONNECT_WSO2_UPDATE)
+	fmt.Fprintf(os.Stderr, "wum-uc: %v\n", constant.UNABLE_TO_CONNECT_WSO2_UPDATE)
 	os.Exit(1)
 }
 
@@ -623,12 +650,10 @@ func makeAPICall(request *http.Request) *http.Response {
 
 		wumucConfig := GetWUMUCConfigs()
 
-		log.Info("Retrying failed request with renewed Access Token...\n")
+		log.Info("Retrying request with renewed Access Token...\n")
 		request.Header.Set(constant.HEADER_AUTHORIZATION, "Bearer "+wumucConfig.AccessToken)
-
 		return invokeRequest(request, timeout)
 	}
-
 	return httpResponse
 }
 
@@ -752,10 +777,10 @@ func processResponseFromServer(response *http.Response, v interface{}) {
 	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		log.Error(constant.ERROR_READING_RESPONSE_MSG)
-		HandleUnableToConnectErrorAndExit(err)
+		HandleErrorAndExit(err)
 	}
 	if err = json.Unmarshal(data, v); err != nil {
 		log.Error(constant.ERROR_READING_RESPONSE_MSG)
-		HandleUnableToConnectErrorAndExit(err)
+		HandleErrorAndExit(err)
 	}
 }

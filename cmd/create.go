@@ -286,14 +286,15 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	// Save the updated update-descriptor with newly added, modified and removed files to the temp directory
 	util.PrintInBold("Enter relative paths of removed files, please enter 'done' when you are finished entering")
 	fmt.Println()
-	for {
+	//Todo uncomment
+	/*	for {
 		removedFile, err := util.GetUserInput()
 		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 		if strings.ToLower(removedFile) == "done" {
 			return
 		}
 		updateDescriptorV2.File_changes.Removed_files = append(updateDescriptorV2.File_changes.Removed_files, removedFile)
-	}
+	}*/
 	data, err := marshalUpdateDescriptor(updateDescriptorV2)
 	util.HandleErrorAndExit(err, "Error occurred while marshalling the update-descriptorV2.")
 	err = saveUpdateDescriptor(constant.UPDATE_DESCRIPTOR_V2_FILE, data)
@@ -301,7 +302,22 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 		constant.UPDATE_DESCRIPTOR_V2_FILE))
 
 	// Get partial updated file changes
-	util.GetPartialUpdatedFiles(updateDescriptorV2)
+	partialUpdatedFileResponse := util.GetPartialUpdatedFiles(updateDescriptorV2)
+	// Set values for UpdateDescriptorV3
+	updateDescriptorV3 := util.UpdateDescriptorV3{}
+	updateDescriptorV3.Update_number = partialUpdatedFileResponse.Update_number
+	updateDescriptorV3.Platform_name = partialUpdatedFileResponse.Platform_name
+	updateDescriptorV3.Platform_version = partialUpdatedFileResponse.Platform_version
+
+	for _, partialUpdatedProducts := range partialUpdatedFileResponse.Applicable_products {
+		productChanges := util.ProductChanges{}
+		productChanges.Product_name = partialUpdatedProducts.Product_name
+		productChanges.Product_version = partialUpdatedProducts.Base_version + "." + partialUpdatedProducts.Tag
+		productChanges.Added_files = partialUpdatedProducts.Added_files
+		productChanges.Removed_files = partialUpdatedProducts.Removed_files
+		productChanges.Modified_files = partialUpdatedProducts.Modified_files
+		append(updateDescriptorV3.Applicable_products, productChanges)
+	}
 
 	// Construct the update zip name
 	updateZipName := updateName + ".zip"
