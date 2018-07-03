@@ -16,21 +16,12 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path"
-	"path/filepath"
-	"regexp"
-	"strings"
-
 	"github.com/fatih/color"
 	"github.com/pkg/errors"
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"github.com/wso2/update-creator-tool/constant"
 	"github.com/wso2/update-creator-tool/util"
-	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -132,202 +123,17 @@ func initCurrentDirectory() {
 //This function will start the init process.
 func initDirectory(destination string) {
 	logger.Debug("Initializing started.")
-	// Check whether the provided directory exists
-	exists, err := util.IsDirectoryExists(destination)
-	logger.Debug(fmt.Sprintf("'%s' directory exists: %v", destination, exists))
-
-	// If the directory does not exists, prompt the user
-	skip := false
-	if !exists {
-	userInputLoop:
-		for {
-			util.PrintInBold(fmt.Sprintf("'%s'does not exists. Do you want to create '%s' directory?"+
-				"[Y/n]: ", destination, destination))
-			preference, err := util.GetUserInput()
-			if len(preference) == 0 {
-				preference = "y"
-			}
-			// Todo to remove redudant call, call this only if error is not null
-			util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-
-			// Get the user preference
-			userPreference := util.ProcessUserPreference(preference)
-			switch userPreference {
-			case constant.YES:
-				util.PrintInfo(fmt.Sprintf("'%s' directory does not exist. Creating '%s' directory.",
-					destination, destination))
-				err := util.CreateDirectory(destination)
-				util.HandleErrorAndExit(err)
-				logger.Debug(fmt.Sprintf("'%s' directory created.", destination))
-				break userInputLoop
-			case constant.NO:
-				skip = true
-				break userInputLoop
-			default:
-				//Todo asked, as here the for loop doesnot breaks on default, will iterate till
-				util.PrintError("Invalid preference. Enter Y for Yes or N for No.")
-			}
-		}
-	}
-	// If the skip is selected, exit
-	if skip {
-		util.HandleErrorAndExit(errors.New("Directory creation skipped. Please enter a valid directory."))
-	}
-
-	// Create new update descriptor structs
-	updateDescriptorV2 := util.UpdateDescriptorV2{}
-	updateDescriptorV3 := util.UpdateDescriptorV3{}
-
-	// Download the LICENSE.txt
-	downloadFile(destination, constant.LICENSE_URL, constant.LICENSE_DOWNLOAD_URL, constant.LICENSE_FILE)
-
-	// Download the NOT_A_CONTRIBUTION.txt
-	downloadFile(destination, constant.NOT_A_CONTRIBUTION_URL, constant.NOT_A_CONTRIBUTION_DOWNLOAD_URL,
-		constant.NOT_A_CONTRIBUTION_FILE)
-
-	// Process README.txt and parse values
-	processReadMe(destination, &updateDescriptorV2, &updateDescriptorV3)
-
-	// Marshall update descriptor structs
-	dataV2, err := yaml.Marshal(&updateDescriptorV2)
-	util.HandleErrorAndExit(err)
-	dataV3, err := yaml.Marshal(&updateDescriptorV3)
-	util.HandleErrorAndExit(err)
-
-	dataStringV2 := string(dataV2)
-	dataStringV3 := string(dataV3)
-
-	//remove " enclosing the update number
-	dataStringV2 = strings.Replace(dataStringV2, "\"", "", -1)
-	logger.Debug(fmt.Sprintf("update-descriptorV2:\n%s", dataStringV2))
-	dataStringV3 = strings.Replace(dataStringV3, "\"", "", -1)
-	logger.Debug(fmt.Sprintf("update-descriptorV3:\n%s", dataStringV3))
-
-	// Construct update descriptor file paths
-	updateDescriptorFileV2 := filepath.Join(destination, constant.UPDATE_DESCRIPTOR_V2_FILE)
-	logger.Debug(fmt.Sprintf("updateDescriptorFileV2: %v", updateDescriptorFileV2))
-	updateDescriptorFileV3 := filepath.Join(destination, constant.UPDATE_DESCRIPTOR_V3_FILE)
-	logger.Debug(fmt.Sprintf("updateDescriptorFileV3: %v", updateDescriptorFileV3))
-
-	// Save update descriptors
-	absDestinationV2 := saveUpdateDescriptorInDestination(updateDescriptorFileV2, dataStringV2, destination)
-	util.PrintInfo(fmt.Sprintf("'%s' has been successfully created at '%s'.", constant.UPDATE_DESCRIPTOR_V2_FILE,
-		absDestinationV2))
-	absDestinationV3 := saveUpdateDescriptorInDestination(updateDescriptorFileV3, dataStringV3, destination)
-	util.PrintInfo(fmt.Sprintf("'%s' has been successfully created at '%s'.", constant.UPDATE_DESCRIPTOR_V3_FILE,
-		absDestinationV3))
-
 	//Print whats next
 	color.Set(color.Bold)
 	fmt.Println("\nWhat's next?")
 	color.Unset()
-	fmt.Println(fmt.Sprintf("\trun 'wum-uc init --sample' to view a sample '%s' file.",
-		constant.UPDATE_DESCRIPTOR_V2_FILE))
+	fmt.Println(fmt.Sprintf("\trun 'wum-uc init --sample' to view samples of '%s' and '%s' files.",
+		constant.UPDATE_DESCRIPTOR_V2_FILE, constant.UPDATE_DESCRIPTOR_V3_FILE))
 }
 
-func saveUpdateDescriptorInDestination(updateDescriptorFilePath, dataString, destination string) string {
-	file, err := os.OpenFile(
-		updateDescriptorFilePath,
-		os.O_WRONLY|os.O_TRUNC|os.O_CREATE,
-		0600,
-	)
-	util.HandleErrorAndExit(err)
-	defer file.Close()
-
-	// Write bytes to file
-	_, err = file.Write([]byte(dataString))
-	if err != nil {
-		util.HandleErrorAndExit(err)
-	}
-
-	// Get the absolute location
-	absDestination, err := filepath.Abs(destination)
-	if err != nil {
-		absDestination = destination
-	}
-	return absDestination
-
-}
-
-//This function will set values to the update-descriptor.yaml and update-descriptorV2.yaml.
-func setValuesForUpdateDescriptors(updateDescriptorV2 *util.UpdateDescriptorV2, updateDescriptorV3 *util.UpdateDescriptorV3) {
-	logger.Debug("Setting values for update descriptors:")
-	setCommonValuesForBothUpdateDescriptors(updateDescriptorV2, updateDescriptorV3)
-	setDescription(updateDescriptorV2)
-	setAppliesTo(updateDescriptorV2)
-	setBugFixes(updateDescriptorV2)
-}
-
-func setAppliesTo(updateDescriptorV2 *util.UpdateDescriptorV2) {
-	util.PrintInBold("Enter applies to: ")
-	appliesTo, err := util.GetUserInput()
-	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-	updateDescriptorV2.Applies_to = appliesTo
-}
-
-func setDescription(updateDescriptorV2 *util.UpdateDescriptorV2) {
-	util.PrintInBold("Enter description: ")
-	description, err := util.GetUserInput()
-	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-	updateDescriptorV2.Description = description
-}
-
-func setBugFixes(updateDescriptorV2 *util.UpdateDescriptorV2) {
-	util.PrintInBold("Enter Bug fixes, please enter 'done' when you are finished adding")
-	fmt.Println()
-	bugFixes := make(map[string]string)
-	for {
-		// Todo refactor them to constants, and change constant.JIRA_KEY_DEFAULT and try to make them on using ||
-		util.PrintInBold("Enter JIRA_KEY/GITHUB ISSUE URL: ")
-		jiraKey, err := util.GetUserInput()
-		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-		if strings.ToLower(jiraKey) == "done" {
-			if len(bugFixes) == 0 {
-				bugFixes[constant.JIRA_NA] = constant.JIRA_NA
-			}
-			logger.Debug(fmt.Sprintf("bug_fixes: %v", bugFixes))
-			updateDescriptorV2.Bug_fixes = bugFixes
-			return
-		}
-		util.PrintInBold("Enter JIRA_KEY SUMMARY/GITHUB_ISSUE_SUMMARY: ")
-		jiraSummary, err := util.GetUserInput()
-		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-		if strings.ToLower(jiraSummary) == "done" {
-			if len(bugFixes) == 0 {
-				bugFixes[constant.JIRA_NA] = constant.JIRA_NA
-			}
-			logger.Debug(fmt.Sprintf("bug_fixes: %v", bugFixes))
-			updateDescriptorV2.Bug_fixes = bugFixes
-			return
-		}
-		bugFixes[jiraKey] = jiraSummary
-	}
-}
-
-func setCommonValuesForBothUpdateDescriptors(updateDescriptorV2 *util.UpdateDescriptorV2, updateDescriptorV3 *util.UpdateDescriptorV3) {
-	util.PrintInBold("Enter update number: ")
-	updateNumber, err := util.GetUserInput()
-	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-	updateDescriptorV2.Update_number = updateNumber
-	updateDescriptorV3.Update_number = updateNumber
-
-	util.PrintInBold("Enter platform name: ")
-	platformName, err := util.GetUserInput()
-	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-	updateDescriptorV2.Platform_name = platformName
-	updateDescriptorV3.Platform_name = platformName
-
-	util.PrintInBold("Enter platform version: ")
-	platformVersion, err := util.GetUserInput()
-	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-	updateDescriptorV2.Platform_version = platformVersion
-	updateDescriptorV3.Platform_version = platformVersion
-}
-
-//This function will process the readme file and extract details to populate update-descriptor.
-// yaml and update-descriptorV2.yaml. If some data
+/*// yaml and update-descriptorV2.yaml. If some data
 // cannot be extracted, it will add default value and continue.
-func processReadMe(directory string, updateDescriptorV2 *util.UpdateDescriptorV2,
+func processReadMe2(directory string, updateDescriptorV2 *util.UpdateDescriptorV2,
 	updateDescriptorV3 *util.UpdateDescriptorV3) {
 	logger.Debug("Processing README started")
 	// Construct the README.txt path
@@ -465,18 +271,4 @@ func processReadMe(directory string, updateDescriptorV2 *util.UpdateDescriptorV2
 		setDescription(updateDescriptorV2)
 	}
 	logger.Debug("Processing README finished")
-}
-
-func downloadFile(directory, urlName, downloadUrl, fileName string) {
-	url, exists := os.LookupEnv(urlName)
-	if !exists {
-		url = downloadUrl
-		logger.Debug(fmt.Sprintf("Environment variable '%s' is not set. Getting file from: %s",
-			urlName, downloadUrl))
-	}
-	err := util.DownloadFile(path.Join(directory, fileName), url)
-	if err != nil {
-		util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while getting the file '%v' "+
-			"from: %s.", fileName, url))
-	}
-}
+}*/
