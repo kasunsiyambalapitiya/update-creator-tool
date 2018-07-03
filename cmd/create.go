@@ -304,20 +304,30 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	// Get partial updated file changes
 	partialUpdatedFileResponse := util.GetPartialUpdatedFiles(updateDescriptorV2)
 	// Set values for UpdateDescriptorV3
-	updateDescriptorV3 := util.UpdateDescriptorV3{}
+	updateDescriptorV3 := &util.UpdateDescriptorV3{}
 	updateDescriptorV3.Update_number = partialUpdatedFileResponse.Update_number
 	updateDescriptorV3.Platform_name = partialUpdatedFileResponse.Platform_name
 	updateDescriptorV3.Platform_version = partialUpdatedFileResponse.Platform_version
 
-	for _, partialUpdatedProducts := range partialUpdatedFileResponse.Applicable_products {
-		productChanges := util.ProductChanges{}
-		productChanges.Product_name = partialUpdatedProducts.Product_name
-		productChanges.Product_version = partialUpdatedProducts.Base_version + "." + partialUpdatedProducts.Tag
-		productChanges.Added_files = partialUpdatedProducts.Added_files
-		productChanges.Removed_files = partialUpdatedProducts.Removed_files
-		productChanges.Modified_files = partialUpdatedProducts.Modified_files
-		append(updateDescriptorV3.Applicable_products, productChanges)
+	for _, partialUpdatedProducts := range partialUpdatedFileResponse.Compatible_products {
+		productChanges := setProductChangesInUpdateDescriptorV3(&partialUpdatedProducts)
+		updateDescriptorV3.Compatible_products = append(updateDescriptorV3.Compatible_products, *productChanges)
 	}
+	for _, partialUpdatedProducts := range partialUpdatedFileResponse.Applicable_products {
+		productChanges := setProductChangesInUpdateDescriptorV3(&partialUpdatedProducts)
+		updateDescriptorV3.Applicable_products = append(updateDescriptorV3.Applicable_products, *productChanges)
+	}
+	for _, partialUpdatedProducts := range partialUpdatedFileResponse.Notify_products {
+		productChanges := setProductChangesInUpdateDescriptorV3(&partialUpdatedProducts)
+		updateDescriptorV3.Notify_products = append(updateDescriptorV3.Notify_products, *productChanges)
+	}
+
+	// Save the updated update-descriptor3.yaml
+	data, err = yaml.Marshal(updateDescriptorV3)
+	util.HandleErrorAndExit(err, "Error occurred while marshalling the update-descriptorV3.")
+	err = saveUpdateDescriptor(constant.UPDATE_DESCRIPTOR_V3_FILE, data)
+	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while saving the '%v'.",
+		constant.UPDATE_DESCRIPTOR_V3_FILE))
 
 	// Construct the update zip name
 	updateZipName := updateName + ".zip"
@@ -339,7 +349,7 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	util.PrintInfo(fmt.Sprintf("Validating '%s'\n", updateZipName))
 
 	// Start the update file validation
-	startValidation(updateZipName, distributionPath)
+	//startValidation(updateZipName, distributionPath)
 }
 
 // Todo
@@ -1183,4 +1193,20 @@ func ZipFile(source, target string) error {
 		return err
 	})
 	return err
+}
+
+func setProductChangesInUpdateDescriptorV3(partialUpdatedProducts *util.PartialUpdatedProducts) *util.ProductChanges {
+	productChanges := &util.ProductChanges{}
+	defaultBugFixes := map[string]string{
+		constant.DEFAULT_JIRA_KEY: constant.DEFAULT_JIRA_SUMMARY,
+	}
+	productChanges.Product_name = partialUpdatedProducts.Product_name
+	productChanges.Product_version = partialUpdatedProducts.Base_version + "." + partialUpdatedProducts.Tag
+	productChanges.Description = constant.DEFAULT_DESCRIPTION
+	productChanges.Instructions = constant.DEFAULT_INSTRUCTIONS
+	productChanges.Bug_fixes = defaultBugFixes
+	productChanges.Added_files = partialUpdatedProducts.Added_files
+	productChanges.Removed_files = partialUpdatedProducts.Removed_files
+	productChanges.Modified_files = partialUpdatedProducts.Modified_files
+	return productChanges
 }

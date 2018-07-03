@@ -114,7 +114,12 @@ const (
 	WUMUC_UPDATE_TOKEN_TIMEOUT = 2
 	ERROR_READING_RESPONSE_MSG = "there is an error reading the response from WSO2 Update"
 
-	PRODUCT_API_CONTEXT                  = "products"
+	PRODUCT_API_CONTEXT  = "products"
+	DEFAULT_DESCRIPTION  = "| Please add the description here without replacing the literal block (|)"
+	DEFAULT_INSTRUCTIONS = "| Please add instructions here without replacing the literal block (|)"
+	DEFAULT_JIRA_KEY     = "Enter JIRA_KEY/GITHUB ISSUE URL"
+	DEFAULT_JIRA_SUMMARY = "Enter JIRA_KEY SUMMARY/GITHUB_ISSUE_SUMMARY"
+
 	PRODUCT_API_VERSION                  = "3.0.0"
 	APPLICABLE_PRODUCTS                  = "applicable-products"
 	FILE_LIST_ONLY                       = "fileListOnly=true"
