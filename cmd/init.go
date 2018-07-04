@@ -15,11 +15,8 @@
 package cmd
 
 import (
-	"fmt"
-	"github.com/fatih/color"
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
-	"github.com/wso2/update-creator-tool/constant"
 	"github.com/wso2/update-creator-tool/util"
 )
 
@@ -69,21 +66,4 @@ func init() {
 func initializeInitCommand(cmd *cobra.Command, args []string) {
 	logger.Debug("[Init] called")
 	util.Init(username, []byte(password))
-}
-
-//This function will be called if no arguments are provided by the user.
-func initCurrentDirectory() {
-	currentDirectory := "./"
-	initDirectory(currentDirectory)
-}
-
-//This function will start the init process.
-func initDirectory(destination string) {
-	logger.Debug("Initializing started.")
-	//Print whats next
-	color.Set(color.Bold)
-	fmt.Println("\nWhat's next?")
-	color.Unset()
-	fmt.Println(fmt.Sprintf("\trun 'wum-uc init --sample' to view samples of '%s' and '%s' files.",
-		constant.UPDATE_DESCRIPTOR_V2_FILE, constant.UPDATE_DESCRIPTOR_V3_FILE))
 }

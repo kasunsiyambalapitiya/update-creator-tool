@@ -37,7 +37,9 @@ import (
 	"github.com/fatih/color"
 	"github.com/ian-kent/go-log/log"
 	"github.com/pkg/errors"
+	"github.com/wso2/update-creator-tool/cmd"
 	"github.com/wso2/update-creator-tool/constant"
+	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/yaml.v2"
 	"net/url"
 )
@@ -775,7 +777,8 @@ func InvokeTokenAPI(payload *url.Values, wumucConfig *WUMUCConfig, tokenType str
 
 		if constant.RETRIEVE_ACCESS_TOKEN == tokenType && http.StatusBadRequest == response.StatusCode && constant.
 			INVALID_GRANT == tokenErrorResponse.Error {
-			HandleUnableToConnectErrorAndExit(errors.New("Invalid Credentials. Please enter valid WSO2 credentials"))
+			HandleUnableToConnectErrorAndExit(errors.New("Invalid Credentials. " +
+				"Please enter your WSO2 credentials to continue"))
 		} else if constant.RENEW_REFRESH_TOKEN == tokenType && http.StatusBadRequest == response.StatusCode && constant.
 			INVALID_GRANT == tokenErrorResponse.Error {
 			HandleUnableToConnectErrorAndExit(errors.New("Your session has timed out, run 'wum-uc init' to continue"))
@@ -810,64 +813,59 @@ func processResponseFromServer(response *http.Response, v interface{}) {
 func Init(username string, password []byte) {
 	log.Debug("Initializing wum-uc with user's WSO2 Credentials")
 
-	// Get the WUMUC
+	// Get WUMUC configurations
 	wumucConfig := GetWUMUCConfigs()
 	var tokenResponse *TokenResponse
+	// If user has supplied both username and password by -u and -p flags
 	if username != "" && len(password) != 0 {
 		tokenResponse = GetAccessToken(username, password, wumucConfig, "")
 	} else if len(password) == 0 {
 		if username == "" {
-			username = wumucConfig.username
+			username = wumucConfig.Username
 		}
 
 		username, tokenResponse = getAccessTokenFromUserCreds(username, 1, wumucConfig)
 
 	} else {
-		HandleErrorAndExit(UsernamePasswordEmptyMsg, nil)
+		HandleUnableToConnectErrorAndExit(errors.New(constant.USERNAME_PASSWORD_EMPTY_MSG))
 	}
 
-	wConfig.Username = username
-	enabledURepo.RefreshToken = tokenResponse.RefreshToken
-	enabledURepo.AccessToken = tokenResponse.AccessToken
-	wConfig.Repositories[enabledURepoName] = enabledURepo
+	wumucConfig.Username = username
+	wumucConfig.RefreshToken = tokenResponse.RefreshToken
+	wumucConfig.AccessToken = tokenResponse.AccessToken
 
-	WriteConfigFile(wConfig, filepath.Join(GetWUMLocalRepo(), WUMConfigFileName))
-	CheckForWUMUpdates()
-	fmt.Fprintln(os.Stderr, DoneMsg)
-
-	// Print the welcome message.
-	printWelcomeMessage()
+	WriteConfigFile(wumucConfig, filepath.Join(cmd.WUMUCHome, constant.WUMUC_CONFIG_FILE))
+	fmt.Fprintln(os.Stderr, constant.DONE_MSG)
 }
 
 // Get credentials from the user. Maximum password attempts is 3. If the user specify both the
 // username and the password, then get an access token.
-func getAccessTokenFromUserCreds(username string, attempt int, wumucConfig *WUMUCConfig) (string, TokenResponse) {
-	username, password := getCredentialsInternal(username)
+func getAccessTokenFromUserCreds(username string, attempt int, wumucConfig *WUMUCConfig) (string, *TokenResponse) {
+	username, password := getCredentials(username)
+	// Handle empty inputs from user for both username and password
 	if (username == "" || len(password) == 0) && attempt < 3 {
-		fmt.Fprintln(os.Stderr)
-		return getAccessTokenFromUserCreds("", attempt+1, updateRepo)
+		return getAccessTokenFromUserCreds("", attempt+1, wumucConfig)
 
 	} else if (username == "" || len(password) == 0) && attempt == 3 {
-		PrintErrorMessageAndExit(InvalidCredentialsMsg,
-			EnterValidWSO2CredentialsMsg, ValidAccountButLoginErrMsg)
+		HandleUnableToConnectErrorAndExit(errors.New("Invalid Credentials. " +
+			"Please enter your WSO2 credentials to continue"))
 	}
 
-	tr, err := GetAccessToken(username, password, updateRepo, "")
-	if err != nil && attempt < 3 {
+	// Handle non-empty inputs from user for both username and password
+	tokenResponse := GetAccessToken(username, password, wumucConfig, "")
+	if tokenResponse == nil && attempt < 3 {
 		// Authentication failure
-		fmt.Fprintln(os.Stderr)
-		return getAccessTokenFromUserCreds(username, attempt+1, updateRepo)
+		return getAccessTokenFromUserCreds(username, attempt+1, wumucConfig)
 
-	} else if err != nil && attempt == 3 {
-		PrintErrorMessageAndExit(InvalidCredentialsMsg,
-			EnterValidWSO2CredentialsMsg, ValidAccountButLoginErrMsg)
+	} else if tokenResponse == nil && attempt == 3 {
+		HandleUnableToConnectErrorAndExit(errors.New("Invalid Credentials. " +
+			"Please enter your WSO2 credentials to continue"))
 	}
-
-	return username, tr
+	return username, tokenResponse
 }
 
 // Prompt for the username and the password from the user.
-func getCredentialsInternal(username string) (string, []byte) {
+func getCredentials(username string) (string, []byte) {
 	var password []byte
 	fmt.Fprintln(os.Stderr, constant.ENTER_YOUR_CREDENTIALS_MSG)
 
@@ -876,18 +874,15 @@ func getCredentialsInternal(username string) (string, []byte) {
 		fmt.Print("Email: ")
 		uName, err := reader.ReadString('\n')
 		if err != nil {
-			HandleErrorAndExit(UnableToReadYourInputMsg, err)
+			HandleErrorAndExit(err, constant.UNABLE_TO_READ_YOUR_INPUT_MSG)
 		}
-		// Remove the @ sign the from the username
 		username = strings.TrimSpace(uName)
 	}
 
 	fmt.Fprintf(os.Stderr, "Password for '%v': ", strings.TrimSpace(username))
 	password, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {
-		HandleErrorAndExit(UnableToReadYourInputMsg, err)
+		HandleErrorAndExit(err, constant.UNABLE_TO_READ_YOUR_INPUT_MSG)
 	}
-
-	fmt.Fprintln(os.Stderr)
 	return username, password
 }

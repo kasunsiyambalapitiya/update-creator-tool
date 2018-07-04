@@ -112,7 +112,11 @@ const (
 	INVALID_GRANT                          = "invalid_grant"
 	WUMUC_UPDATE_TOKEN_TIMEOUT             = 2
 	ERROR_READING_RESPONSE_MSG             = "there is an error reading the response from WSO2 Update"
+	INVALID_CREDENTIALS                    = "Invalid Credentials."
 	ENTER_YOUR_CREDENTIALS_MSG             = "Please enter your WSO2 credentials to continue"
+	UNABLE_TO_READ_YOUR_INPUT_MSG          = "unable to read your input"
+	USERNAME_PASSWORD_EMPTY_MSG            = "username or password cannot be empty"
+	DONE_MSG                               = "Done!\n"
 
 	PRODUCT_API_CONTEXT = "products"
 	DEFAULT_DESCRIPTION = `Please add the description here without removing the literal block (|)
