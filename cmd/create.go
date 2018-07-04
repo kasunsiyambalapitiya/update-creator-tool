@@ -351,6 +351,9 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	updateDescriptorV3.Update_number = partialUpdatedFileResponse.Update_number
 	updateDescriptorV3.Platform_name = partialUpdatedFileResponse.Platform_name
 	updateDescriptorV3.Platform_version = partialUpdatedFileResponse.Platform_version
+	if partialUpdatedFileResponse.Backward_compatible {
+
+	}
 
 	for _, partialUpdatedProducts := range partialUpdatedFileResponse.Compatible_products {
 		productChanges := setProductChangesInUpdateDescriptorV3(&partialUpdatedProducts)
@@ -389,7 +392,10 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	signal.Stop(cleanupChannel)
 
 	util.PrintInfo(fmt.Sprintf("'%s' successfully created.", updateZipName))
-	util.PrintInfo(fmt.Sprintf("Validating '%s'\n", updateZipName))
+	util.PrintInfo(fmt.Sprintf("Please manually fill the  `description` and `instructions` fields of compatible"+
+		",applicable and notify products in the update-descriptor3."+
+		"yaml located inside the created '%s'\n",
+		updateZipName))
 }
 
 // This function will process the README.txt file and extract details to populate update-descriptor.yaml and

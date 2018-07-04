@@ -41,7 +41,6 @@ var (
 )
 
 var cfgFile string
-var WUMUCHome string
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
@@ -73,7 +72,7 @@ func initConfig() {
 	setDefaultValues()
 
 	// Check whether the user has specified the WUM_UC_HOME environment variable.
-	WUMUCHome = os.Getenv(constant.WUM_UC_HOME)
+	WUMUCHome := os.Getenv(constant.WUM_UC_HOME)
 	if WUMUCHome == "" {
 		// User has not specified WUM_UC_HOME.
 		// Get the home directory of the current user.
@@ -83,6 +82,7 @@ func initConfig() {
 		}
 		WUMUCHome = filepath.Join(homeDirPath, constant.WUMUC_HOME_DIR_NAME)
 	}
+	viper.Set(constant.WUM_UC_HOME, WUMUCHome)
 	util.LoadWUMUCConfig(WUMUCHome)
 
 	viper.SetConfigName("config") // name of config file (without extension)

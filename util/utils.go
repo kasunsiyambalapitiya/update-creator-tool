@@ -37,7 +37,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/ian-kent/go-log/log"
 	"github.com/pkg/errors"
-	"github.com/wso2/update-creator-tool/cmd"
+	"github.com/spf13/viper"
 	"github.com/wso2/update-creator-tool/constant"
 	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/yaml.v2"
@@ -95,6 +95,7 @@ type PartialUpdatedFileResponse struct {
 	Update_number       string                   `json:"update-no"`
 	Platform_version    string                   `json:"platform-version"`
 	Platform_name       string                   `json:"platform-name"`
+	Backward_compatible bool                     `json:"backward-compatible"`
 	Applicable_products []PartialUpdatedProducts `json:"applicable-products"`
 	Compatible_products []PartialUpdatedProducts `json:"compatible-products"`
 	Notify_products     []PartialUpdatedProducts `json:"notify-products"`
@@ -609,7 +610,7 @@ func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpda
 	// Invoke the API
 	/*	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
 		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY*/
-	apiURL := "http://www.mocky.io/v2/5b3c6f52330000f228599f31"
+	apiURL := "http://www.mocky.io/v2/5b3ce1e13100006f006ddf51"
 	response := InvokePOSTRequest(apiURL, requestBody)
 	if response.StatusCode != http.StatusOK {
 		HandleUnableToConnectErrorAndExit(nil)
@@ -829,12 +830,12 @@ func Init(username string, password []byte) {
 	} else {
 		HandleUnableToConnectErrorAndExit(errors.New(constant.USERNAME_PASSWORD_EMPTY_MSG))
 	}
-
+	WUMUCHome := viper.Get(constant.WUM_UC_HOME)
+	WUMUCHomePath := WUMUCHome.(string)
 	wumucConfig.Username = username
 	wumucConfig.RefreshToken = tokenResponse.RefreshToken
 	wumucConfig.AccessToken = tokenResponse.AccessToken
-
-	WriteConfigFile(wumucConfig, filepath.Join(cmd.WUMUCHome, constant.WUMUC_CONFIG_FILE))
+	WriteConfigFile(wumucConfig, filepath.Join(WUMUCHomePath, constant.WUMUC_CONFIG_FILE))
 	fmt.Fprintln(os.Stderr, constant.DONE_MSG)
 }
 
