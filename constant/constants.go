@@ -110,13 +110,19 @@ const (
 	RENEW_REFRESH_TOKEN                    = "renewRefreshToken"
 	RETRIEVE_ACCESS_TOKEN                  = "getAccessToken"
 	INVALID_GRANT                          = "invalid_grant"
+	WUMUC_UPDATE_TOKEN_TIMEOUT             = 2
+	ERROR_READING_RESPONSE_MSG             = "there is an error reading the response from WSO2 Update"
+	ENTER_YOUR_CREDENTIALS_MSG             = "Please enter your WSO2 credentials to continue"
 
-	WUMUC_UPDATE_TOKEN_TIMEOUT = 2
-	ERROR_READING_RESPONSE_MSG = "there is an error reading the response from WSO2 Update"
+	PRODUCT_API_CONTEXT = "products"
+	DEFAULT_DESCRIPTION = `Please add the description here without removing the literal block (|)
+Sample description will be as follows,
+Fixes for the following in rabbitmq transport
+(i)   Channel not closing issue in rabbitmq publisher
+(ii)  Performance improvements to the transport by introducing a channel pool (configurable) and parameterising queue and exchange creation.
+(iii) Allow configuring connection factory by name in target url`
 
-	PRODUCT_API_CONTEXT  = "products"
-	DEFAULT_DESCRIPTION  = "| Please add the description here without replacing the literal block (|)"
-	DEFAULT_INSTRUCTIONS = "| Please add instructions here without replacing the literal block (|)"
+	DEFAULT_INSTRUCTIONS = "| Please add instructions here without removing the literal block (|)"
 	DEFAULT_JIRA_KEY     = "Enter JIRA_KEY/GITHUB ISSUE URL"
 	DEFAULT_JIRA_SUMMARY = "Enter JIRA_KEY SUMMARY/GITHUB_ISSUE_SUMMARY"
 

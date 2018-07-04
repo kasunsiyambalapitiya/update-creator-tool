@@ -390,9 +390,6 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 
 	util.PrintInfo(fmt.Sprintf("'%s' successfully created.", updateZipName))
 	util.PrintInfo(fmt.Sprintf("Validating '%s'\n", updateZipName))
-
-	// Start the update file validation
-	//startValidation(updateZipName, distributionPath)
 }
 
 // This function will process the README.txt file and extract details to populate update-descriptor.yaml and
