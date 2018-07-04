@@ -179,8 +179,9 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	util.IsZipFile(constant.DISTRIBUTION, distributionPath)
 
 	//5) Validate UpdateDescriptorV2 after user inputs
-	err = util.ValidateUpdateDescriptor(&updateDescriptorV2)
-	util.HandleErrorAndExit(err, fmt.Sprintf("'%s' format is incorrect.", constant.UPDATE_DESCRIPTOR_V2_FILE))
+	//Todo use this in validation
+	/*	err = util.ValidateUpdateDescriptor(&updateDescriptorV2)
+		util.HandleErrorAndExit(err, fmt.Sprintf("'%s' format is incorrect.", constant.UPDATE_DESCRIPTOR_V2_FILE))*/
 
 	// Set the update name
 	updateName := getUpdateName(&updateDescriptorV2, constant.UPDATE_NAME_PREFIX)
@@ -324,18 +325,9 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	err = copyResourceFilesToTempDir(resourceFiles)
 	util.HandleErrorAndExit(err, errors.New("Error occurred while copying resource files."))
 
-	// Save the updated update-descriptor with newly added, modified and removed files to the temp directory
-	util.PrintInBold("Enter relative paths of removed files, please enter 'done' when you are finished entering")
-	fmt.Println()
-	//Todo uncomment
-	/*	for {
-		removedFile, err := util.GetUserInput()
-		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-		if strings.ToLower(removedFile) == "done" {
-			return
-		}
-		updateDescriptorV2.File_changes.Removed_files = append(updateDescriptorV2.File_changes.Removed_files, removedFile)
-	}*/
+	// Todo Check this comment Save the updated update-descriptor with newly added,
+	// modified and removed files to the temp directory
+
 	data, err := marshalUpdateDescriptor(&updateDescriptorV2)
 	util.HandleErrorAndExit(err, "Error occurred while marshalling the update-descriptorV2.")
 	err = saveUpdateDescriptor(constant.UPDATE_DESCRIPTOR_V2_FILE, data)
@@ -351,6 +343,18 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 		} else {
 			setValuesForUpdateDescriptorsV2(&updateDescriptorV2)
 		}
+		// Reqeust the user to add removed files as they can't be identified by comparing.
+		util.PrintInBold("Enter relative paths of removed files, please enter 'done' when you are finished entering")
+		fmt.Println()
+		//Todo uncomment
+		/*	for {
+			removedFile, err := util.GetUserInput()
+			util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+			if strings.ToLower(removedFile) == "done" {
+				return
+			}
+			updateDescriptorV2.File_changes.Removed_files = append(updateDescriptorV2.File_changes.Removed_files, removedFile)
+		}*/
 		createUpdateDescriptorV2(updateDirectoryPath, &updateDescriptorV2)
 	}
 
