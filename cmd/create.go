@@ -144,7 +144,6 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 			case constant.NO:
 				util.HandleErrorAndExit(errors.New("directory creation skipped. Please enter a valid directory"))
 			default:
-				//Todo asked, as here the for loop doesnot breaks on default, will iterate till
 				util.PrintError("Invalid preference. Enter Y for Yes or N for No.")
 			}
 		}
@@ -178,7 +177,7 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 
 	//5) Validate UpdateDescriptorV2 for basic details of update-descriptor.yaml
 	//Todo use this in validation
-	err = util.ValidateBasicDetailsOfUpdateDescriptorV2(updateDescriptorV2)
+	err = util.ValidateBasicDetailsOfUpdateDescriptorV2(&updateDescriptorV2)
 	util.HandleErrorAndExit(err, fmt.Sprintf("'%s' format is incorrect.", constant.UPDATE_DESCRIPTOR_V2_FILE))
 
 	//6) Download mandatory files
@@ -314,7 +313,7 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 		}
 	}
 
-	//8) Request the user to add removed files as they can't be identified by comparing.
+	//9) Request the user to add removed files as they can't be identified by comparing.
 	util.PrintInBold("Enter relative paths of removed files, please enter 'done' when you are finished entering")
 	fmt.Println()
 	//Todo uncomment
@@ -326,9 +325,6 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 		}
 		updateDescriptorV2.File_changes.Removed_files = append(updateDescriptorV2.File_changes.Removed_files, removedFile)
 	}*/
-
-	// Todo Check this comment Save the updated update-descriptor with newly added,
-	// modified and removed files to the temp directory
 
 	// Get partial updated file changes
 	partialUpdatedFileResponse := util.GetPartialUpdatedFiles(&updateDescriptorV2)
@@ -342,6 +338,7 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 		createUpdateDescriptorV2(updateDirectoryPath, &updateDescriptorV2)
 		data, err := marshalUpdateDescriptor(&updateDescriptorV2)
 		util.HandleErrorAndExit(err, "Error occurred while marshalling the update-descriptorV2.")
+		// Save the updated update-descriptor.yaml with newly added, modified and removed files to the temp directory
 		err = saveUpdateDescriptor(constant.UPDATE_DESCRIPTOR_V2_FILE, data)
 		util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while saving the '%v'.",
 			constant.UPDATE_DESCRIPTOR_V2_FILE))
@@ -406,31 +403,30 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 // -descriptor.yaml.
 // If some data cannot be extracted, it will add default values and continue.
 func processReadMe(updateDirectoryPath string, updateDescriptorV2 *util.UpdateDescriptorV2) string {
-	logger.Debug("Processing README started for filling in `update_number`," +
+	logger.Debug("Processing README.txt started for filling in `update_number`," +
 		"`platform_name` and `platform_version` in update-descriptor.yaml")
 	// Construct the README.txt path
 	readMePath := path.Join(updateDirectoryPath, constant.README_FILE)
-	logger.Debug(fmt.Sprintf("README Path: %v", readMePath))
+	logger.Debug(fmt.Sprintf("README.txt Path: %v", readMePath))
 	// Check whether the README.txt file exists
 	_, err := os.Stat(readMePath)
 	if err != nil {
 		// If the file does not exist or any other error occur, return without printing warning messages
 		logger.Debug(fmt.Sprintf("%s not found", readMePath))
-		setBasicValuesInUpdateDescriptorsV2(updateDescriptorV2)
+		setBasicValuesInUpdateDescriptorV2(updateDescriptorV2)
 		return ""
 	}
+	logger.Debug("README.txt found")
 	// Read the README.txt file
 	data, err := ioutil.ReadFile(readMePath)
 	if err != nil {
 		// If any error occurs, return without printing warning messages
-		logger.Debug(fmt.Sprintf("Error occurred in processing README: %v", err))
-		setBasicValuesInUpdateDescriptorsV2(updateDescriptorV2)
+		logger.Debug(fmt.Sprintf("Error occurred in processing README.txt: %v", err))
+		setBasicValuesInUpdateDescriptorV2(updateDescriptorV2)
 		return ""
 	}
 	// Convert the byte array to a string
 	readMeDataString := string(data)
-
-	logger.Debug("README.txt found")
 	logger.Debug("Processing README started")
 	// Compile the regex
 	regex, err := regexp.Compile(constant.PATCH_ID_REGEX)
@@ -449,7 +445,7 @@ func processReadMe(updateDirectoryPath string, updateDescriptorV2 *util.UpdateDe
 			// Get the platform details from the map
 			platformName, found := platformsMap[result[1]]
 			if found {
-				logger.Debug("PlatformName found in configs")
+				logger.Debug("Platform name found in configs")
 				updateDescriptorV2.Platform_name = platformName
 			} else {
 				//If the platform name is not found, set default
@@ -461,19 +457,20 @@ func processReadMe(updateDirectoryPath string, updateDescriptorV2 *util.UpdateDe
 			}
 		} else {
 			logger.Debug("PATCH_ID_REGEX results incorrect:", result)
-			setBasicValuesInUpdateDescriptorsV2(updateDescriptorV2)
+			setBasicValuesInUpdateDescriptorV2(updateDescriptorV2)
 		}
 	} else {
 		//If error occurred, set default values
 		logger.Debug(fmt.Sprintf("Error occurred while processing PATCH_ID_REGEX: %v", err))
-		setBasicValuesInUpdateDescriptorsV2(updateDescriptorV2)
+		setBasicValuesInUpdateDescriptorV2(updateDescriptorV2)
 	}
 	return readMeDataString
 }
 
 //This function will set basic values in the update-descriptor.yaml.
-func setBasicValuesInUpdateDescriptorsV2(updateDescriptorV2 *util.UpdateDescriptorV2) {
-	logger.Debug("Setting values for `applies_to`,`bug_fixes` and `description` fields in update-descriptor." +
+func setBasicValuesInUpdateDescriptorV2(updateDescriptorV2 *util.UpdateDescriptorV2) {
+	logger.Debug("Setting values for `update_number`," +
+		"`platform_version` and `platform_name` fields in update-descriptor." +
 		"yaml")
 	setUpdateNumber(updateDescriptorV2)
 	setPlatformVersion(updateDescriptorV2)
