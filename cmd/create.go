@@ -30,6 +30,7 @@ import (
 	"strconv"
 	"strings"
 
+	"bytes"
 	"github.com/olekukonko/tablewriter"
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
@@ -342,7 +343,6 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 		err = saveUpdateDescriptor(constant.UPDATE_DESCRIPTOR_V2_FILE, data)
 		util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while saving the '%v'.",
 			constant.UPDATE_DESCRIPTOR_V2_FILE))
-
 	}
 
 	// Set values for UpdateDescriptorV3
@@ -357,10 +357,9 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 		productChanges := setProductChangesInUpdateDescriptorV3(&partialUpdatedProducts)
 		updateDescriptorV3.Applicable_products = append(updateDescriptorV3.Applicable_products, *productChanges)
 	}
-	for _, partialUpdatedProducts := range partialUpdatedFileResponse.Notify_products {
-		productChanges := setProductChangesInUpdateDescriptorV3(&partialUpdatedProducts)
-		updateDescriptorV3.Notify_products = append(updateDescriptorV3.Notify_products, *productChanges)
-	}
+
+	// Generate md5sum for product changes
+	updateDescriptorV3.Md5sum = generateMd5sumForFileChanges(&updateDescriptorV3)
 
 	//9) Copy resource files (LICENSE.txt, etc) to temp directory
 	resourceFiles := getResourceFiles()
@@ -478,7 +477,7 @@ func setBasicValuesInUpdateDescriptorV2(updateDescriptorV2 *util.UpdateDescripto
 }
 
 func processReadMeData(readMeDataString *string, updateDescriptorV2 *util.UpdateDescriptorV2) {
-	logger.Debug("Processing README started for filling in `applies_to`," +
+	logger.Debug("Processing README.txt started for filling in `applies_to`," +
 		"`bug_fixes` and `description` in update-descriptor.yaml")
 
 	// Compile the regex
@@ -501,7 +500,7 @@ func processReadMeData(readMeDataString *string, updateDescriptorV2 *util.Update
 			setAppliesTo(updateDescriptorV2)
 		}
 	} else {
-		//If error occurred, set default value
+		// If error occurred, request user to fill in
 		logger.Debug(fmt.Sprintf("Error occurred while processing APPLIES_TO_REGEX: %v", err))
 		setAppliesTo(updateDescriptorV2)
 	}
@@ -515,8 +514,8 @@ func processReadMeData(readMeDataString *string, updateDescriptorV2 *util.Update
 		updateDescriptorV2.Bug_fixes = make(map[string]string)
 		// If no Jiras found, set 'N/A: N/A' as the value
 		if len(allResult) == 0 {
-			logger.Debug("No matching results found for ASSOCIATED_JIRAS_REGEX. Setting default values.")
-			updateDescriptorV2.Bug_fixes[constant.JIRA_NA] = constant.JIRA_NA
+			logger.Debug("No matching results found for ASSOCIATED_JIRAS_REGEX.")
+			setBugFixes(updateDescriptorV2)
 		} else {
 			// If Jiras found, get summary for all Jiras
 			logger.Debug("Matching results found for ASSOCIATED_JIRAS_REGEX")
@@ -528,9 +527,8 @@ func processReadMeData(readMeDataString *string, updateDescriptorV2 *util.Update
 			}
 		}
 	} else {
-		//If error occurred, set default values
+		// If error occurred, request user to fill in
 		logger.Debug(fmt.Sprintf("Error occurred while processing ASSOCIATED_JIRAS_REGEX: %v", err))
-		logger.Debug("Setting default values to bug_fixes")
 		setBugFixes(updateDescriptorV2)
 	}
 
@@ -548,7 +546,7 @@ func processReadMeData(readMeDataString *string, updateDescriptorV2 *util.Update
 			setDescription(updateDescriptorV2)
 		}
 	} else {
-		//If error occurred, set default values
+		// If error occurred, request user to fill in
 		logger.Debug(fmt.Sprintf("Error occurred while processing DESCRIPTION_REGEX: %v", err))
 		setDescription(updateDescriptorV2)
 	}
@@ -1575,4 +1573,42 @@ func setProductChangesInUpdateDescriptorV3(partialUpdatedProducts *util.PartialU
 	productChanges.Removed_files = partialUpdatedProducts.Removed_files
 	productChanges.Modified_files = partialUpdatedProducts.Modified_files
 	return productChanges
+}
+
+func generateMd5sumForFileChanges(updateDescriptorV3 *util.UpdateDescriptorV3) string {
+	var buffer bytes.Buffer
+	var addedFileString string
+	var modifiedFileString string
+	var removedFileString string
+
+	// Sorting the product changes update-descriptor3.yaml
+	sort.Slice(updateDescriptorV3.Compatible_products, func(i, j int) bool {
+		return updateDescriptorV3.Compatible_products[i].Product_name < updateDescriptorV3.Compatible_products[j].Product_name
+
+	})
+	sort.Slice(updateDescriptorV3.Applicable_products, func(i, j int) bool {
+		return updateDescriptorV3.Applicable_products[i].Product_name < updateDescriptorV3.Applicable_products[j].
+			Product_name
+	})
+	for _, productChange := range updateDescriptorV3.Compatible_products {
+		addedFileString = strings.Join(productChange.Added_files, ",")
+		modifiedFileString = strings.Join(productChange.Modified_files, ",")
+		removedFileString = strings.Join(productChange.Removed_files, ",")
+		buffer.WriteString(addedFileString)
+		buffer.WriteString(modifiedFileString)
+		buffer.WriteString(removedFileString)
+		buffer.WriteString(productChange.Product_name)
+		buffer.WriteString(productChange.Product_version)
+	}
+	for _, productChange := range updateDescriptorV3.Applicable_products {
+		addedFileString = strings.Join(productChange.Added_files, ",")
+		modifiedFileString = strings.Join(productChange.Modified_files, ",")
+		removedFileString = strings.Join(productChange.Removed_files, ",")
+		buffer.WriteString(addedFileString)
+		buffer.WriteString(modifiedFileString)
+		buffer.WriteString(removedFileString)
+		buffer.WriteString(productChange.Product_name)
+		buffer.WriteString(productChange.Product_version)
+	}
+	return fmt.Sprintf("%x", md5.Sum(buffer.Bytes()))
 }

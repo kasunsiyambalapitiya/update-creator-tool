@@ -65,9 +65,9 @@ type UpdateDescriptorV3 struct {
 	Update_number       string
 	Platform_version    string
 	Platform_name       string
+	Md5sum              string
 	Compatible_products []ProductChanges
 	Applicable_products []ProductChanges
-	Notify_products     []ProductChanges
 }
 
 type ProductChanges struct {
@@ -290,7 +290,6 @@ func ValidateBasicDetailsOfUpdateDescriptorV2(updateDescriptorV2 *UpdateDescript
 	return nil
 }
 
-//Todo use this in validation for ud3
 func ValidateUpdateDescriptorV2(updateDescriptorV2 *UpdateDescriptorV2) error {
 	ValidateBasicDetailsOfUpdateDescriptorV2(updateDescriptorV2)
 
@@ -342,7 +341,7 @@ func ValidateUpdateDescriptorV3(updateDescriptorV3 *UpdateDescriptorV3) error {
 	if len(updateDescriptorV3.Platform_name) == 0 {
 		return errors.New("'platform_name' field not found.")
 	}
-
+	// create a copy of UD3 struct and then remove user inputted data then cal md5 and compares
 	return nil
 }
 
