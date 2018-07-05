@@ -260,8 +260,8 @@ func LoadUpdateDescriptor(filename, updateDirectoryPath string) (*UpdateDescript
 	return &updateDescriptor, nil
 }
 
-// This function will validate the update-descriptor.yaml
-func ValidateUpdateDescriptor(updateDescriptor *UpdateDescriptorV2) error {
+// This function will validate the update-descriptor.yaml basic details.
+func ValidateBasicDetailsOfUpdateDescriptor(updateDescriptor *UpdateDescriptorV2) error {
 	if len(updateDescriptor.Update_number) == 0 {
 		return errors.New("'update_number' field not found.")
 	}
@@ -287,13 +287,20 @@ func ValidateUpdateDescriptor(updateDescriptor *UpdateDescriptorV2) error {
 	if len(updateDescriptor.Platform_name) == 0 {
 		return errors.New("'platform_name' field not found.")
 	}
-	if len(updateDescriptor.Applies_to) == 0 {
+	return nil
+}
+
+//Todo use this in validation
+func ValidateUpdateDescriptor(updateDescriptorV2 *UpdateDescriptorV2) error {
+	ValidateBasicDetailsOfUpdateDescriptor(updateDescriptorV2)
+
+	if len(updateDescriptorV2.Applies_to) == 0 {
 		return errors.New("'applies_to' field not found.")
 	}
-	if len(updateDescriptor.Bug_fixes) == 0 {
+	if len(updateDescriptorV2.Bug_fixes) == 0 {
 		return errors.New("'bug_fixes' field not found. Add 'N/A: N/A' if there are no bug fixes.")
 	}
-	if len(updateDescriptor.Description) == 0 {
+	if len(updateDescriptorV2.Description) == 0 {
 		return errors.New("'description' field not found.")
 	}
 	return nil

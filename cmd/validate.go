@@ -216,7 +216,7 @@ func readUpdateZip(filename string) (map[string]bool, *util.UpdateDescriptorV2, 
 					return nil, nil, err
 				}
 				//check
-				err = util.ValidateUpdateDescriptor(&updateDescriptor)
+				err = util.ValidateBasicDetailsOfUpdateDescriptor(&updateDescriptor)
 				if err != nil {
 					return nil, nil, errors.New("'" + constant.UPDATE_DESCRIPTOR_V2_FILE +
 						"' is invalid. " + err.Error())

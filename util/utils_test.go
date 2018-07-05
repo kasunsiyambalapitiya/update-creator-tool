@@ -168,31 +168,31 @@ func TestIsUserPreferencesValid(t *testing.T) {
 
 func TestValidateUpdateDescriptor(t *testing.T) {
 	updateDescriptor := UpdateDescriptorV2{}
-	err := ValidateUpdateDescriptor(&updateDescriptor)
+	err := ValidateBasicDetailsOfUpdateDescriptor(&updateDescriptor)
 	if err == nil {
 		t.Error("Test failed. Error expected")
 	}
 
 	updateDescriptor.Update_number = "0001"
-	err = ValidateUpdateDescriptor(&updateDescriptor)
+	err = ValidateBasicDetailsOfUpdateDescriptor(&updateDescriptor)
 	if err == nil {
 		t.Error("Test failed. Error expected")
 	}
 
 	updateDescriptor.Platform_name = "wilkes"
-	err = ValidateUpdateDescriptor(&updateDescriptor)
+	err = ValidateBasicDetailsOfUpdateDescriptor(&updateDescriptor)
 	if err == nil {
 		t.Error("Test failed. Error expected")
 	}
 
 	updateDescriptor.Platform_version = "4.4.0"
-	err = ValidateUpdateDescriptor(&updateDescriptor)
+	err = ValidateBasicDetailsOfUpdateDescriptor(&updateDescriptor)
 	if err == nil {
 		t.Error("Test failed. Error expected")
 	}
 
 	updateDescriptor.Applies_to = "wso2esb-4.9.0"
-	err = ValidateUpdateDescriptor(&updateDescriptor)
+	err = ValidateBasicDetailsOfUpdateDescriptor(&updateDescriptor)
 	if err == nil {
 		t.Error("Test failed. Error expected")
 	}
@@ -200,13 +200,13 @@ func TestValidateUpdateDescriptor(t *testing.T) {
 	updateDescriptor.Bug_fixes = map[string]string{
 		"N/A": "N/A",
 	}
-	err = ValidateUpdateDescriptor(&updateDescriptor)
+	err = ValidateBasicDetailsOfUpdateDescriptor(&updateDescriptor)
 	if err == nil {
 		t.Error("Test failed. Error expected")
 	}
 
 	updateDescriptor.Description = "sample description"
-	err = ValidateUpdateDescriptor(&updateDescriptor)
+	err = ValidateBasicDetailsOfUpdateDescriptor(&updateDescriptor)
 	if err != nil {
 		t.Errorf("Test failed. Unexpected error %v", err)
 	}
