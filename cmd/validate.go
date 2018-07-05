@@ -63,8 +63,8 @@ func init() {
 // This function will be called when the validate command is called.
 func initializeValidateCommand(cmd *cobra.Command, args []string) {
 	if len(args) != 2 {
-		util.HandleErrorAndExit(errors.New("Invalid number of argumants. Run 'wum-uc validate --help' to " +
-			"view help."))
+		util.HandleErrorAndExit(errors.New("invalid number of arguments. Run 'wum-uc validate --help' to " +
+			"view help"))
 	}
 	startValidation(args[0], args[1])
 }
@@ -168,7 +168,8 @@ func compare(updateFileMap, distributionFileMap map[string]bool, updateDescripto
 // This function will read the update zip at the the given location.
 func readUpdateZip(filename string) (map[string]bool, *util.UpdateDescriptorV2, error) {
 	fileMap := make(map[string]bool)
-	updateDescriptor := util.UpdateDescriptorV2{}
+	updateDescriptorV2 := util.UpdateDescriptorV2{}
+	updateDescriptorV3 := util.UpdateDescriptorV3{}
 
 	isNotAContributionFileFound := false
 	isASecPatch := false
@@ -206,19 +207,34 @@ func readUpdateZip(filename string) (map[string]bool, *util.UpdateDescriptorV2, 
 			logger.Debug(fmt.Sprintf("fullPath: %s", fullPath))
 			switch name {
 			case constant.UPDATE_DESCRIPTOR_V2_FILE:
-				//todo: check for any remaining placeholders
 				data, err := validateFile(file, constant.UPDATE_DESCRIPTOR_V2_FILE, fullPath, updateName)
 				if err != nil {
 					return nil, nil, err
 				}
-				err = yaml.Unmarshal(data, &updateDescriptor)
+				err = yaml.Unmarshal(data, &updateDescriptorV2)
 				if err != nil {
 					return nil, nil, err
 				}
 				//check
-				err = util.ValidateUpdateDescriptor(&updateDescriptor)
+				err = util.ValidateUpdateDescriptorV2(&updateDescriptorV2)
 				if err != nil {
 					return nil, nil, errors.New("'" + constant.UPDATE_DESCRIPTOR_V2_FILE +
+						"' is invalid. " + err.Error())
+				}
+			case constant.UPDATE_DESCRIPTOR_V3_FILE:
+				//Todo Add ud3
+				data, err := validateFile(file, constant.UPDATE_DESCRIPTOR_V3_FILE, fullPath, updateName)
+				if err != nil {
+					return nil, nil, err
+				}
+				err = yaml.Unmarshal(data, &updateDescriptorV3)
+				if err != nil {
+					return nil, nil, err
+				}
+				//check
+				err = util.ValidateUpdateDescriptorV3(&updateDescriptorV3)
+				if err != nil {
+					return nil, nil, errors.New("'" + constant.UPDATE_DESCRIPTOR_V3_FILE +
 						"' is invalid. " + err.Error())
 				}
 			case constant.LICENSE_FILE:
@@ -268,7 +284,7 @@ func readUpdateZip(filename string) (map[string]bool, *util.UpdateDescriptorV2, 
 			"and remove '%v' file if necessary.", constant.NOT_A_CONTRIBUTION_FILE,
 			constant.NOT_A_CONTRIBUTION_FILE))
 	}
-	return fileMap, &updateDescriptor, nil
+	return fileMap, &updateDescriptorV2, nil
 }
 
 // This function will validate the provided file. If the word 'patch' is found, a warning message is printed.
@@ -326,42 +342,43 @@ func validateFile(file *zip.File, fileName, fullPath, updateName string) ([]byte
 		fmt.Println()
 	}
 
-	// Check whether the all placeholders are removed
-	contains := strings.Contains(dataString, constant.UPDATE_NO_DEFAULT)
-	if contains {
-		util.PrintWarning(fmt.Sprintf("Please add the correct value for '%v' in the '%v' file.",
-			constant.UPDATE_NO_DEFAULT, constant.UPDATE_DESCRIPTOR_V2_FILE))
-	}
-	contains = strings.Contains(dataString, constant.PLATFORM_NAME_DEFAULT)
-	if contains {
-		util.PrintWarning(fmt.Sprintf("Please add the correct value for '%v' in the '%v' file.",
-			constant.PLATFORM_NAME_DEFAULT, constant.UPDATE_DESCRIPTOR_V2_FILE))
-	}
-	contains = strings.Contains(dataString, constant.PLATFORM_VERSION_DEFAULT)
-	if contains {
-		util.PrintWarning(fmt.Sprintf("Please add the correct value for '%v' in the '%v' file.",
-			constant.PLATFORM_VERSION_DEFAULT, constant.UPDATE_DESCRIPTOR_V2_FILE))
-	}
-	contains = strings.Contains(dataString, constant.APPLIES_TO_DEFAULT)
-	if contains {
-		util.PrintWarning(fmt.Sprintf("Please add the correct value for '%v' in the '%v' file.",
-			constant.APPLIES_TO_DEFAULT, constant.UPDATE_DESCRIPTOR_V2_FILE))
-	}
-	contains = strings.Contains(dataString, constant.DESCRIPTION_DEFAULT)
-	if contains {
-		util.PrintWarning(fmt.Sprintf("Please add the correct value for '%v' in the '%v' file.",
-			constant.DESCRIPTION_DEFAULT, constant.UPDATE_DESCRIPTOR_V2_FILE))
-	}
-	contains = strings.Contains(dataString, constant.JIRA_KEY_DEFAULT)
-	if contains {
-		util.PrintWarning(fmt.Sprintf("Please add the correct value for '%v' in the '%v' file.",
-			constant.JIRA_KEY_DEFAULT, constant.UPDATE_DESCRIPTOR_V2_FILE))
-	}
-	contains = strings.Contains(dataString, constant.JIRA_SUMMARY_DEFAULT)
-	if contains {
-		util.PrintWarning(fmt.Sprintf("Please add the correct value for '%v' in the '%v' file.",
-			constant.JIRA_SUMMARY_DEFAULT, constant.UPDATE_DESCRIPTOR_V2_FILE))
-	}
+	//Todo delete
+	/*	// Check whether the all placeholders are removed
+		contains := strings.Contains(dataString, constant.UPDATE_NO_DEFAULT)
+		if contains {
+			util.PrintWarning(fmt.Sprintf("Please add the correct value for '%v' in the '%v' file.",
+				constant.UPDATE_NO_DEFAULT, constant.UPDATE_DESCRIPTOR_V2_FILE))
+		}
+		contains = strings.Contains(dataString, constant.PLATFORM_NAME_DEFAULT)
+		if contains {
+			util.PrintWarning(fmt.Sprintf("Please add the correct value for '%v' in the '%v' file.",
+				constant.PLATFORM_NAME_DEFAULT, constant.UPDATE_DESCRIPTOR_V2_FILE))
+		}
+		contains = strings.Contains(dataString, constant.PLATFORM_VERSION_DEFAULT)
+		if contains {
+			util.PrintWarning(fmt.Sprintf("Please add the correct value for '%v' in the '%v' file.",
+				constant.PLATFORM_VERSION_DEFAULT, constant.UPDATE_DESCRIPTOR_V2_FILE))
+		}
+		contains = strings.Contains(dataString, constant.APPLIES_TO_DEFAULT)
+		if contains {
+			util.PrintWarning(fmt.Sprintf("Please add the correct value for '%v' in the '%v' file.",
+				constant.APPLIES_TO_DEFAULT, constant.UPDATE_DESCRIPTOR_V2_FILE))
+		}
+		contains = strings.Contains(dataString, constant.DESCRIPTION_DEFAULT)
+		if contains {
+			util.PrintWarning(fmt.Sprintf("Please add the correct value for '%v' in the '%v' file.",
+				constant.DESCRIPTION_DEFAULT, constant.UPDATE_DESCRIPTOR_V2_FILE))
+		}
+		contains = strings.Contains(dataString, constant.JIRA_KEY_DEFAULT)
+		if contains {
+			util.PrintWarning(fmt.Sprintf("Please add the correct value for '%v' in the '%v' file.",
+				constant.JIRA_KEY_DEFAULT, constant.UPDATE_DESCRIPTOR_V2_FILE))
+		}
+		contains = strings.Contains(dataString, constant.JIRA_SUMMARY_DEFAULT)
+		if contains {
+			util.PrintWarning(fmt.Sprintf("Please add the correct value for '%v' in the '%v' file.",
+				constant.JIRA_SUMMARY_DEFAULT, constant.UPDATE_DESCRIPTOR_V2_FILE))
+		}*/
 
 	logger.Debug(fmt.Sprintf("Validating '%s' finished.", fileName))
 	return data, nil

@@ -26,7 +26,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -42,6 +41,7 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/yaml.v2"
 	"net/url"
+	"regexp"
 )
 
 var logger = log.Logger()
@@ -65,9 +65,9 @@ type UpdateDescriptorV3 struct {
 	Update_number       string
 	Platform_version    string
 	Platform_name       string
+	Md5sum              string
 	Compatible_products []ProductChanges
 	Applicable_products []ProductChanges
-	Notify_products     []ProductChanges
 }
 
 type ProductChanges struct {
@@ -260,12 +260,12 @@ func LoadUpdateDescriptor(filename, updateDirectoryPath string) (*UpdateDescript
 	return &updateDescriptor, nil
 }
 
-// This function will validate the update-descriptor.yaml
-func ValidateUpdateDescriptor(updateDescriptor *UpdateDescriptorV2) error {
-	if len(updateDescriptor.Update_number) == 0 {
+// This function will validate the basic details of update-descriptor.yaml.
+func ValidateBasicDetailsOfUpdateDescriptorV2(updateDescriptorV2 *UpdateDescriptorV2) error {
+	if len(updateDescriptorV2.Update_number) == 0 {
 		return errors.New("'update_number' field not found.")
 	}
-	matches, err := regexp.MatchString(constant.UPDATE_NUMBER_REGEX, updateDescriptor.Update_number)
+	matches, err := regexp.MatchString(constant.UPDATE_NUMBER_REGEX, updateDescriptorV2.Update_number)
 	if err != nil {
 		return err
 	}
@@ -273,10 +273,10 @@ func ValidateUpdateDescriptor(updateDescriptor *UpdateDescriptorV2) error {
 		return errors.New(fmt.Sprintf("'update_number' is not valid. It should match '%s'.",
 			constant.UPDATE_NUMBER_REGEX))
 	}
-	if len(updateDescriptor.Platform_version) == 0 {
+	if len(updateDescriptorV2.Platform_version) == 0 {
 		return errors.New("'platform_version' field not found.")
 	}
-	matches, err = regexp.MatchString(constant.KERNEL_VERSION_REGEX, updateDescriptor.Platform_version)
+	matches, err = regexp.MatchString(constant.KERNEL_VERSION_REGEX, updateDescriptorV2.Platform_version)
 	if err != nil {
 		return err
 	}
@@ -284,16 +284,22 @@ func ValidateUpdateDescriptor(updateDescriptor *UpdateDescriptorV2) error {
 		return errors.New(fmt.Sprintf("'platform_version' is not valid. It should match '%s'.",
 			constant.KERNEL_VERSION_REGEX))
 	}
-	if len(updateDescriptor.Platform_name) == 0 {
+	if len(updateDescriptorV2.Platform_name) == 0 {
 		return errors.New("'platform_name' field not found.")
 	}
-	if len(updateDescriptor.Applies_to) == 0 {
+	return nil
+}
+
+func ValidateUpdateDescriptorV2(updateDescriptorV2 *UpdateDescriptorV2) error {
+	ValidateBasicDetailsOfUpdateDescriptorV2(updateDescriptorV2)
+
+	if len(updateDescriptorV2.Applies_to) == 0 {
 		return errors.New("'applies_to' field not found.")
 	}
-	if len(updateDescriptor.Bug_fixes) == 0 {
+	if len(updateDescriptorV2.Bug_fixes) == 0 {
 		return errors.New("'bug_fixes' field not found. Add 'N/A: N/A' if there are no bug fixes.")
 	}
-	if len(updateDescriptor.Description) == 0 {
+	if len(updateDescriptorV2.Description) == 0 {
 		return errors.New("'description' field not found.")
 	}
 	return nil
@@ -307,6 +313,36 @@ func IsStringIsInSlice(a string, list []string) bool {
 		}
 	}
 	return false
+}
+
+func ValidateUpdateDescriptorV3(updateDescriptorV3 *UpdateDescriptorV3) error {
+	if len(updateDescriptorV3.Update_number) == 0 {
+		return errors.New("'update_number' field not found.")
+	}
+	matches, err := regexp.MatchString(constant.UPDATE_NUMBER_REGEX, updateDescriptorV3.Update_number)
+	if err != nil {
+		return err
+	}
+	if !matches {
+		return errors.New(fmt.Sprintf("'update_number' is not valid. It should match '%s'.",
+			constant.UPDATE_NUMBER_REGEX))
+	}
+	if len(updateDescriptorV3.Platform_version) == 0 {
+		return errors.New("'platform_version' field not found.")
+	}
+	matches, err = regexp.MatchString(constant.KERNEL_VERSION_REGEX, updateDescriptorV3.Platform_version)
+	if err != nil {
+		return err
+	}
+	if !matches {
+		return errors.New(fmt.Sprintf("'platform_version' is not valid. It should match '%s'.",
+			constant.KERNEL_VERSION_REGEX))
+	}
+	if len(updateDescriptorV3.Platform_name) == 0 {
+		return errors.New("'platform_name' field not found.")
+	}
+	// create a copy of UD3 struct and then remove user inputted data then cal md5 and compares
+	return nil
 }
 
 // Copies file source to destination
@@ -598,7 +634,7 @@ func createPartialUpdateFileRequest(updateDescriptorV2 *UpdateDescriptorV2) *Par
 	return &partialUpdateFileRequest
 }
 
-//Todo doc and logs
+// Todo add docs
 func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpdatedFileResponse {
 	// Create partial update request
 	partialUpdateFileRequest := createPartialUpdateFileRequest(updateDescriptorV2)
@@ -610,7 +646,7 @@ func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpda
 	// Invoke the API
 	/*	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
 		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY*/
-	apiURL := "http://www.mocky.io/v2/5b3ce1e13100006f006ddf51"
+	apiURL := "http://www.mocky.io/v2/5b3da0bf3100006a0b6de0cd"
 	response := InvokePOSTRequest(apiURL, requestBody)
 	if response.StatusCode != http.StatusOK {
 		HandleUnableToConnectErrorAndExit(nil)

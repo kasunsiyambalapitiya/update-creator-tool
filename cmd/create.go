@@ -30,6 +30,7 @@ import (
 	"strconv"
 	"strings"
 
+	"bytes"
 	"github.com/olekukonko/tablewriter"
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
@@ -120,42 +121,35 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	logger.Debug(fmt.Sprintf("Directory %s exists: %v", updateDirectoryPath, exists))
 	if !exists {
 		// If the directory does not exists, prompt the user
-		skip := false
-		if !exists {
-		userInputLoop:
-			for {
-				util.PrintInBold(fmt.Sprintf("'%s'does not exists. Do you want to create '%s' directory?"+
-					"[Y/n]: ", updateDirectoryPath, updateDirectoryPath))
-				preference, err := util.GetUserInput()
-				if len(preference) == 0 {
-					preference = "y"
-				}
-				// Todo to remove redudant call, call this only if error is not null
-				util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+	userInputLoop:
+		for {
+			util.PrintInBold(fmt.Sprintf("'%s'does not exists. Do you want to create '%s' directory?"+
+				"[Y/n]: ", updateDirectoryPath, updateDirectoryPath))
+			preference, err := util.GetUserInput()
+			if len(preference) == 0 {
+				preference = "y"
+			}
+			// Todo to remove redudant call, call this only if error is not null
+			util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 
-				// Get the user preference
-				userPreference := util.ProcessUserPreference(preference)
-				switch userPreference {
-				case constant.YES:
-					util.PrintInfo(fmt.Sprintf("'%s' directory does not exist. Creating '%s' directory.",
-						updateDirectoryPath, updateDirectoryPath))
-					err := util.CreateDirectory(updateDirectoryPath)
-					util.HandleErrorAndExit(err)
-					logger.Debug(fmt.Sprintf("'%s' directory created.", updateDirectoryPath))
-					break userInputLoop
-				case constant.NO:
-					skip = true
-					break userInputLoop
-				default:
-					//Todo asked, as here the for loop doesnot breaks on default, will iterate till
-					util.PrintError("Invalid preference. Enter Y for Yes or N for No.")
-				}
+			// Get the user preference
+			userPreference := util.ProcessUserPreference(preference)
+			switch userPreference {
+			case constant.YES:
+				util.PrintInfo(fmt.Sprintf("'%s' directory does not exist. Creating '%s' directory.",
+					updateDirectoryPath, updateDirectoryPath))
+				err := util.CreateDirectory(updateDirectoryPath)
+				util.HandleErrorAndExit(err)
+				logger.Debug(fmt.Sprintf("'%s' directory created.", updateDirectoryPath))
+				break userInputLoop
+			case constant.NO:
+				util.HandleErrorAndExit(errors.New("directory creation skipped. Please enter a valid directory"))
+			default:
+				util.PrintError("Invalid preference. Enter Y for Yes or N for No.")
 			}
 		}
-		// If the skip is selected, exit
-		if skip {
-			util.HandleErrorAndExit(errors.New("directory creation skipped. Please enter a valid directory"))
-		}
+		util.PrintInBold(fmt.Sprintf("Directory created. Please copy updated files to '%s' and rerun 'wum-uc create' again", updateDirectoryPath))
+		os.Exit(1)
 	}
 	updateRoot := strings.TrimSuffix(updateDirectoryPath, constant.PATH_SEPARATOR)
 	logger.Debug(fmt.Sprintf("updateRoot: %s\n", updateRoot))
@@ -166,9 +160,9 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	updateDescriptorV3 := util.UpdateDescriptorV3{}
 
 	//2) Process the README.txt file if it exists
-	readMeDataString := getReadMeData(updateDirectoryPath)
+	readMeDataString := processReadMe(updateDirectoryPath, &updateDescriptorV2)
 
-	//4) Check whether the given distribution exists
+	//3) Check whether the given distribution exists
 	exists, err = util.IsFileExists(distributionPath)
 	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while checking '%s'", distributionPath))
 	if !exists {
@@ -178,14 +172,14 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	// Checks whether the given distribution is a zip file
 	util.IsZipFile(constant.DISTRIBUTION, distributionPath)
 
-	//5) Validate UpdateDescriptorV2 after user inputs
-	//Todo use this in validation
-	/*	err = util.ValidateUpdateDescriptor(&updateDescriptorV2)
-		util.HandleErrorAndExit(err, fmt.Sprintf("'%s' format is incorrect.", constant.UPDATE_DESCRIPTOR_V2_FILE))*/
-
-	// Set the update name
+	//4) Set the update name
 	updateName := getUpdateName(&updateDescriptorV2, constant.UPDATE_NAME_PREFIX)
 	viper.Set(constant.UPDATE_NAME, updateName)
+
+	//5) Validate UpdateDescriptorV2 for basic details of update-descriptor.yaml
+	//Todo use this in validation
+	err = util.ValidateBasicDetailsOfUpdateDescriptorV2(&updateDescriptorV2)
+	util.HandleErrorAndExit(err, fmt.Sprintf("'%s' format is incorrect.", constant.UPDATE_DESCRIPTOR_V2_FILE))
 
 	//6) Download mandatory files
 	// Download the LICENSE.txt
@@ -320,19 +314,18 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 		}
 	}
 
-	//9) Copy resource files (update-descriptor.yaml, etc) to temp directory
-	resourceFiles := getResourceFiles()
-	err = copyResourceFilesToTempDir(resourceFiles)
-	util.HandleErrorAndExit(err, errors.New("Error occurred while copying resource files."))
-
-	// Todo Check this comment Save the updated update-descriptor with newly added,
-	// modified and removed files to the temp directory
-
-	data, err := marshalUpdateDescriptor(&updateDescriptorV2)
-	util.HandleErrorAndExit(err, "Error occurred while marshalling the update-descriptorV2.")
-	err = saveUpdateDescriptor(constant.UPDATE_DESCRIPTOR_V2_FILE, data)
-	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while saving the '%v'.",
-		constant.UPDATE_DESCRIPTOR_V2_FILE))
+	//9) Request the user to add removed files as they can't be identified by comparing.
+	util.PrintInBold("Enter relative paths of removed files, please enter 'done' when you are finished entering")
+	fmt.Println()
+	//Todo uncomment
+	/*	for {
+		removedFile, err := util.GetUserInput()
+		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+		if strings.ToLower(removedFile) == "done" {
+			return
+		}
+		updateDescriptorV2.File_changes.Removed_files = append(updateDescriptorV2.File_changes.Removed_files, removedFile)
+	}*/
 
 	// Get partial updated file changes
 	partialUpdatedFileResponse := util.GetPartialUpdatedFiles(&updateDescriptorV2)
@@ -341,21 +334,15 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 		if len(readMeDataString) != 0 {
 			processReadMeData(&readMeDataString, &updateDescriptorV2)
 		} else {
-			setValuesForUpdateDescriptorsV2(&updateDescriptorV2)
+			setRemainingValuesInUpdateDescriptorsV2(&updateDescriptorV2)
 		}
-		// Reqeust the user to add removed files as they can't be identified by comparing.
-		util.PrintInBold("Enter relative paths of removed files, please enter 'done' when you are finished entering")
-		fmt.Println()
-		//Todo uncomment
-		/*	for {
-			removedFile, err := util.GetUserInput()
-			util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-			if strings.ToLower(removedFile) == "done" {
-				return
-			}
-			updateDescriptorV2.File_changes.Removed_files = append(updateDescriptorV2.File_changes.Removed_files, removedFile)
-		}*/
 		createUpdateDescriptorV2(updateDirectoryPath, &updateDescriptorV2)
+		data, err := marshalUpdateDescriptor(&updateDescriptorV2)
+		util.HandleErrorAndExit(err, "Error occurred while marshalling the update-descriptorV2.")
+		// Save the updated update-descriptor.yaml with newly added, modified and removed files to the temp directory
+		err = saveUpdateDescriptor(constant.UPDATE_DESCRIPTOR_V2_FILE, data)
+		util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while saving the '%v'.",
+			constant.UPDATE_DESCRIPTOR_V2_FILE))
 	}
 
 	// Set values for UpdateDescriptorV3
@@ -370,13 +357,18 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 		productChanges := setProductChangesInUpdateDescriptorV3(&partialUpdatedProducts)
 		updateDescriptorV3.Applicable_products = append(updateDescriptorV3.Applicable_products, *productChanges)
 	}
-	for _, partialUpdatedProducts := range partialUpdatedFileResponse.Notify_products {
-		productChanges := setProductChangesInUpdateDescriptorV3(&partialUpdatedProducts)
-		updateDescriptorV3.Notify_products = append(updateDescriptorV3.Notify_products, *productChanges)
-	}
+
+	// Generate md5sum for product changes
+	updateDescriptorV3.Md5sum = generateMd5sumForFileChanges(&updateDescriptorV3)
+
+	//9) Copy resource files (LICENSE.txt, etc) to temp directory
+	resourceFiles := getResourceFiles()
+	err = copyResourceFilesToTempDir(resourceFiles)
+	util.HandleErrorAndExit(err, errors.New("Error occurred while copying resource files."))
+
 	createUpdateDescriptorV3(updateDirectoryPath, &updateDescriptorV3)
 	// Save the updated update-descriptor3.yaml
-	data, err = yaml.Marshal(updateDescriptorV3)
+	data, err := yaml.Marshal(updateDescriptorV3)
 	util.HandleErrorAndExit(err, "Error occurred while marshalling the update-descriptorV3.")
 	err = saveUpdateDescriptor(constant.UPDATE_DESCRIPTOR_V3_FILE, data)
 	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while saving the '%v'.",
@@ -399,45 +391,46 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	signal.Stop(cleanupChannel)
 
 	util.PrintInfo(fmt.Sprintf("'%s' successfully created.", updateZipName))
-	util.PrintInfo(fmt.Sprintf("Please manually fill the  `description` and `instructions` fields of compatible"+
+	util.PrintInBold(fmt.Sprintf("Please manually fill the  `description`, "+
+		"`instructions` and `bug_fixes` fields of compatible"+
 		",applicable and notify products in the update-descriptor3."+
 		"yaml located inside the created '%s'\n",
 		updateZipName))
 }
 
-// This function will process the README.txt file and extract details to populate update-descriptor.yaml and
-// update-descriptor3.yaml. If some data cannot be extracted, it will add default values and continue.
-func getReadMeData(updateDirectoryPath string) string {
+// This function will process the README.txt file and extract basic details of the update to populate the update
+// -descriptor.yaml.
+// If some data cannot be extracted, it will add default values and continue.
+func processReadMe(updateDirectoryPath string, updateDescriptorV2 *util.UpdateDescriptorV2) string {
+	logger.Debug("Processing README.txt started for filling in `update_number`," +
+		"`platform_name` and `platform_version` in update-descriptor.yaml")
 	// Construct the README.txt path
 	readMePath := path.Join(updateDirectoryPath, constant.README_FILE)
-	logger.Debug(fmt.Sprintf("README Path: %v", readMePath))
+	logger.Debug(fmt.Sprintf("README.txt Path: %v", readMePath))
 	// Check whether the README.txt file exists
 	_, err := os.Stat(readMePath)
 	if err != nil {
 		// If the file does not exist or any other error occur, return without printing warning messages
 		logger.Debug(fmt.Sprintf("%s not found", readMePath))
+		setBasicValuesInUpdateDescriptorV2(updateDescriptorV2)
 		return ""
 	}
+	logger.Debug("README.txt found")
 	// Read the README.txt file
 	data, err := ioutil.ReadFile(readMePath)
 	if err != nil {
 		// If any error occurs, return without printing warning messages
-		logger.Debug(fmt.Sprintf("Error occurred in processing README: %v", err))
+		logger.Debug(fmt.Sprintf("Error occurred in processing README.txt: %v", err))
+		setBasicValuesInUpdateDescriptorV2(updateDescriptorV2)
 		return ""
 	}
-
-	logger.Debug("README.txt found")
-
 	// Convert the byte array to a string
-	return string(data)
-}
-
-func processReadMeData(readMeDataString *string, updateDescriptorV2 *util.UpdateDescriptorV2) {
+	readMeDataString := string(data)
 	logger.Debug("Processing README started")
 	// Compile the regex
 	regex, err := regexp.Compile(constant.PATCH_ID_REGEX)
 	if err == nil {
-		result := regex.FindStringSubmatch(*readMeDataString)
+		result := regex.FindStringSubmatch(readMeDataString)
 		logger.Trace(fmt.Sprintf("PATCH_ID_REGEX result: %v", result))
 		// Since the regex has 2 capturing groups, the result size will be 3 (because there is the full match)
 		// If not match found, the size will be 0. We check whether the result size is not 0 to make sure both
@@ -451,7 +444,7 @@ func processReadMeData(readMeDataString *string, updateDescriptorV2 *util.Update
 			// Get the platform details from the map
 			platformName, found := platformsMap[result[1]]
 			if found {
-				logger.Debug("PlatformName found in configs")
+				logger.Debug("Platform name found in configs")
 				updateDescriptorV2.Platform_name = platformName
 			} else {
 				//If the platform name is not found, set default
@@ -463,20 +456,32 @@ func processReadMeData(readMeDataString *string, updateDescriptorV2 *util.Update
 			}
 		} else {
 			logger.Debug("PATCH_ID_REGEX results incorrect:", result)
-			setUpdateNumber(updateDescriptorV2)
-			setPlatformVersion(updateDescriptorV2)
-			setPlatformName(updateDescriptorV2)
+			setBasicValuesInUpdateDescriptorV2(updateDescriptorV2)
 		}
 	} else {
 		//If error occurred, set default values
 		logger.Debug(fmt.Sprintf("Error occurred while processing PATCH_ID_REGEX: %v", err))
-		setUpdateNumber(updateDescriptorV2)
-		setPlatformVersion(updateDescriptorV2)
-		setPlatformName(updateDescriptorV2)
+		setBasicValuesInUpdateDescriptorV2(updateDescriptorV2)
 	}
+	return readMeDataString
+}
+
+//This function will set basic values in the update-descriptor.yaml.
+func setBasicValuesInUpdateDescriptorV2(updateDescriptorV2 *util.UpdateDescriptorV2) {
+	logger.Debug("Setting values for `update_number`," +
+		"`platform_version` and `platform_name` fields in update-descriptor." +
+		"yaml")
+	setUpdateNumber(updateDescriptorV2)
+	setPlatformVersion(updateDescriptorV2)
+	setPlatformName(updateDescriptorV2)
+}
+
+func processReadMeData(readMeDataString *string, updateDescriptorV2 *util.UpdateDescriptorV2) {
+	logger.Debug("Processing README.txt started for filling in `applies_to`," +
+		"`bug_fixes` and `description` in update-descriptor.yaml")
 
 	// Compile the regex
-	regex, err = regexp.Compile(constant.APPLIES_TO_REGEX)
+	regex, err := regexp.Compile(constant.APPLIES_TO_REGEX)
 	if err == nil {
 		result := regex.FindStringSubmatch(*readMeDataString)
 		logger.Trace(fmt.Sprintf("APPLIES_TO_REGEX result: %v", result))
@@ -495,7 +500,7 @@ func processReadMeData(readMeDataString *string, updateDescriptorV2 *util.Update
 			setAppliesTo(updateDescriptorV2)
 		}
 	} else {
-		//If error occurred, set default value
+		// If error occurred, request user to fill in
 		logger.Debug(fmt.Sprintf("Error occurred while processing APPLIES_TO_REGEX: %v", err))
 		setAppliesTo(updateDescriptorV2)
 	}
@@ -509,8 +514,8 @@ func processReadMeData(readMeDataString *string, updateDescriptorV2 *util.Update
 		updateDescriptorV2.Bug_fixes = make(map[string]string)
 		// If no Jiras found, set 'N/A: N/A' as the value
 		if len(allResult) == 0 {
-			logger.Debug("No matching results found for ASSOCIATED_JIRAS_REGEX. Setting default values.")
-			updateDescriptorV2.Bug_fixes[constant.JIRA_NA] = constant.JIRA_NA
+			logger.Debug("No matching results found for ASSOCIATED_JIRAS_REGEX.")
+			setBugFixes(updateDescriptorV2)
 		} else {
 			// If Jiras found, get summary for all Jiras
 			logger.Debug("Matching results found for ASSOCIATED_JIRAS_REGEX")
@@ -522,9 +527,8 @@ func processReadMeData(readMeDataString *string, updateDescriptorV2 *util.Update
 			}
 		}
 	} else {
-		//If error occurred, set default values
+		// If error occurred, request user to fill in
 		logger.Debug(fmt.Sprintf("Error occurred while processing ASSOCIATED_JIRAS_REGEX: %v", err))
-		logger.Debug("Setting default values to bug_fixes")
 		setBugFixes(updateDescriptorV2)
 	}
 
@@ -542,22 +546,20 @@ func processReadMeData(readMeDataString *string, updateDescriptorV2 *util.Update
 			setDescription(updateDescriptorV2)
 		}
 	} else {
-		//If error occurred, set default values
+		// If error occurred, request user to fill in
 		logger.Debug(fmt.Sprintf("Error occurred while processing DESCRIPTION_REGEX: %v", err))
 		setDescription(updateDescriptorV2)
 	}
 	logger.Debug("Processing README finished")
 }
 
-//This function will set values to the update-descriptor.yaml.
-func setValuesForUpdateDescriptorsV2(updateDescriptorV2 *util.UpdateDescriptorV2) {
-	logger.Debug("Setting values for update-descriptor.yaml")
-	setUpdateNumber(updateDescriptorV2)
-	setPlatformName(updateDescriptorV2)
-	setPlatformVersion(updateDescriptorV2)
-	setDescription(updateDescriptorV2)
+//This function will set remaining values in the update-descriptor.yaml.
+func setRemainingValuesInUpdateDescriptorsV2(updateDescriptorV2 *util.UpdateDescriptorV2) {
+	logger.Debug("Setting values for `applies_to`,`bug_fixes` and `description` fields in update-descriptor." +
+		"yaml")
 	setAppliesTo(updateDescriptorV2)
 	setBugFixes(updateDescriptorV2)
+	setDescription(updateDescriptorV2)
 }
 
 func setUpdateNumber(updateDescriptorV2 *util.UpdateDescriptorV2) {
@@ -628,7 +630,7 @@ func setBugFixes(updateDescriptorV2 *util.UpdateDescriptorV2) {
 }
 
 func createUpdateDescriptorV2(updateDirectoryPath string, updateDescriptorV2 *util.UpdateDescriptorV2) {
-	// Marshall update descriptor structs
+	// Marshall update descriptor struct
 	dataV2, err := yaml.Marshal(updateDescriptorV2)
 	util.HandleErrorAndExit(err)
 
@@ -638,11 +640,11 @@ func createUpdateDescriptorV2(updateDirectoryPath string, updateDescriptorV2 *ut
 	dataStringV2 = strings.Replace(dataStringV2, "\"", "", -1)
 	logger.Debug(fmt.Sprintf("update-descriptorV2:\n%s", dataStringV2))
 
-	// Construct update descriptor file paths
+	// Construct the update descriptor file path
 	updateDescriptorFileV2 := filepath.Join(updateDirectoryPath, constant.UPDATE_DESCRIPTOR_V2_FILE)
 	logger.Debug(fmt.Sprintf("updateDescriptorFileV2: %v", updateDescriptorFileV2))
 
-	// Save update descriptors
+	// Save update descriptor
 	absDestinationV2 := saveUpdateDescriptorInDestination(updateDescriptorFileV2, dataStringV2, updateDirectoryPath)
 	util.PrintInfo(fmt.Sprintf("'%s' has been successfully created at '%s'.", constant.UPDATE_DESCRIPTOR_V2_FILE,
 		absDestinationV2))
@@ -715,10 +717,10 @@ func checkUpdateDescriptor(updateDirectoryPath, updateDescriptor string) bool {
 }*/
 
 // This function will set the update name which will be used when creating the update zip.
-func getUpdateName(updateDescriptor *util.UpdateDescriptorV2, updateNamePrefix string) string {
+func getUpdateName(updateDescriptorV2 *util.UpdateDescriptorV2, updateNamePrefix string) string {
 	// Read the corresponding details from the struct
-	platformVersion := updateDescriptor.Platform_version
-	updateNumber := updateDescriptor.Update_number
+	platformVersion := updateDescriptorV2.Platform_version
+	updateNumber := updateDescriptorV2.Update_number
 	updateName := updateNamePrefix + "-" + platformVersion + "-" + updateNumber
 	return updateName
 }
@@ -1571,4 +1573,42 @@ func setProductChangesInUpdateDescriptorV3(partialUpdatedProducts *util.PartialU
 	productChanges.Removed_files = partialUpdatedProducts.Removed_files
 	productChanges.Modified_files = partialUpdatedProducts.Modified_files
 	return productChanges
+}
+
+func generateMd5sumForFileChanges(updateDescriptorV3 *util.UpdateDescriptorV3) string {
+	var buffer bytes.Buffer
+	var addedFileString string
+	var modifiedFileString string
+	var removedFileString string
+
+	// Sorting the product changes update-descriptor3.yaml
+	sort.Slice(updateDescriptorV3.Compatible_products, func(i, j int) bool {
+		return updateDescriptorV3.Compatible_products[i].Product_name < updateDescriptorV3.Compatible_products[j].Product_name
+
+	})
+	sort.Slice(updateDescriptorV3.Applicable_products, func(i, j int) bool {
+		return updateDescriptorV3.Applicable_products[i].Product_name < updateDescriptorV3.Applicable_products[j].
+			Product_name
+	})
+	for _, productChange := range updateDescriptorV3.Compatible_products {
+		addedFileString = strings.Join(productChange.Added_files, ",")
+		modifiedFileString = strings.Join(productChange.Modified_files, ",")
+		removedFileString = strings.Join(productChange.Removed_files, ",")
+		buffer.WriteString(addedFileString)
+		buffer.WriteString(modifiedFileString)
+		buffer.WriteString(removedFileString)
+		buffer.WriteString(productChange.Product_name)
+		buffer.WriteString(productChange.Product_version)
+	}
+	for _, productChange := range updateDescriptorV3.Applicable_products {
+		addedFileString = strings.Join(productChange.Added_files, ",")
+		modifiedFileString = strings.Join(productChange.Modified_files, ",")
+		removedFileString = strings.Join(productChange.Removed_files, ",")
+		buffer.WriteString(addedFileString)
+		buffer.WriteString(modifiedFileString)
+		buffer.WriteString(removedFileString)
+		buffer.WriteString(productChange.Product_name)
+		buffer.WriteString(productChange.Product_version)
+	}
+	return fmt.Sprintf("%x", md5.Sum(buffer.Bytes()))
 }

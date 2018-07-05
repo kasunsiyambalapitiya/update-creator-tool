@@ -25,7 +25,7 @@ import (
 func TestGetUpdateName(t *testing.T) {
 	updateNumber := "0001"
 	kernelVersion := "4.4.0"
-	updateDescriptor := util.UpdateDescriptorV2{
+	updateDescriptor := util.UpdateDescriptorV3{
 		Update_number:    updateNumber,
 		Platform_version: kernelVersion,
 	}
