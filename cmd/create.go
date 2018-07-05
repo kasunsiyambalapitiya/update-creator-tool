@@ -120,42 +120,36 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	logger.Debug(fmt.Sprintf("Directory %s exists: %v", updateDirectoryPath, exists))
 	if !exists {
 		// If the directory does not exists, prompt the user
-		skip := false
-		if !exists {
-		userInputLoop:
-			for {
-				util.PrintInBold(fmt.Sprintf("'%s'does not exists. Do you want to create '%s' directory?"+
-					"[Y/n]: ", updateDirectoryPath, updateDirectoryPath))
-				preference, err := util.GetUserInput()
-				if len(preference) == 0 {
-					preference = "y"
-				}
-				// Todo to remove redudant call, call this only if error is not null
-				util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+	userInputLoop:
+		for {
+			util.PrintInBold(fmt.Sprintf("'%s'does not exists. Do you want to create '%s' directory?"+
+				"[Y/n]: ", updateDirectoryPath, updateDirectoryPath))
+			preference, err := util.GetUserInput()
+			if len(preference) == 0 {
+				preference = "y"
+			}
+			// Todo to remove redudant call, call this only if error is not null
+			util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 
-				// Get the user preference
-				userPreference := util.ProcessUserPreference(preference)
-				switch userPreference {
-				case constant.YES:
-					util.PrintInfo(fmt.Sprintf("'%s' directory does not exist. Creating '%s' directory.",
-						updateDirectoryPath, updateDirectoryPath))
-					err := util.CreateDirectory(updateDirectoryPath)
-					util.HandleErrorAndExit(err)
-					logger.Debug(fmt.Sprintf("'%s' directory created.", updateDirectoryPath))
-					break userInputLoop
-				case constant.NO:
-					skip = true
-					break userInputLoop
-				default:
-					//Todo asked, as here the for loop doesnot breaks on default, will iterate till
-					util.PrintError("Invalid preference. Enter Y for Yes or N for No.")
-				}
+			// Get the user preference
+			userPreference := util.ProcessUserPreference(preference)
+			switch userPreference {
+			case constant.YES:
+				util.PrintInfo(fmt.Sprintf("'%s' directory does not exist. Creating '%s' directory.",
+					updateDirectoryPath, updateDirectoryPath))
+				err := util.CreateDirectory(updateDirectoryPath)
+				util.HandleErrorAndExit(err)
+				logger.Debug(fmt.Sprintf("'%s' directory created.", updateDirectoryPath))
+				break userInputLoop
+			case constant.NO:
+				util.HandleErrorAndExit(errors.New("directory creation skipped. Please enter a valid directory"))
+			default:
+				//Todo asked, as here the for loop doesnot breaks on default, will iterate till
+				util.PrintError("Invalid preference. Enter Y for Yes or N for No.")
 			}
 		}
-		// If the skip is selected, exit
-		if skip {
-			util.HandleErrorAndExit(errors.New("directory creation skipped. Please enter a valid directory"))
-		}
+		util.PrintInBold(fmt.Sprintf("Directory created. Please copy updated files to '%s' and rerun 'wum-uc create' again", updateDirectoryPath))
+		os.Exit(1)
 	}
 	updateRoot := strings.TrimSuffix(updateDirectoryPath, constant.PATH_SEPARATOR)
 	logger.Debug(fmt.Sprintf("updateRoot: %s\n", updateRoot))
@@ -184,7 +178,7 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 
 	//5) Validate UpdateDescriptorV2 for basic details of update-descriptor.yaml
 	//Todo use this in validation
-	err = util.ValidateBasicDetailsOfUpdateDescriptor(&updateDescriptorV2)
+	err = util.ValidateBasicDetailsOfUpdateDescriptorV2(updateDescriptorV2)
 	util.HandleErrorAndExit(err, fmt.Sprintf("'%s' format is incorrect.", constant.UPDATE_DESCRIPTOR_V2_FILE))
 
 	//6) Download mandatory files
@@ -401,7 +395,8 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	signal.Stop(cleanupChannel)
 
 	util.PrintInfo(fmt.Sprintf("'%s' successfully created.", updateZipName))
-	util.PrintInfo(fmt.Sprintf("Please manually fill the  `description` and `instructions` fields of compatible"+
+	util.PrintInBold(fmt.Sprintf("Please manually fill the  `description`, "+
+		"`instructions` and `bug_fixes` fields of compatible"+
 		",applicable and notify products in the update-descriptor3."+
 		"yaml located inside the created '%s'\n",
 		updateZipName))
