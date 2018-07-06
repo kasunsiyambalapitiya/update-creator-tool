@@ -42,6 +42,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"net/url"
 	"regexp"
+	"sort"
 )
 
 var logger = log.Logger()
@@ -342,6 +343,23 @@ func ValidateUpdateDescriptorV3(updateDescriptorV3 *UpdateDescriptorV3) error {
 		return errors.New("'platform_name' field not found.")
 	}
 	// create a copy of UD3 struct and then remove user inputted data then cal md5 and compares
+	return nil
+
+	// Generate md5sum for product changes
+	md5sum := GenerateMd5sumForFileChanges(updateDescriptorV3)
+	if md5sum != updateDescriptorV3.Md5sum {
+		HandleErrorAndExit(errors.New("Detected a change in added, " +
+			"modified and removed files in compatible_products/applicable_products sections"))
+	}
+
+	// Check whether user has filled requested information after update-descriptor3.yaml is been created
+	for _, productChanges := range updateDescriptorV3.Compatible_products {
+		isRequestedChangesMade(&productChanges)
+	}
+	for _, productChanges := range updateDescriptorV3.Applicable_products {
+		isRequestedChangesMade(&productChanges)
+
+	}
 	return nil
 }
 
@@ -922,4 +940,81 @@ func getCredentials(username string) (string, []byte) {
 		HandleErrorAndExit(err, constant.UNABLE_TO_READ_YOUR_INPUT_MSG)
 	}
 	return username, password
+}
+
+func GenerateMd5sumForFileChanges(updateDescriptorV3 *UpdateDescriptorV3) string {
+	var buffer bytes.Buffer
+	var addedFileString string
+	var modifiedFileString string
+	var removedFileString string
+
+	// Sorting the product changes update-descriptor3.yaml
+	sort.Slice(updateDescriptorV3.Compatible_products, func(i, j int) bool {
+		return updateDescriptorV3.Compatible_products[i].Product_name < updateDescriptorV3.Compatible_products[j].Product_name
+
+	})
+	sort.Slice(updateDescriptorV3.Applicable_products, func(i, j int) bool {
+		return updateDescriptorV3.Applicable_products[i].Product_name < updateDescriptorV3.Applicable_products[j].
+			Product_name
+	})
+	for _, productChange := range updateDescriptorV3.Compatible_products {
+		addedFileString = strings.Join(productChange.Added_files, ",")
+		modifiedFileString = strings.Join(productChange.Modified_files, ",")
+		removedFileString = strings.Join(productChange.Removed_files, ",")
+		buffer.WriteString(addedFileString)
+		buffer.WriteString(modifiedFileString)
+		buffer.WriteString(removedFileString)
+		buffer.WriteString(productChange.Product_name)
+		buffer.WriteString(productChange.Product_version)
+	}
+	for _, productChange := range updateDescriptorV3.Applicable_products {
+		addedFileString = strings.Join(productChange.Added_files, ",")
+		modifiedFileString = strings.Join(productChange.Modified_files, ",")
+		removedFileString = strings.Join(productChange.Removed_files, ",")
+		buffer.WriteString(addedFileString)
+		buffer.WriteString(modifiedFileString)
+		buffer.WriteString(removedFileString)
+		buffer.WriteString(productChange.Product_name)
+		buffer.WriteString(productChange.Product_version)
+	}
+	return fmt.Sprintf("%x", md5.Sum(buffer.Bytes()))
+}
+
+// Check whether user has filled requested information after update-descriptor3.yaml is been created
+func isRequestedChangesMade(productChanges *ProductChanges) bool {
+	// Check if relevant fields are empty
+	if len(productChanges.Description) == 0 {
+		HandleErrorAndExit(errors.New(fmt.Sprintf(
+			"description section of product %s version %s in update-descriptor3.yaml is empty.",
+			productChanges.Product_name, productChanges.Product_version)))
+	}
+	if len(productChanges.Instructions) == 0 {
+		HandleErrorAndExit(errors.New(fmt.Sprintf(
+			"intructions section of product %s version %s in update-descriptor3.yaml. is empty",
+			productChanges.Product_name, productChanges.Product_version)))
+	}
+	if len(productChanges.Bug_fixes) == 0 {
+		HandleErrorAndExit(errors.New(fmt.Sprintf(
+			"bug_fixes section of product %s version %s in update-descriptor3.yaml. is empty",
+			productChanges.Product_name, productChanges.Product_version)))
+	}
+
+	// Check if relevant fields contain the default value generated in update creation
+	if productChanges.Description == constant.DEFAULT_DESCRIPTION {
+		HandleErrorAndExit(errors.New(fmt.Sprintf(
+			"description section of product %s version %s in update-descriptor3.yaml. contains the default value.",
+			productChanges.Product_name, productChanges.Product_version)))
+	}
+	if productChanges.Instructions == constant.DEFAULT_INSTRUCTIONS {
+		HandleErrorAndExit(errors.New(fmt.Sprintf(
+			"intructions section of product %s version %s in update-descriptor3.yaml. contains the default value.",
+			productChanges.Product_name, productChanges.Product_version)))
+	}
+	_, exists := productChanges.Bug_fixes[constant.DEFAULT_JIRA_KEY]
+	if exists {
+		HandleErrorAndExit(errors.New(fmt.Sprintf(
+			"bug_fixes section of product %s version %s in update-descriptor3.yaml. contains the default value.",
+			productChanges.Product_name, productChanges.Product_version)))
+	}
+	return true
 }
