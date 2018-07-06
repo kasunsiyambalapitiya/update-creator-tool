@@ -390,11 +390,9 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	signal.Stop(cleanupChannel)
 
 	util.PrintInfo(fmt.Sprintf("'%s' successfully created.", updateZipName))
-	util.PrintInBold(fmt.Sprintf("Please manually fill the  `description`, "+
-		"`instructions` and `bug_fixes` fields of compatible"+
-		",applicable and notify products in the update-descriptor3."+
-		"yaml located inside the created '%s'\n",
-		updateZipName))
+	util.PrintInBold(fmt.Sprintf("Please manually fill the  `description`,"+
+		"`instructions` and `bug_fixes` fields of compatible and applicable products in the update-descriptor3."+
+		"yaml located inside the created '%s'\n", updateZipName))
 }
 
 // This function will process the README.txt file and extract basic details of the update to populate the update
