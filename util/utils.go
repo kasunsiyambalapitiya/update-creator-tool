@@ -342,8 +342,6 @@ func ValidateUpdateDescriptorV3(updateDescriptorV3 *UpdateDescriptorV3) error {
 	if len(updateDescriptorV3.Platform_name) == 0 {
 		return errors.New("'platform_name' field not found.")
 	}
-	// create a copy of UD3 struct and then remove user inputted data then cal md5 and compares
-	return nil
 
 	// Generate md5sum for product changes
 	md5sum := GenerateMd5sumForFileChanges(updateDescriptorV3)
@@ -990,30 +988,30 @@ func isRequestedChangesMade(productChanges *ProductChanges) bool {
 	}
 	if len(productChanges.Instructions) == 0 {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"intructions section of product %s version %s in update-descriptor3.yaml. is empty",
+			"intructions section of product %s version %s in update-descriptor3.yaml is empty",
 			productChanges.Product_name, productChanges.Product_version)))
 	}
 	if len(productChanges.Bug_fixes) == 0 {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"bug_fixes section of product %s version %s in update-descriptor3.yaml. is empty",
+			"bug_fixes section of product %s version %s in update-descriptor3.yaml is empty",
 			productChanges.Product_name, productChanges.Product_version)))
 	}
 
 	// Check if relevant fields contain the default value generated in update creation
 	if productChanges.Description == constant.DEFAULT_DESCRIPTION {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"description section of product %s version %s in update-descriptor3.yaml. contains the default value.",
+			"description section of product %s version %s in update-descriptor3.yaml contains the default value.",
 			productChanges.Product_name, productChanges.Product_version)))
 	}
 	if productChanges.Instructions == constant.DEFAULT_INSTRUCTIONS {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"intructions section of product %s version %s in update-descriptor3.yaml. contains the default value.",
+			"intructions section of product %s version %s in update-descriptor3.yaml contains the default value.",
 			productChanges.Product_name, productChanges.Product_version)))
 	}
 	_, exists := productChanges.Bug_fixes[constant.DEFAULT_JIRA_KEY]
 	if exists {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"bug_fixes section of product %s version %s in update-descriptor3.yaml. contains the default value.",
+			"bug_fixes section of product %s version %s in update-descriptor3.yaml contains the default value.",
 			productChanges.Product_name, productChanges.Product_version)))
 	}
 	return true

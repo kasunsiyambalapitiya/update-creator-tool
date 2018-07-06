@@ -39,7 +39,7 @@ var (
 	validateCmdLongDesc  = dedent.Dedent(`
 		This command will validate the given update zip. Files will be
 		matched against the given distribution. This will also validate
-		the structure of the update-descriptor.yaml file as well.
+		the structure of the update-descriptor.yaml and update-descrjptor3.yaml files as well.
 		Please set LICENSE_MD5 environment variable to the expected
 		md5 value of the LICENSE.txt file.`)
 )
@@ -75,6 +75,9 @@ func startValidation(updateFilePath, distributionLocation string) {
 	// Sets the log level
 	setLogLevel()
 	logger.Debug("validate command called")
+
+	updateFileMap := make(map[string]bool)
+	distributionFileMap := make(map[string]bool)
 
 	// Checks whether the update has the zip extension
 	util.IsZipFile(constant.UPDATE, updateFilePath)
@@ -118,14 +121,52 @@ func startValidation(updateFilePath, distributionLocation string) {
 	viper.Set(constant.UPDATE_NAME, updateName)
 
 	// Reads the update zip file
-	err = readUpdateZip(updateFilePath)
+	updateFileMap, updateDescriptorV2, err := readUpdateZip(updateFilePath)
 	util.HandleErrorAndExit(err)
+	logger.Trace(fmt.Sprintf("updateFileMap: %v\n", updateFileMap))
 
+	// Reads the distribution zip file
+	distributionFileMap, err = readDistributionZip(distributionLocation)
+	util.HandleErrorAndExit(err)
+	logger.Trace(fmt.Sprintf("distributionFileMap: %v\n", distributionFileMap))
+
+	// Compares the update with the distribution
+	err = compare(updateFileMap, distributionFileMap, updateDescriptorV2)
+	util.HandleErrorAndExit(err)
 	util.PrintInfo("'" + updateName + "' validation successfully finished.")
 }
 
+// This function compares the files in the update and the distribution.
+func compare(updateFileMap, distributionFileMap map[string]bool, updateDescriptorV2 *util.UpdateDescriptorV2) error {
+	updateName := viper.GetString(constant.UPDATE_NAME)
+	for filePath := range updateFileMap {
+		logger.Debug(fmt.Sprintf("Searching: %s", filePath))
+		_, found := distributionFileMap[filePath]
+		if !found {
+			logger.Debug("Added files: ", updateDescriptorV2.File_changes.Added_files)
+			isInAddedFiles := util.IsStringIsInSlice(filePath, updateDescriptorV2.File_changes.Added_files)
+			logger.Debug(fmt.Sprintf("isInAddedFiles: %v", isInAddedFiles))
+			resourceFiles := getResourceFiles()
+			logger.Debug(fmt.Sprintf("resourceFiles: %v", resourceFiles))
+			fileName := strings.TrimPrefix(filePath, updateName+"/")
+			logger.Debug(fmt.Sprintf("fileName: %s", fileName))
+			_, foundInResources := resourceFiles[fileName]
+			logger.Debug(fmt.Sprintf("found in resources: %v", foundInResources))
+			//check
+			if !isInAddedFiles && !foundInResources {
+				return errors.New(fmt.Sprintf("File not found in the distribution: '%v'. If this is "+
+					"a new file, add an entry to the 'added_files' sections in the '%v' file",
+					filePath, constant.UPDATE_DESCRIPTOR_V2_FILE))
+			} else {
+				logger.Debug("'" + filePath + "' found in added files.")
+			}
+		}
+	}
+	return nil
+}
+
 // This function will read the update zip at the the given location.
-func readUpdateZip(filename string) error {
+func readUpdateZip(filename string) (map[string]bool, *util.UpdateDescriptorV2, error) {
 	fileMap := make(map[string]bool)
 	updateDescriptorV2 := util.UpdateDescriptorV2{}
 	updateDescriptorV3 := util.UpdateDescriptorV3{}
@@ -136,7 +177,7 @@ func readUpdateZip(filename string) error {
 	// Create a reader out of the zip archive
 	zipReader, err := zip.OpenReader(filename)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	defer zipReader.Close()
 
@@ -155,7 +196,7 @@ func readUpdateZip(filename string) error {
 				prefix := filepath.Join(updateName, constant.CARBON_HOME)
 				hasPrefix := strings.HasPrefix(file.Name, prefix)
 				if !hasPrefix {
-					return errors.New("Unknown directory found: '" + file.Name + "'")
+					return nil, nil, errors.New("Unknown directory found: '" + file.Name + "'")
 				}
 			}
 		} else {
@@ -168,37 +209,37 @@ func readUpdateZip(filename string) error {
 			case constant.UPDATE_DESCRIPTOR_V2_FILE:
 				data, err := validateFile(file, constant.UPDATE_DESCRIPTOR_V2_FILE, fullPath, updateName)
 				if err != nil {
-					return err
+					return nil, nil, err
 				}
 				err = yaml.Unmarshal(data, &updateDescriptorV2)
 				if err != nil {
-					return err
+					return nil, nil, err
 				}
 				//check
 				err = util.ValidateUpdateDescriptorV2(&updateDescriptorV2)
 				if err != nil {
-					return errors.New("'" + constant.UPDATE_DESCRIPTOR_V2_FILE +
+					return nil, nil, errors.New("'" + constant.UPDATE_DESCRIPTOR_V2_FILE +
 						"' is invalid. " + err.Error())
 				}
 			case constant.UPDATE_DESCRIPTOR_V3_FILE:
 				data, err := validateFile(file, constant.UPDATE_DESCRIPTOR_V3_FILE, fullPath, updateName)
 				if err != nil {
-					return err
+					return nil, nil, err
 				}
 				err = yaml.Unmarshal(data, &updateDescriptorV3)
 				if err != nil {
-					return err
+					return nil, nil, err
 				}
 				//check
 				err = util.ValidateUpdateDescriptorV3(&updateDescriptorV3)
 				if err != nil {
-					return errors.New("'" + constant.UPDATE_DESCRIPTOR_V3_FILE +
+					return nil, nil, errors.New("'" + constant.UPDATE_DESCRIPTOR_V3_FILE +
 						"' is invalid. " + err.Error())
 				}
 			case constant.LICENSE_FILE:
 				data, err := validateFile(file, constant.LICENSE_FILE, fullPath, updateName)
 				if err != nil {
-					return err
+					return nil, nil, err
 				}
 				dataString := string(data)
 				if strings.Contains(dataString, "under Apache License 2.0") {
@@ -207,13 +248,13 @@ func readUpdateZip(filename string) error {
 			case constant.INSTRUCTIONS_FILE:
 				_, err := validateFile(file, constant.INSTRUCTIONS_FILE, fullPath, updateName)
 				if err != nil {
-					return err
+					return nil, nil, err
 				}
 			case constant.NOT_A_CONTRIBUTION_FILE:
 				isNotAContributionFileFound = true
 				_, err := validateFile(file, constant.NOT_A_CONTRIBUTION_FILE, fullPath, updateName)
 				if err != nil {
-					return err
+					return nil, nil, err
 				}
 			default:
 				resourceFiles := getResourceFiles()
@@ -224,7 +265,7 @@ func readUpdateZip(filename string) error {
 				_, foundInResources := resourceFiles[name]
 				logger.Debug(fmt.Sprintf("foundInResources: %v", foundInResources))
 				if !hasPrefix && !foundInResources {
-					return errors.New(fmt.Sprintf("Unknown file found: '%s'.", file.Name))
+					return nil, nil, errors.New(fmt.Sprintf("Unknown file found: '%s'.", file.Name))
 				}
 				logger.Debug(fmt.Sprintf("Trimming: %s using %s", file.Name,
 					prefix+constant.PATH_SEPARATOR))
@@ -242,7 +283,7 @@ func readUpdateZip(filename string) error {
 			"and remove '%v' file if necessary.", constant.NOT_A_CONTRIBUTION_FILE,
 			constant.NOT_A_CONTRIBUTION_FILE))
 	}
-	return nil
+	return fileMap, &updateDescriptorV2, nil
 }
 
 // This function will validate the provided file. If the word 'patch' is found, a warning message is printed.
@@ -302,6 +343,31 @@ func validateFile(file *zip.File, fileName, fullPath, updateName string) ([]byte
 
 	logger.Debug(fmt.Sprintf("Validating '%s' finished.", fileName))
 	return data, nil
+}
+
+// This function reads the product distribution at the given location.
+func readDistributionZip(filename string) (map[string]bool, error) {
+	fileMap := make(map[string]bool)
+	// Create a reader out of the zip archive
+	zipReader, err := zip.OpenReader(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer zipReader.Close()
+
+	productName := viper.GetString(constant.PRODUCT_NAME)
+	logger.Debug(fmt.Sprintf("productName: %s", productName))
+	// Iterate through each file/dir found in
+	for _, file := range zipReader.Reader.File {
+		logger.Trace(file.Name)
+
+		relativePath := util.GetRelativePath(file)
+
+		if !file.FileInfo().IsDir() {
+			fileMap[relativePath] = false
+		}
+	}
+	return fileMap, nil
 }
 
 // When reading zip files in windows, file.FileInfo().Name() does not return the filename correctly
