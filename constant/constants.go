@@ -51,6 +51,7 @@ const (
 	UPDATE_NUMBER_REGEX  = "^\\d{4}$"
 	KERNEL_VERSION_REGEX = "^\\d+\\.\\d+\\.\\d+$"
 	FILENAME_REGEX       = "^WSO2-CARBON-UPDATE-\\d+\\.\\d+\\.\\d+-\\d{4}.zip$"
+	EMAIL_ADDRESS_REGEX  = "^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
 
 	OTHER   = 0
 	YES     = 1
@@ -117,6 +118,7 @@ const (
 	UNABLE_TO_READ_YOUR_INPUT_MSG          = "unable to read your input"
 	USERNAME_PASSWORD_EMPTY_MSG            = "username or password cannot be empty"
 	DONE_MSG                               = "Done!\n"
+	INVALID_EMAIL_ADDRESS                  = "Invalid email address"
 
 	PRODUCT_API_CONTEXT = "products"
 	DEFAULT_DESCRIPTION = `Description goes here
