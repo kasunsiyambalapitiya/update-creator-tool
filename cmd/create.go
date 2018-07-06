@@ -30,7 +30,6 @@ import (
 	"strconv"
 	"strings"
 
-	"bytes"
 	"github.com/olekukonko/tablewriter"
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
@@ -359,7 +358,7 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	}
 
 	// Generate md5sum for product changes
-	updateDescriptorV3.Md5sum = generateMd5sumForFileChanges(&updateDescriptorV3)
+	updateDescriptorV3.Md5sum = util.GenerateMd5sumForFileChanges(&updateDescriptorV3)
 
 	//9) Copy resource files (LICENSE.txt, etc) to temp directory
 	resourceFiles := getResourceFiles()
@@ -1573,42 +1572,4 @@ func setProductChangesInUpdateDescriptorV3(partialUpdatedProducts *util.PartialU
 	productChanges.Removed_files = partialUpdatedProducts.Removed_files
 	productChanges.Modified_files = partialUpdatedProducts.Modified_files
 	return productChanges
-}
-
-func generateMd5sumForFileChanges(updateDescriptorV3 *util.UpdateDescriptorV3) string {
-	var buffer bytes.Buffer
-	var addedFileString string
-	var modifiedFileString string
-	var removedFileString string
-
-	// Sorting the product changes update-descriptor3.yaml
-	sort.Slice(updateDescriptorV3.Compatible_products, func(i, j int) bool {
-		return updateDescriptorV3.Compatible_products[i].Product_name < updateDescriptorV3.Compatible_products[j].Product_name
-
-	})
-	sort.Slice(updateDescriptorV3.Applicable_products, func(i, j int) bool {
-		return updateDescriptorV3.Applicable_products[i].Product_name < updateDescriptorV3.Applicable_products[j].
-			Product_name
-	})
-	for _, productChange := range updateDescriptorV3.Compatible_products {
-		addedFileString = strings.Join(productChange.Added_files, ",")
-		modifiedFileString = strings.Join(productChange.Modified_files, ",")
-		removedFileString = strings.Join(productChange.Removed_files, ",")
-		buffer.WriteString(addedFileString)
-		buffer.WriteString(modifiedFileString)
-		buffer.WriteString(removedFileString)
-		buffer.WriteString(productChange.Product_name)
-		buffer.WriteString(productChange.Product_version)
-	}
-	for _, productChange := range updateDescriptorV3.Applicable_products {
-		addedFileString = strings.Join(productChange.Added_files, ",")
-		modifiedFileString = strings.Join(productChange.Modified_files, ",")
-		removedFileString = strings.Join(productChange.Removed_files, ",")
-		buffer.WriteString(addedFileString)
-		buffer.WriteString(modifiedFileString)
-		buffer.WriteString(removedFileString)
-		buffer.WriteString(productChange.Product_name)
-		buffer.WriteString(productChange.Product_version)
-	}
-	return fmt.Sprintf("%x", md5.Sum(buffer.Bytes()))
 }
