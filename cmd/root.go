@@ -21,10 +21,12 @@ import (
 	"github.com/ian-kent/go-log/layout"
 	"github.com/ian-kent/go-log/levels"
 	"github.com/ian-kent/go-log/log"
+	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/wso2/update-creator-tool/constant"
 	"github.com/wso2/update-creator-tool/util"
+	"path/filepath"
 )
 
 var (
@@ -68,6 +70,20 @@ func initConfig() {
 	}
 
 	setDefaultValues()
+
+	// Check whether the user has specified the WUM_UC_HOME environment variable.
+	WUMUCHome := os.Getenv(constant.WUM_UC_HOME)
+	if WUMUCHome == "" {
+		// User has not specified WUM_UC_HOME.
+		// Get the home directory of the current user.
+		homeDirPath, err := homedir.Dir()
+		if err != nil {
+			util.HandleErrorAndExit(err, "Cannot determine the current user's home directory.")
+		}
+		WUMUCHome = filepath.Join(homeDirPath, constant.WUMUC_HOME_DIR_NAME)
+	}
+	viper.Set(constant.WUM_UC_HOME, WUMUCHome)
+	util.LoadWUMUCConfig(WUMUCHome)
 
 	viper.SetConfigName("config") // name of config file (without extension)
 	viper.AddConfigPath(".")

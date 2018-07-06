@@ -39,7 +39,7 @@ var (
 	validateCmdLongDesc  = dedent.Dedent(`
 		This command will validate the given update zip. Files will be
 		matched against the given distribution. This will also validate
-		the structure of the update-descriptor.yaml file as well.
+		the structure of the update-descriptor.yaml and update-descrjptor3.yaml files as well.
 		Please set LICENSE_MD5 environment variable to the expected
 		md5 value of the LICENSE.txt file.`)
 )
@@ -63,8 +63,8 @@ func init() {
 // This function will be called when the validate command is called.
 func initializeValidateCommand(cmd *cobra.Command, args []string) {
 	if len(args) != 2 {
-		util.HandleErrorAndExit(errors.New("Invalid number of argumants. Run 'wum-uc validate --help' to " +
-			"view help."))
+		util.HandleErrorAndExit(errors.New("invalid number of arguments. Run 'wum-uc validate --help' to " +
+			"view help"))
 	}
 	startValidation(args[0], args[1])
 }
@@ -121,7 +121,7 @@ func startValidation(updateFilePath, distributionLocation string) {
 	viper.Set(constant.UPDATE_NAME, updateName)
 
 	// Reads the update zip file
-	updateFileMap, updateDescriptor, err := readUpdateZip(updateFilePath)
+	updateFileMap, updateDescriptorV2, err := readUpdateZip(updateFilePath)
 	util.HandleErrorAndExit(err)
 	logger.Trace(fmt.Sprintf("updateFileMap: %v\n", updateFileMap))
 
@@ -131,20 +131,20 @@ func startValidation(updateFilePath, distributionLocation string) {
 	logger.Trace(fmt.Sprintf("distributionFileMap: %v\n", distributionFileMap))
 
 	// Compares the update with the distribution
-	err = compare(updateFileMap, distributionFileMap, updateDescriptor)
+	err = compare(updateFileMap, distributionFileMap, updateDescriptorV2)
 	util.HandleErrorAndExit(err)
 	util.PrintInfo("'" + updateName + "' validation successfully finished.")
 }
 
 // This function compares the files in the update and the distribution.
-func compare(updateFileMap, distributionFileMap map[string]bool, updateDescriptor *util.UpdateDescriptor) error {
+func compare(updateFileMap, distributionFileMap map[string]bool, updateDescriptorV2 *util.UpdateDescriptorV2) error {
 	updateName := viper.GetString(constant.UPDATE_NAME)
 	for filePath := range updateFileMap {
 		logger.Debug(fmt.Sprintf("Searching: %s", filePath))
 		_, found := distributionFileMap[filePath]
 		if !found {
-			logger.Debug("Added files: ", updateDescriptor.File_changes.Added_files)
-			isInAddedFiles := util.IsStringIsInSlice(filePath, updateDescriptor.File_changes.Added_files)
+			logger.Debug("Added files: ", updateDescriptorV2.File_changes.Added_files)
+			isInAddedFiles := util.IsStringIsInSlice(filePath, updateDescriptorV2.File_changes.Added_files)
 			logger.Debug(fmt.Sprintf("isInAddedFiles: %v", isInAddedFiles))
 			resourceFiles := getResourceFiles()
 			logger.Debug(fmt.Sprintf("resourceFiles: %v", resourceFiles))
@@ -156,7 +156,7 @@ func compare(updateFileMap, distributionFileMap map[string]bool, updateDescripto
 			if !isInAddedFiles && !foundInResources {
 				return errors.New(fmt.Sprintf("File not found in the distribution: '%v'. If this is "+
 					"a new file, add an entry to the 'added_files' sections in the '%v' file",
-					filePath, constant.UPDATE_DESCRIPTOR_FILE))
+					filePath, constant.UPDATE_DESCRIPTOR_V2_FILE))
 			} else {
 				logger.Debug("'" + filePath + "' found in added files.")
 			}
@@ -166,9 +166,10 @@ func compare(updateFileMap, distributionFileMap map[string]bool, updateDescripto
 }
 
 // This function will read the update zip at the the given location.
-func readUpdateZip(filename string) (map[string]bool, *util.UpdateDescriptor, error) {
+func readUpdateZip(filename string) (map[string]bool, *util.UpdateDescriptorV2, error) {
 	fileMap := make(map[string]bool)
-	updateDescriptor := util.UpdateDescriptor{}
+	updateDescriptorV2 := util.UpdateDescriptorV2{}
+	updateDescriptorV3 := util.UpdateDescriptorV3{}
 
 	isNotAContributionFileFound := false
 	isASecPatch := false
@@ -205,20 +206,34 @@ func readUpdateZip(filename string) (map[string]bool, *util.UpdateDescriptor, er
 			fullPath := filepath.Join(updateName, name)
 			logger.Debug(fmt.Sprintf("fullPath: %s", fullPath))
 			switch name {
-			case constant.UPDATE_DESCRIPTOR_FILE:
-				//todo: check for any remaining placeholders
-				data, err := validateFile(file, constant.UPDATE_DESCRIPTOR_FILE, fullPath, updateName)
+			case constant.UPDATE_DESCRIPTOR_V2_FILE:
+				data, err := validateFile(file, constant.UPDATE_DESCRIPTOR_V2_FILE, fullPath, updateName)
 				if err != nil {
 					return nil, nil, err
 				}
-				err = yaml.Unmarshal(data, &updateDescriptor)
+				err = yaml.Unmarshal(data, &updateDescriptorV2)
 				if err != nil {
 					return nil, nil, err
 				}
 				//check
-				err = util.ValidateUpdateDescriptor(&updateDescriptor)
+				err = util.ValidateUpdateDescriptorV2(&updateDescriptorV2)
 				if err != nil {
-					return nil, nil, errors.New("'" + constant.UPDATE_DESCRIPTOR_FILE +
+					return nil, nil, errors.New("'" + constant.UPDATE_DESCRIPTOR_V2_FILE +
+						"' is invalid. " + err.Error())
+				}
+			case constant.UPDATE_DESCRIPTOR_V3_FILE:
+				data, err := validateFile(file, constant.UPDATE_DESCRIPTOR_V3_FILE, fullPath, updateName)
+				if err != nil {
+					return nil, nil, err
+				}
+				err = yaml.Unmarshal(data, &updateDescriptorV3)
+				if err != nil {
+					return nil, nil, err
+				}
+				//check
+				err = util.ValidateUpdateDescriptorV3(&updateDescriptorV3)
+				if err != nil {
+					return nil, nil, errors.New("'" + constant.UPDATE_DESCRIPTOR_V3_FILE +
 						"' is invalid. " + err.Error())
 				}
 			case constant.LICENSE_FILE:
@@ -268,7 +283,7 @@ func readUpdateZip(filename string) (map[string]bool, *util.UpdateDescriptor, er
 			"and remove '%v' file if necessary.", constant.NOT_A_CONTRIBUTION_FILE,
 			constant.NOT_A_CONTRIBUTION_FILE))
 	}
-	return fileMap, &updateDescriptor, nil
+	return fileMap, &updateDescriptorV2, nil
 }
 
 // This function will validate the provided file. If the word 'patch' is found, a warning message is printed.
@@ -324,43 +339,6 @@ func validateFile(file *zip.File, fileName, fullPath, updateName string) ([]byte
 			util.PrintInfo(fmt.Sprintf("Matching Line #%d - %v", i+1, line[0]))
 		}
 		fmt.Println()
-	}
-
-	// Check whether the all placeholders are removed
-	contains := strings.Contains(dataString, constant.UPDATE_NO_DEFAULT)
-	if contains {
-		util.PrintWarning(fmt.Sprintf("Please add the correct value for '%v' in the '%v' file.",
-			constant.UPDATE_NO_DEFAULT, constant.UPDATE_DESCRIPTOR_FILE))
-	}
-	contains = strings.Contains(dataString, constant.PLATFORM_NAME_DEFAULT)
-	if contains {
-		util.PrintWarning(fmt.Sprintf("Please add the correct value for '%v' in the '%v' file.",
-			constant.PLATFORM_NAME_DEFAULT, constant.UPDATE_DESCRIPTOR_FILE))
-	}
-	contains = strings.Contains(dataString, constant.PLATFORM_VERSION_DEFAULT)
-	if contains {
-		util.PrintWarning(fmt.Sprintf("Please add the correct value for '%v' in the '%v' file.",
-			constant.PLATFORM_VERSION_DEFAULT, constant.UPDATE_DESCRIPTOR_FILE))
-	}
-	contains = strings.Contains(dataString, constant.APPLIES_TO_DEFAULT)
-	if contains {
-		util.PrintWarning(fmt.Sprintf("Please add the correct value for '%v' in the '%v' file.",
-			constant.APPLIES_TO_DEFAULT, constant.UPDATE_DESCRIPTOR_FILE))
-	}
-	contains = strings.Contains(dataString, constant.DESCRIPTION_DEFAULT)
-	if contains {
-		util.PrintWarning(fmt.Sprintf("Please add the correct value for '%v' in the '%v' file.",
-			constant.DESCRIPTION_DEFAULT, constant.UPDATE_DESCRIPTOR_FILE))
-	}
-	contains = strings.Contains(dataString, constant.JIRA_KEY_DEFAULT)
-	if contains {
-		util.PrintWarning(fmt.Sprintf("Please add the correct value for '%v' in the '%v' file.",
-			constant.JIRA_KEY_DEFAULT, constant.UPDATE_DESCRIPTOR_FILE))
-	}
-	contains = strings.Contains(dataString, constant.JIRA_SUMMARY_DEFAULT)
-	if contains {
-		util.PrintWarning(fmt.Sprintf("Please add the correct value for '%v' in the '%v' file.",
-			constant.JIRA_SUMMARY_DEFAULT, constant.UPDATE_DESCRIPTOR_FILE))
 	}
 
 	logger.Debug(fmt.Sprintf("Validating '%s' finished.", fileName))

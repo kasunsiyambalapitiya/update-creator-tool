@@ -27,11 +27,13 @@ const (
 	PLUGINS_DIRECTORY = "repository" + PATH_SEPARATOR + "components" + PATH_SEPARATOR + "plugins" + PATH_SEPARATOR
 
 	//constants to store resource file names
-	README_FILE             = "README.txt"
-	LICENSE_FILE            = "LICENSE.txt"
-	NOT_A_CONTRIBUTION_FILE = "NOT_A_CONTRIBUTION.txt"
-	INSTRUCTIONS_FILE       = "instructions.txt"
-	UPDATE_DESCRIPTOR_FILE  = "update-descriptor.yaml"
+	README_FILE               = "README.txt"
+	LICENSE_FILE              = "LICENSE.txt"
+	NOT_A_CONTRIBUTION_FILE   = "NOT_A_CONTRIBUTION.txt"
+	INSTRUCTIONS_FILE         = "instructions.txt"
+	UPDATE_DESCRIPTOR_V2_FILE = "update-descriptor.yaml"
+	UPDATE_DESCRIPTOR_V3_FILE = "update-descriptor3.yaml"
+	WUMUC_CONFIG_FILE         = "config.yaml"
 
 	//Temporary directory to copy files before creating the new zip
 	TEMP_DIR = "temp"
@@ -89,13 +91,73 @@ const (
 	DISTRIBUTION         = "Distribution"
 	UPDATE               = "Update"
 
-	LICENSE_URL = "LICENSE_URL"
+	LICENSE_URL          = "LICENSE_URL"
 	LICENSE_DOWNLOAD_URL = "https://wso2.com/license/wso2-update/LICENSE.txt"
-	LICENSE_MD5 = "LICENSE_MD5"
-	LICENSE_MD5_URL = "https://wso2.com/license/wso2-update/LICENSE.txt.md5"
+	LICENSE_MD5          = "LICENSE_MD5"
+	LICENSE_MD5_URL      = "https://wso2.com/license/wso2-update/LICENSE.txt.md5"
 
-	NOT_A_CONTRIBUTION_URL = "NOT_A_CONTRIBUTION_URL"
+	NOT_A_CONTRIBUTION_URL          = "NOT_A_CONTRIBUTION_URL"
 	NOT_A_CONTRIBUTION_DOWNLOAD_URL = "https://wso2.com/license/wso2-update/NOT_A_CONTRIBUTION.txt"
-	NOT_A_CONTRIBUTION_MD5 = "NOT_A_CONTRIBUTION_MD5"
-	NOT_A_CONTRIBUTION_MD5_URL = "https://wso2.com/license/wso2-update/NOT_A_CONTRIBUTION.txt.md5"
+	NOT_A_CONTRIBUTION_MD5          = "NOT_A_CONTRIBUTION_MD5"
+	NOT_A_CONTRIBUTION_MD5_URL      = "https://wso2.com/license/wso2-update/NOT_A_CONTRIBUTION.txt.md5"
+
+	WUMUC_HOME_DIR_NAME = ".wum-uc"
+	WUM_UC_HOME         = "WUM_UC_HOME"
+
+	WUMUC_AUTHENTICATION_URL               = "https://api.updates.wso2.com"
+	TOKEN_API_CONTEXT                      = "token"
+	BASE64_ENCODED_CONSUMER_KEY_AND_SECRET = "cmNMWXQwcjd2azZQTTE3SVA4U3VYRDR0MjRNYTpHTlBhV2JmYVpveVhrUkdZT1FwdkIyN3EyOUlh"
+	RENEW_REFRESH_TOKEN                    = "renewRefreshToken"
+	RETRIEVE_ACCESS_TOKEN                  = "getAccessToken"
+	INVALID_GRANT                          = "invalid_grant"
+	WUMUC_UPDATE_TOKEN_TIMEOUT             = 2
+	ERROR_READING_RESPONSE_MSG             = "there is an error reading the response from WSO2 Update"
+	INVALID_CREDENTIALS                    = "Invalid Credentials."
+	ENTER_YOUR_CREDENTIALS_MSG             = "Please enter your WSO2 credentials to continue"
+	UNABLE_TO_READ_YOUR_INPUT_MSG          = "unable to read your input"
+	USERNAME_PASSWORD_EMPTY_MSG            = "username or password cannot be empty"
+	DONE_MSG                               = "Done!\n"
+
+	PRODUCT_API_CONTEXT = "products"
+	DEFAULT_DESCRIPTION = `Please add the description here without removing the literal block (|)
+A sample will be as follows,
+Fixes for the following in rabbitmq transport
+(i)   Channel not closing issue in rabbitmq publisher
+(ii)  Performance improvements to the transport by introducing a channel pool (configurable) and parameterising queue and exchange creation.
+(iii) Allow configuring connection factory by name in target url
+`
+
+	DEFAULT_INSTRUCTIONS = `Please add instructions here without removing the literal block (|)
+A sample will be as follows
+This update changes the spark script related to geo location based analytics. Following steps are only required if you have enabled geo location based analytics[1].Please follow the stpes below in order to changes to be affected.
+
+1. After restarting analytics wum updated server, then go to the admin dashboard of api manager server. (for ex: https://localhost:9443/admin/)
+
+2. Then under Settings => Analytics, click Configure Alerts to open the Alert Configurations page.
+
+3. In the Geo Location Configurations section, click Deactivate
+
+4. After that again activate the Geo Location Configurations. (You can follow the steps 8, 9 of documentation [1] in order to activate again.)
+
+[1] - https://docs.wso2.com/display/AM210/Configuring+Geolocation+Based+Statistics
+`
+	DEFAULT_JIRA_KEY     = "Enter JIRA_KEY/GITHUB ISSUE URL"
+	DEFAULT_JIRA_SUMMARY = "Enter JIRA_KEY SUMMARY/GITHUB_ISSUE_SUMMARY"
+
+	PRODUCT_API_VERSION                  = "3.0.0"
+	APPLICABLE_PRODUCTS                  = "applicable-products"
+	FILE_LIST_ONLY                       = "fileListOnly=true"
+	UNABLE_TO_CONNECT_WSO2_UPDATE        = "there is a problem connecting to WSO2 Update please try again"
+	WUMUC_API_CALL_TIMEOUT               = 5
+	TOO_MANY_REQUESTS_ERROR_MSG          = "servers are busy at the moment. Please try again later."
+	CONTINUED_ERROR_REPORT_MSG           = "if you continue to have this problem, please contact WUM team"
+	INVALID_EXPIRED_REFRESH_TOKEN_MSG    = "your session has timed out"
+	YOU_HAVENT_INITIALIZED_WUMUC_YET_MSG = "you haven't initialized wum-uc with your WSO2 credentials"
+	RUN_WUMUC_INIT_TO_CONTINUE_MSG       = "run 'wum-uc init' to continue"
+
+	HEADER_AUTHORIZATION               = "Authorization"
+	HEADER_CONTENT_TYPE                = "Content-Type"
+	HEADER_ACCEPT                      = "Accept"
+	HEADER_VALUE_APPLICATION_JSON      = "application/json"
+	HEADER_VALUE_X_WWW_FORM_URLENCODED = "application/x-www-form-urlencoded"
 )
