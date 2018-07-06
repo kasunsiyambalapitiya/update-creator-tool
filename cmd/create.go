@@ -390,11 +390,9 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	signal.Stop(cleanupChannel)
 
 	util.PrintInfo(fmt.Sprintf("'%s' successfully created.", updateZipName))
-	util.PrintInBold(fmt.Sprintf("Please manually fill the  `description`, "+
-		"`instructions` and `bug_fixes` fields of compatible"+
-		",applicable and notify products in the update-descriptor3."+
-		"yaml located inside the created '%s'\n",
-		updateZipName))
+	util.PrintInBold(fmt.Sprintf("Please manually fill the  `description`,"+
+		"`instructions` and `bug_fixes` fields of compatible and applicable products in the update-descriptor3."+
+		"yaml located inside the created '%s'\n", updateZipName))
 }
 
 // This function will process the README.txt file and extract basic details of the update to populate the update
@@ -657,7 +655,7 @@ func createUpdateDescriptorV3(updateDirectoryPath string, updateDescriptorV3 *ut
 
 	//remove " enclosing the update number
 	dataStringV3 = strings.Replace(dataStringV3, "\"", "", -1)
-	logger.Debug(fmt.Sprintf("update-descriptorV3:\n%s", dataStringV3))
+	logger.Trace(fmt.Sprintf("update-descriptorV3:\n%s", dataStringV3))
 
 	// Construct update descriptor file paths
 	updateDescriptorFileV3 := filepath.Join(updateDirectoryPath, constant.UPDATE_DESCRIPTOR_V3_FILE)

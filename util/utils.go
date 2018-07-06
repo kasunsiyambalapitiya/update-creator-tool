@@ -342,8 +342,6 @@ func ValidateUpdateDescriptorV3(updateDescriptorV3 *UpdateDescriptorV3) error {
 	if len(updateDescriptorV3.Platform_name) == 0 {
 		return errors.New("'platform_name' field not found.")
 	}
-	// create a copy of UD3 struct and then remove user inputted data then cal md5 and compares
-	return nil
 
 	// Generate md5sum for product changes
 	md5sum := GenerateMd5sumForFileChanges(updateDescriptorV3)
@@ -772,7 +770,7 @@ func handleErrorResponses(response *http.Response) {
 // Get an access token from WSO2 Update with the given username and the password using the
 // 'password' grant type of Oauth2.
 // This method returns an error only if the username or password is incorrect.
-func GetAccessToken(username string, password []byte, wumucConfig *WUMUCConfig, scope string) *TokenResponse {
+func GetAccessToken(username string, password []byte, wumucConfig *WUMUCConfig, scope string) (*TokenResponse, error) {
 	payload := url.Values{}
 	payload.Add("grant_type", "password")
 	payload.Add("username", username)
@@ -796,7 +794,10 @@ func Authenticate() {
 			RUN_WUMUC_INIT_TO_CONTINUE_MSG))
 	}
 
-	tokenResponse := RenewAccessToken(wumucConfig)
+	tokenResponse, err := RenewAccessToken(wumucConfig)
+	if err != nil {
+		HandleErrorAndExit(err)
+	}
 
 	wumucConfig.RefreshToken = tokenResponse.RefreshToken
 	wumucConfig.AccessToken = tokenResponse.AccessToken
@@ -804,7 +805,7 @@ func Authenticate() {
 	WriteConfigFile(wumucConfig, wumucConfigFilePath)
 }
 
-func RenewAccessToken(wumucConfig *WUMUCConfig) *TokenResponse {
+func RenewAccessToken(wumucConfig *WUMUCConfig) (*TokenResponse, error) {
 	payload := url.Values{}
 	payload.Add("grant_type", "refresh_token")
 	payload.Add("refresh_token", wumucConfig.RefreshToken)
@@ -815,7 +816,7 @@ func RenewAccessToken(wumucConfig *WUMUCConfig) *TokenResponse {
 
 // Invokes the configured token API of the API gateway. This method can be used to get access tokens
 // as well as renew access tokens using the refresh token.
-func InvokeTokenAPI(payload *url.Values, wumucConfig *WUMUCConfig, tokenType string) *TokenResponse {
+func InvokeTokenAPI(payload *url.Values, wumucConfig *WUMUCConfig, tokenType string) (*TokenResponse, error) {
 	request, err := http.NewRequest(http.MethodPost, wumucConfig.TokenURL, bytes.NewBufferString(payload.Encode()))
 	if err != nil {
 		HandleUnableToConnectErrorAndExit(err)
@@ -826,25 +827,24 @@ func InvokeTokenAPI(payload *url.Values, wumucConfig *WUMUCConfig, tokenType str
 	response := SendRequest(request, time.Duration(constant.WUMUC_UPDATE_TOKEN_TIMEOUT*time.Minute))
 	log.Debug("Response status code %d\n", response.StatusCode)
 
+	tokenResponse := TokenResponse{}
 	if response.StatusCode != http.StatusAccepted && response.StatusCode != http.StatusOK {
 		tokenErrorResponse := TokenErrResp{}
-		processResponseFromServer(response, tokenErrorResponse)
+		processResponseFromServer(response, &tokenErrorResponse)
 
 		if constant.RETRIEVE_ACCESS_TOKEN == tokenType && http.StatusBadRequest == response.StatusCode && constant.
 			INVALID_GRANT == tokenErrorResponse.Error {
-			HandleUnableToConnectErrorAndExit(errors.New("Invalid Credentials. " +
-				"Please enter your WSO2 credentials to continue"))
+			return &tokenResponse, errors.New("Invalid Credentials.")
 		} else if constant.RENEW_REFRESH_TOKEN == tokenType && http.StatusBadRequest == response.StatusCode && constant.
 			INVALID_GRANT == tokenErrorResponse.Error {
-			HandleUnableToConnectErrorAndExit(errors.New("Your session has timed out, run 'wum-uc init' to continue"))
+			return &tokenResponse, errors.New("Your session has timed out, run 'wum-uc init' to continue")
 		} else {
 			HandleUnableToConnectErrorAndExit(errors.New(tokenErrorResponse.Error + ":" + tokenErrorResponse.
 				ErrorDescription))
 		}
 	}
-	tokenResponse := TokenResponse{}
 	processResponseFromServer(response, &tokenResponse)
-	return &tokenResponse
+	return &tokenResponse, nil
 }
 
 func processResponseFromServer(response *http.Response, v interface{}) {
@@ -871,9 +871,19 @@ func Init(username string, password []byte) {
 	// Get WUMUC configurations
 	wumucConfig := GetWUMUCConfigs()
 	var tokenResponse *TokenResponse
+	var err error
 	// If user has supplied both username and password by -u and -p flags
 	if username != "" && len(password) != 0 {
-		tokenResponse = GetAccessToken(username, password, wumucConfig, "")
+		// Validate email address
+		if !isValidateEmailAddress(username) {
+			HandleErrorAndExit(errors.New(constant.INVALID_EMAIL_ADDRESS))
+		}
+		tokenResponse, err = GetAccessToken(username, password, wumucConfig, "")
+		if err != nil {
+			HandleUnableToConnectErrorAndExit(errors.New("Invalid Credentials. " +
+				"Please enter valid WSO2 credentials to continue"))
+		}
+
 	} else if len(password) == 0 {
 		if username == "" {
 			username = wumucConfig.Username
@@ -896,23 +906,25 @@ func Init(username string, password []byte) {
 // Get credentials from the user. Maximum password attempts is 3. If the user specify both the
 // username and the password, then get an access token.
 func getAccessTokenFromUserCreds(username string, attempt int, wumucConfig *WUMUCConfig) (string, *TokenResponse) {
-	username, password := getCredentials(username)
-	// Handle empty inputs from user for both username and password
-	if (username == "" || len(password) == 0) && attempt < 3 {
+	validEmail, username, password := getCredentials(username)
+	// Handle empty and invalid inputs from user for both username and password
+	if (!validEmail || len(password) == 0) && attempt < 3 {
+		fmt.Fprintln(os.Stderr)
 		return getAccessTokenFromUserCreds("", attempt+1, wumucConfig)
 
-	} else if (username == "" || len(password) == 0) && attempt == 3 {
+	} else if (!validEmail || len(password) == 0) && attempt == 3 {
 		HandleUnableToConnectErrorAndExit(errors.New("Invalid Credentials. " +
 			"Please enter your WSO2 credentials to continue"))
 	}
 
 	// Handle non-empty inputs from user for both username and password
-	tokenResponse := GetAccessToken(username, password, wumucConfig, "")
-	if tokenResponse == nil && attempt < 3 {
+	tokenResponse, err := GetAccessToken(username, password, wumucConfig, "")
+	if err != nil && attempt < 3 {
 		// Authentication failure
+		fmt.Fprintln(os.Stderr)
 		return getAccessTokenFromUserCreds(username, attempt+1, wumucConfig)
 
-	} else if tokenResponse == nil && attempt == 3 {
+	} else if err != nil && attempt == 3 {
 		HandleUnableToConnectErrorAndExit(errors.New("Invalid Credentials. " +
 			"Please enter your WSO2 credentials to continue"))
 	}
@@ -920,7 +932,7 @@ func getAccessTokenFromUserCreds(username string, attempt int, wumucConfig *WUMU
 }
 
 // Prompt for the username and the password from the user.
-func getCredentials(username string) (string, []byte) {
+func getCredentials(username string) (bool, string, []byte) {
 	var password []byte
 	fmt.Fprintln(os.Stderr, constant.ENTER_YOUR_CREDENTIALS_MSG)
 
@@ -932,6 +944,12 @@ func getCredentials(username string) (string, []byte) {
 			HandleErrorAndExit(err, constant.UNABLE_TO_READ_YOUR_INPUT_MSG)
 		}
 		username = strings.TrimSpace(uName)
+		// Validate email address
+		validEmail := isValidateEmailAddress(username)
+		if !validEmail {
+			fmt.Fprintln(os.Stderr, constant.INVALID_EMAIL_ADDRESS)
+		}
+		return validEmail, "", password
 	}
 
 	fmt.Fprintf(os.Stderr, "Password for '%v': ", strings.TrimSpace(username))
@@ -939,7 +957,9 @@ func getCredentials(username string) (string, []byte) {
 	if err != nil {
 		HandleErrorAndExit(err, constant.UNABLE_TO_READ_YOUR_INPUT_MSG)
 	}
-	return username, password
+	fmt.Fprintln(os.Stderr)
+	// As email already perisisted in config.yaml should be in correct format
+	return true, username, password
 }
 
 func GenerateMd5sumForFileChanges(updateDescriptorV3 *UpdateDescriptorV3) string {
@@ -990,31 +1010,39 @@ func isRequestedChangesMade(productChanges *ProductChanges) bool {
 	}
 	if len(productChanges.Instructions) == 0 {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"intructions section of product %s version %s in update-descriptor3.yaml. is empty",
+			"intructions section of product %s version %s in update-descriptor3.yaml is empty",
 			productChanges.Product_name, productChanges.Product_version)))
 	}
 	if len(productChanges.Bug_fixes) == 0 {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"bug_fixes section of product %s version %s in update-descriptor3.yaml. is empty",
+			"bug_fixes section of product %s version %s in update-descriptor3.yaml is empty",
 			productChanges.Product_name, productChanges.Product_version)))
 	}
 
 	// Check if relevant fields contain the default value generated in update creation
 	if productChanges.Description == constant.DEFAULT_DESCRIPTION {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"description section of product %s version %s in update-descriptor3.yaml. contains the default value.",
+			"description section of product %s version %s in update-descriptor3.yaml contains the default value.",
 			productChanges.Product_name, productChanges.Product_version)))
 	}
 	if productChanges.Instructions == constant.DEFAULT_INSTRUCTIONS {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"intructions section of product %s version %s in update-descriptor3.yaml. contains the default value.",
+			"intructions section of product %s version %s in update-descriptor3.yaml contains the default value.",
 			productChanges.Product_name, productChanges.Product_version)))
 	}
 	_, exists := productChanges.Bug_fixes[constant.DEFAULT_JIRA_KEY]
 	if exists {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"bug_fixes section of product %s version %s in update-descriptor3.yaml. contains the default value.",
+			"bug_fixes section of product %s version %s in update-descriptor3.yaml contains the default value.",
 			productChanges.Product_name, productChanges.Product_version)))
 	}
 	return true
+}
+
+func isValidateEmailAddress(username string) bool {
+	regex, err := regexp.Compile(constant.EMAIL_ADDRESS_REGEX)
+	if err != nil {
+		HandleErrorAndExit(err)
+	}
+	return regex.MatchString(username)
 }

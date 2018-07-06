@@ -51,6 +51,7 @@ const (
 	UPDATE_NUMBER_REGEX  = "^\\d{4}$"
 	KERNEL_VERSION_REGEX = "^\\d+\\.\\d+\\.\\d+$"
 	FILENAME_REGEX       = "^WSO2-CARBON-UPDATE-\\d+\\.\\d+\\.\\d+-\\d{4}.zip$"
+	EMAIL_ADDRESS_REGEX  = "^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
 
 	OTHER   = 0
 	YES     = 1
@@ -117,29 +118,13 @@ const (
 	UNABLE_TO_READ_YOUR_INPUT_MSG          = "unable to read your input"
 	USERNAME_PASSWORD_EMPTY_MSG            = "username or password cannot be empty"
 	DONE_MSG                               = "Done!\n"
+	INVALID_EMAIL_ADDRESS                  = "Invalid email address"
 
 	PRODUCT_API_CONTEXT = "products"
-	DEFAULT_DESCRIPTION = `Please add the description here without removing the literal block (|)
-A sample will be as follows,
-Fixes for the following in rabbitmq transport
-(i)   Channel not closing issue in rabbitmq publisher
-(ii)  Performance improvements to the transport by introducing a channel pool (configurable) and parameterising queue and exchange creation.
-(iii) Allow configuring connection factory by name in target url
+	DEFAULT_DESCRIPTION = `Description goes here
 `
 
-	DEFAULT_INSTRUCTIONS = `Please add instructions here without removing the literal block (|)
-A sample will be as follows
-This update changes the spark script related to geo location based analytics. Following steps are only required if you have enabled geo location based analytics[1].Please follow the stpes below in order to changes to be affected.
-
-1. After restarting analytics wum updated server, then go to the admin dashboard of api manager server. (for ex: https://localhost:9443/admin/)
-
-2. Then under Settings => Analytics, click Configure Alerts to open the Alert Configurations page.
-
-3. In the Geo Location Configurations section, click Deactivate
-
-4. After that again activate the Geo Location Configurations. (You can follow the steps 8, 9 of documentation [1] in order to activate again.)
-
-[1] - https://docs.wso2.com/display/AM210/Configuring+Geolocation+Based+Statistics
+	DEFAULT_INSTRUCTIONS = `Instruction goes here
 `
 	DEFAULT_JIRA_KEY     = "Enter JIRA_KEY/GITHUB ISSUE URL"
 	DEFAULT_JIRA_SUMMARY = "Enter JIRA_KEY SUMMARY/GITHUB_ISSUE_SUMMARY"
