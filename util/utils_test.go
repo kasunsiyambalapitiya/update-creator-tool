@@ -167,47 +167,47 @@ func TestIsUserPreferencesValid(t *testing.T) {
 }
 
 func TestValidateUpdateDescriptor(t *testing.T) {
-	//Todo here
-	updateDescriptor := UpdateDescriptorV2{}
-	err := ValidateBasicDetailsOfUpdateDescriptorV2(&updateDescriptor)
+
+	updateDescriptorV2 := UpdateDescriptorV2{}
+	err := ValidateUpdateDescriptorV2(&updateDescriptorV2)
 	if err == nil {
 		t.Error("Test failed. Error expected")
 	}
 
-	updateDescriptor.Update_number = "0001"
-	err = ValidateBasicDetailsOfUpdateDescriptorV2(&updateDescriptor)
+	updateDescriptorV2.Update_number = "0001"
+	err = ValidateUpdateDescriptorV2(&updateDescriptorV2)
 	if err == nil {
 		t.Error("Test failed. Error expected")
 	}
 
-	updateDescriptor.Platform_name = "wilkes"
-	err = ValidateBasicDetailsOfUpdateDescriptorV2(&updateDescriptor)
+	updateDescriptorV2.Platform_name = "wilkes"
+	err = ValidateUpdateDescriptorV2(&updateDescriptorV2)
 	if err == nil {
 		t.Error("Test failed. Error expected")
 	}
 
-	updateDescriptor.Platform_version = "4.4.0"
-	err = ValidateBasicDetailsOfUpdateDescriptorV2(&updateDescriptor)
+	updateDescriptorV2.Platform_version = "4.4.0"
+	err = ValidateUpdateDescriptorV2(&updateDescriptorV2)
 	if err == nil {
 		t.Error("Test failed. Error expected")
 	}
 
-	updateDescriptor.Applies_to = "wso2esb-4.9.0"
-	err = ValidateBasicDetailsOfUpdateDescriptorV2(&updateDescriptor)
+	updateDescriptorV2.Applies_to = "wso2esb-4.9.0"
+	err = ValidateUpdateDescriptorV2(&updateDescriptorV2)
 	if err == nil {
 		t.Error("Test failed. Error expected")
 	}
 
-	updateDescriptor.Bug_fixes = map[string]string{
+	updateDescriptorV2.Bug_fixes = map[string]string{
 		"N/A": "N/A",
 	}
-	err = ValidateBasicDetailsOfUpdateDescriptorV2(&updateDescriptor)
+	err = ValidateUpdateDescriptorV2(&updateDescriptorV2)
 	if err == nil {
 		t.Error("Test failed. Error expected")
 	}
 
-	updateDescriptor.Description = "sample description"
-	err = ValidateBasicDetailsOfUpdateDescriptorV2(&updateDescriptor)
+	updateDescriptorV2.Description = "sample description"
+	err = ValidateUpdateDescriptorV2(&updateDescriptorV2)
 	if err != nil {
 		t.Errorf("Test failed. Unexpected error %v", err)
 	}
