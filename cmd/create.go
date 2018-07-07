@@ -360,7 +360,7 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	}
 	for _, partialUpdatedProducts := range partialUpdatedFileResponse.Partially_applicable_products {
 		productChanges := setProductChangesInUpdateDescriptorV3(&partialUpdatedProducts)
-		updateDescriptorV3.Partial_applicable_products = append(updateDescriptorV3.Partial_applicable_products, *productChanges)
+		updateDescriptorV3.Partially_applicable_products = append(updateDescriptorV3.Partially_applicable_products, *productChanges)
 	}
 
 	// Set values to compatible products slice
@@ -370,7 +370,7 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	}
 	// Set values to partially applicable products slice
 	var partiallyApplicableProducts []string
-	for _, productChange := range updateDescriptorV3.Partial_applicable_products {
+	for _, productChange := range updateDescriptorV3.Partially_applicable_products {
 		partiallyApplicableProducts = append(partiallyApplicableProducts, productChange.Product_name)
 	}
 	// Set values to notify products slice

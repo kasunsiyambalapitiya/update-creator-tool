@@ -63,15 +63,15 @@ type UpdateDescriptorV2 struct {
 }
 
 type UpdateDescriptorV3 struct {
-	Update_number               string
-	Platform_version            string
-	Platform_name               string
-	Md5sum                      string
-	Description                 string
-	Instructions                string
-	Bug_fixes                   map[string]string
-	Compatible_products         []ProductChanges
-	Partial_applicable_products []ProductChanges
+	Update_number                 string
+	Platform_version              string
+	Platform_name                 string
+	Md5sum                        string
+	Description                   string
+	Instructions                  string
+	Bug_fixes                     map[string]string
+	Compatible_products           []ProductChanges
+	Partially_applicable_products []ProductChanges
 }
 
 type ProductChanges struct {
@@ -652,9 +652,9 @@ func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpda
 	}
 	//todo uncomment
 	// Invoke the API
-	/*	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
-		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY*/
-	apiURL := "http://www.mocky.io/v2/5b3da0bf3100006a0b6de0cd"
+	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
+		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY
+	/*apiURL := "http://www.mocky.io/v2/5b3da0bf3100006a0b6de0cd"*/
 	response := InvokePOSTRequest(apiURL, requestBody)
 	if response.StatusCode != http.StatusOK {
 		HandleUnableToConnectErrorAndExit(nil)
@@ -965,8 +965,8 @@ func GenerateMd5sumForFileChanges(updateDescriptorV3 *UpdateDescriptorV3) string
 		return updateDescriptorV3.Compatible_products[i].Product_name < updateDescriptorV3.Compatible_products[j].Product_name
 
 	})
-	sort.Slice(updateDescriptorV3.Partial_applicable_products, func(i, j int) bool {
-		return updateDescriptorV3.Partial_applicable_products[i].Product_name < updateDescriptorV3.Partial_applicable_products[j].
+	sort.Slice(updateDescriptorV3.Partially_applicable_products, func(i, j int) bool {
+		return updateDescriptorV3.Partially_applicable_products[i].Product_name < updateDescriptorV3.Partially_applicable_products[j].
 			Product_name
 	})
 	for _, productChange := range updateDescriptorV3.Compatible_products {
@@ -979,7 +979,7 @@ func GenerateMd5sumForFileChanges(updateDescriptorV3 *UpdateDescriptorV3) string
 		buffer.WriteString(productChange.Product_name)
 		buffer.WriteString(productChange.Product_version)
 	}
-	for _, productChange := range updateDescriptorV3.Partial_applicable_products {
+	for _, productChange := range updateDescriptorV3.Partially_applicable_products {
 		addedFileString = strings.Join(productChange.Added_files, ",")
 		modifiedFileString = strings.Join(productChange.Modified_files, ",")
 		removedFileString = strings.Join(productChange.Removed_files, ",")
