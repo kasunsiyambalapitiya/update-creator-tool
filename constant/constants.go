@@ -124,7 +124,7 @@ const (
 	DEFAULT_DESCRIPTION = `Description goes here
 `
 
-	DEFAULT_INSTRUCTIONS = `Instruction goes here
+	DEFAULT_INSTRUCTIONS = `Instructions goes here
 `
 	DEFAULT_JIRA_KEY     = "Enter JIRA_KEY/GITHUB ISSUE URL"
 	DEFAULT_JIRA_SUMMARY = "Enter JIRA_KEY SUMMARY/GITHUB_ISSUE_SUMMARY"

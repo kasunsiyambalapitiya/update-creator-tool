@@ -63,20 +63,20 @@ type UpdateDescriptorV2 struct {
 }
 
 type UpdateDescriptorV3 struct {
-	Update_number       string
-	Platform_version    string
-	Platform_name       string
-	Md5sum              string
-	Compatible_products []ProductChanges
-	Applicable_products []ProductChanges
+	Update_number                 string
+	Platform_version              string
+	Platform_name                 string
+	Md5sum                        string
+	Description                   string
+	Instructions                  string
+	Bug_fixes                     map[string]string
+	Compatible_products           []ProductChanges
+	Partially_applicable_products []ProductChanges
 }
 
 type ProductChanges struct {
 	Product_name    string
 	Product_version string
-	Description     string
-	Instructions    string
-	Bug_fixes       map[string]string
 	Added_files     []string
 	Removed_files   []string
 	Modified_files  []string
@@ -87,19 +87,19 @@ type PartialUpdateFileRequest struct {
 	Update_number    string   `json:"update-no"`
 	Platform_version string   `json:"platform-version"`
 	Platform_name    string   `json:"platform-name"`
-	Added_files      []string `json:"added-files"`
-	Removed_files    []string `json:"removed-files"`
-	Modified_files   []string `json:"modified_files"`
+	Added_files      []string `json:"added-files,omitempty"`
+	Removed_files    []string `json:"removed-files,omitempty"`
+	Modified_files   []string `json:"modified-files,omitempty"`
 }
 
 type PartialUpdatedFileResponse struct {
-	Update_number       string                   `json:"update-no"`
-	Platform_version    string                   `json:"platform-version"`
-	Platform_name       string                   `json:"platform-name"`
-	Backward_compatible bool                     `json:"backward-compatible"`
-	Applicable_products []PartialUpdatedProducts `json:"applicable-products"`
-	Compatible_products []PartialUpdatedProducts `json:"compatible-products"`
-	Notify_products     []PartialUpdatedProducts `json:"notify-products"`
+	Update_number                 string                   `json:"update-no"`
+	Platform_version              string                   `json:"platform-version"`
+	Platform_name                 string                   `json:"platform-name"`
+	Backward_compatible           bool                     `json:"backward-compatible"`
+	Partially_applicable_products []PartialUpdatedProducts `json:"partially-applicable-products"`
+	Compatible_products           []PartialUpdatedProducts `json:"compatible-products"`
+	Notify_products               []PartialUpdatedProducts `json:"notify-products"`
 }
 
 type PartialUpdatedProducts struct {
@@ -306,6 +306,22 @@ func ValidateUpdateDescriptorV2(updateDescriptorV2 *UpdateDescriptorV2) error {
 	return nil
 }
 
+func ValidateUpdateNumber(updateNumber string) bool {
+	regex, err := regexp.Compile(constant.UPDATE_NUMBER_REGEX)
+	if err != nil {
+		HandleErrorAndExit(err)
+	}
+	return regex.MatchString(updateNumber)
+}
+
+func ValidatePlatformVersion(platformVersion string) bool {
+	regex, err := regexp.Compile(constant.KERNEL_VERSION_REGEX)
+	if err != nil {
+		HandleErrorAndExit(err)
+	}
+	return regex.MatchString(platformVersion)
+}
+
 // Check whether the given string is in the given slice
 func IsStringIsInSlice(a string, list []string) bool {
 	for _, b := range list {
@@ -349,15 +365,7 @@ func ValidateUpdateDescriptorV3(updateDescriptorV3 *UpdateDescriptorV3) error {
 		HandleErrorAndExit(errors.New("Detected a change in added, " +
 			"modified and removed files in compatible_products/applicable_products sections"))
 	}
-
-	// Check whether user has filled requested information after update-descriptor3.yaml is been created
-	for _, productChanges := range updateDescriptorV3.Compatible_products {
-		isRequestedChangesMade(&productChanges)
-	}
-	for _, productChanges := range updateDescriptorV3.Applicable_products {
-		isRequestedChangesMade(&productChanges)
-
-	}
+	isRequestedChangesMade(updateDescriptorV3)
 	return nil
 }
 
@@ -644,9 +652,15 @@ func createPartialUpdateFileRequest(updateDescriptorV2 *UpdateDescriptorV2) *Par
 	partialUpdateFileRequest.Update_number = updateDescriptorV2.Update_number
 	partialUpdateFileRequest.Platform_name = updateDescriptorV2.Platform_name
 	partialUpdateFileRequest.Platform_version = updateDescriptorV2.Platform_version
-	partialUpdateFileRequest.Added_files = updateDescriptorV2.File_changes.Added_files
-	partialUpdateFileRequest.Modified_files = updateDescriptorV2.File_changes.Modified_files
-	partialUpdateFileRequest.Removed_files = updateDescriptorV2.File_changes.Removed_files
+	if updateDescriptorV2.File_changes.Added_files != nil {
+		partialUpdateFileRequest.Added_files = updateDescriptorV2.File_changes.Added_files
+	}
+	if updateDescriptorV2.File_changes.Modified_files != nil {
+		partialUpdateFileRequest.Modified_files = updateDescriptorV2.File_changes.Modified_files
+	}
+	if updateDescriptorV2.File_changes.Removed_files != nil {
+		partialUpdateFileRequest.Removed_files = updateDescriptorV2.File_changes.Removed_files
+	}
 	return &partialUpdateFileRequest
 }
 
@@ -660,9 +674,9 @@ func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpda
 	}
 	//todo uncomment
 	// Invoke the API
-	/*	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
-		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY*/
-	apiURL := "http://www.mocky.io/v2/5b3da0bf3100006a0b6de0cd"
+	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
+		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY
+	/*	apiURL := "http://www.mocky.io/v2/5b41fdf52e00005c00222ef9"*/
 	response := InvokePOSTRequest(apiURL, requestBody)
 	if response.StatusCode != http.StatusOK {
 		HandleUnableToConnectErrorAndExit(nil)
@@ -847,6 +861,7 @@ func InvokeTokenAPI(payload *url.Values, wumucConfig *WUMUCConfig, tokenType str
 	return &tokenResponse, nil
 }
 
+// Used to unmarshall the json response received to the provided struct
 func processResponseFromServer(response *http.Response, v interface{}) {
 	defer response.Body.Close()
 	data, err := ioutil.ReadAll(response.Body)
@@ -883,14 +898,11 @@ func Init(username string, password []byte) {
 			HandleUnableToConnectErrorAndExit(errors.New("Invalid Credentials. " +
 				"Please enter valid WSO2 credentials to continue"))
 		}
-
 	} else if len(password) == 0 {
 		if username == "" {
 			username = wumucConfig.Username
 		}
-
 		username, tokenResponse = getAccessTokenFromUserCreds(username, 1, wumucConfig)
-
 	} else {
 		HandleUnableToConnectErrorAndExit(errors.New(constant.USERNAME_PASSWORD_EMPTY_MSG))
 	}
@@ -911,7 +923,6 @@ func getAccessTokenFromUserCreds(username string, attempt int, wumucConfig *WUMU
 	if (!validEmail || len(password) == 0) && attempt < 3 {
 		fmt.Fprintln(os.Stderr)
 		return getAccessTokenFromUserCreds("", attempt+1, wumucConfig)
-
 	} else if (!validEmail || len(password) == 0) && attempt == 3 {
 		HandleUnableToConnectErrorAndExit(errors.New("Invalid Credentials. " +
 			"Please enter your WSO2 credentials to continue"))
@@ -922,6 +933,7 @@ func getAccessTokenFromUserCreds(username string, attempt int, wumucConfig *WUMU
 	if err != nil && attempt < 3 {
 		// Authentication failure
 		fmt.Fprintln(os.Stderr)
+		PrintError(err)
 		return getAccessTokenFromUserCreds(username, attempt+1, wumucConfig)
 
 	} else if err != nil && attempt == 3 {
@@ -948,7 +960,13 @@ func getCredentials(username string) (bool, string, []byte) {
 		validEmail := isValidateEmailAddress(username)
 		if !validEmail {
 			fmt.Fprintln(os.Stderr, constant.INVALID_EMAIL_ADDRESS)
+			return validEmail, "", password
 		}
+	}
+	// Validate email address received from user input with -u flag
+	validEmail := isValidateEmailAddress(username)
+	if !validEmail {
+		fmt.Fprintln(os.Stderr, constant.INVALID_EMAIL_ADDRESS)
 		return validEmail, "", password
 	}
 
@@ -958,7 +976,7 @@ func getCredentials(username string) (bool, string, []byte) {
 		HandleErrorAndExit(err, constant.UNABLE_TO_READ_YOUR_INPUT_MSG)
 	}
 	fmt.Fprintln(os.Stderr)
-	// As email already perisisted in config.yaml should be in correct format
+	// As email already validated
 	return true, username, password
 }
 
@@ -973,8 +991,8 @@ func GenerateMd5sumForFileChanges(updateDescriptorV3 *UpdateDescriptorV3) string
 		return updateDescriptorV3.Compatible_products[i].Product_name < updateDescriptorV3.Compatible_products[j].Product_name
 
 	})
-	sort.Slice(updateDescriptorV3.Applicable_products, func(i, j int) bool {
-		return updateDescriptorV3.Applicable_products[i].Product_name < updateDescriptorV3.Applicable_products[j].
+	sort.Slice(updateDescriptorV3.Partially_applicable_products, func(i, j int) bool {
+		return updateDescriptorV3.Partially_applicable_products[i].Product_name < updateDescriptorV3.Partially_applicable_products[j].
 			Product_name
 	})
 	for _, productChange := range updateDescriptorV3.Compatible_products {
@@ -987,7 +1005,7 @@ func GenerateMd5sumForFileChanges(updateDescriptorV3 *UpdateDescriptorV3) string
 		buffer.WriteString(productChange.Product_name)
 		buffer.WriteString(productChange.Product_version)
 	}
-	for _, productChange := range updateDescriptorV3.Applicable_products {
+	for _, productChange := range updateDescriptorV3.Partially_applicable_products {
 		addedFileString = strings.Join(productChange.Added_files, ",")
 		modifiedFileString = strings.Join(productChange.Modified_files, ",")
 		removedFileString = strings.Join(productChange.Removed_files, ",")
@@ -1001,40 +1019,34 @@ func GenerateMd5sumForFileChanges(updateDescriptorV3 *UpdateDescriptorV3) string
 }
 
 // Check whether user has filled requested information after update-descriptor3.yaml is been created
-func isRequestedChangesMade(productChanges *ProductChanges) bool {
+func isRequestedChangesMade(updateDescriptorV3 *UpdateDescriptorV3) bool {
 	// Check if relevant fields are empty
-	if len(productChanges.Description) == 0 {
+	if len(updateDescriptorV3.Description) == 0 {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"description section of product %s version %s in update-descriptor3.yaml is empty.",
-			productChanges.Product_name, productChanges.Product_version)))
+			"value for description key in update-descriptor3.yaml is empty.")))
 	}
-	if len(productChanges.Instructions) == 0 {
+	if len(updateDescriptorV3.Instructions) == 0 {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"intructions section of product %s version %s in update-descriptor3.yaml is empty",
-			productChanges.Product_name, productChanges.Product_version)))
+			"value for intructions key in update-descriptor3.yaml is empty")))
 	}
-	if len(productChanges.Bug_fixes) == 0 {
+	if len(updateDescriptorV3.Bug_fixes) == 0 {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"bug_fixes section of product %s version %s in update-descriptor3.yaml is empty",
-			productChanges.Product_name, productChanges.Product_version)))
+			"value for bug_fixes key in update-descriptor3.yaml is empty")))
 	}
 
 	// Check if relevant fields contain the default value generated in update creation
-	if productChanges.Description == constant.DEFAULT_DESCRIPTION {
+	if updateDescriptorV3.Description == constant.DEFAULT_DESCRIPTION {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"description section of product %s version %s in update-descriptor3.yaml contains the default value.",
-			productChanges.Product_name, productChanges.Product_version)))
+			"value for description key in update-descriptor3.yaml contains the default value.")))
 	}
-	if productChanges.Instructions == constant.DEFAULT_INSTRUCTIONS {
+	if updateDescriptorV3.Instructions == constant.DEFAULT_INSTRUCTIONS {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"intructions section of product %s version %s in update-descriptor3.yaml contains the default value.",
-			productChanges.Product_name, productChanges.Product_version)))
+			"value for intructions key in update-descriptor3.yaml contains the default value.")))
 	}
-	_, exists := productChanges.Bug_fixes[constant.DEFAULT_JIRA_KEY]
+	_, exists := updateDescriptorV3.Bug_fixes[constant.DEFAULT_JIRA_KEY]
 	if exists {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"bug_fixes section of product %s version %s in update-descriptor3.yaml contains the default value.",
-			productChanges.Product_name, productChanges.Product_version)))
+			"value for bug_fixes key in update-descriptor3.yaml contains the default value.")))
 	}
 	return true
 }
