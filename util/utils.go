@@ -63,20 +63,20 @@ type UpdateDescriptorV2 struct {
 }
 
 type UpdateDescriptorV3 struct {
-	Update_number       string
-	Platform_version    string
-	Platform_name       string
-	Md5sum              string
-	Compatible_products []ProductChanges
-	Applicable_products []ProductChanges
+	Update_number               string
+	Platform_version            string
+	Platform_name               string
+	Md5sum                      string
+	Description                 string
+	Instructions                string
+	Bug_fixes                   map[string]string
+	Compatible_products         []ProductChanges
+	Partial_applicable_products []ProductChanges
 }
 
 type ProductChanges struct {
 	Product_name    string
 	Product_version string
-	Description     string
-	Instructions    string
-	Bug_fixes       map[string]string
 	Added_files     []string
 	Removed_files   []string
 	Modified_files  []string
@@ -354,7 +354,7 @@ func ValidateUpdateDescriptorV3(updateDescriptorV3 *UpdateDescriptorV3) error {
 	for _, productChanges := range updateDescriptorV3.Compatible_products {
 		isRequestedChangesMade(&productChanges)
 	}
-	for _, productChanges := range updateDescriptorV3.Applicable_products {
+	for _, productChanges := range updateDescriptorV3.Partial_applicable_products {
 		isRequestedChangesMade(&productChanges)
 
 	}
@@ -973,8 +973,8 @@ func GenerateMd5sumForFileChanges(updateDescriptorV3 *UpdateDescriptorV3) string
 		return updateDescriptorV3.Compatible_products[i].Product_name < updateDescriptorV3.Compatible_products[j].Product_name
 
 	})
-	sort.Slice(updateDescriptorV3.Applicable_products, func(i, j int) bool {
-		return updateDescriptorV3.Applicable_products[i].Product_name < updateDescriptorV3.Applicable_products[j].
+	sort.Slice(updateDescriptorV3.Partial_applicable_products, func(i, j int) bool {
+		return updateDescriptorV3.Partial_applicable_products[i].Product_name < updateDescriptorV3.Partial_applicable_products[j].
 			Product_name
 	})
 	for _, productChange := range updateDescriptorV3.Compatible_products {
@@ -987,7 +987,7 @@ func GenerateMd5sumForFileChanges(updateDescriptorV3 *UpdateDescriptorV3) string
 		buffer.WriteString(productChange.Product_name)
 		buffer.WriteString(productChange.Product_version)
 	}
-	for _, productChange := range updateDescriptorV3.Applicable_products {
+	for _, productChange := range updateDescriptorV3.Partial_applicable_products {
 		addedFileString = strings.Join(productChange.Added_files, ",")
 		modifiedFileString = strings.Join(productChange.Modified_files, ",")
 		removedFileString = strings.Join(productChange.Removed_files, ",")

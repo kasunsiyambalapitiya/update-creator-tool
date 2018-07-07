@@ -176,7 +176,6 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	viper.Set(constant.UPDATE_NAME, updateName)
 
 	//5) Validate UpdateDescriptorV2 for basic details of update-descriptor.yaml
-	//Todo use this in validation
 	err = util.ValidateBasicDetailsOfUpdateDescriptorV2(&updateDescriptorV2)
 	util.HandleErrorAndExit(err, fmt.Sprintf("'%s' format is incorrect.", constant.UPDATE_DESCRIPTOR_V2_FILE))
 
@@ -345,16 +344,23 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	}
 
 	// Set values for UpdateDescriptorV3
+	defaultBugFixes := map[string]string{
+		constant.DEFAULT_JIRA_KEY: constant.DEFAULT_JIRA_SUMMARY,
+	}
 	updateDescriptorV3.Update_number = partialUpdatedFileResponse.Update_number
 	updateDescriptorV3.Platform_name = partialUpdatedFileResponse.Platform_name
 	updateDescriptorV3.Platform_version = partialUpdatedFileResponse.Platform_version
+	updateDescriptorV3.Description = constant.DEFAULT_DESCRIPTION
+	updateDescriptorV3.Instructions = constant.DEFAULT_INSTRUCTIONS
+	updateDescriptorV3.Bug_fixes = defaultBugFixes
+
 	for _, partialUpdatedProducts := range partialUpdatedFileResponse.Compatible_products {
 		productChanges := setProductChangesInUpdateDescriptorV3(&partialUpdatedProducts)
 		updateDescriptorV3.Compatible_products = append(updateDescriptorV3.Compatible_products, *productChanges)
 	}
 	for _, partialUpdatedProducts := range partialUpdatedFileResponse.Partially_applicable_products {
 		productChanges := setProductChangesInUpdateDescriptorV3(&partialUpdatedProducts)
-		updateDescriptorV3.Applicable_products = append(updateDescriptorV3.Applicable_products, *productChanges)
+		updateDescriptorV3.Partial_applicable_products = append(updateDescriptorV3.Partial_applicable_products, *productChanges)
 	}
 
 	// Set values to compatible products slice
@@ -364,7 +370,7 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	}
 	// Set values to partially applicable products slice
 	var partiallyApplicableProducts []string
-	for _, productChange := range updateDescriptorV3.Applicable_products {
+	for _, productChange := range updateDescriptorV3.Partial_applicable_products {
 		partiallyApplicableProducts = append(partiallyApplicableProducts, productChange.Product_name)
 	}
 	// Set values to notify products slice
@@ -1557,14 +1563,8 @@ func ZipFile(source, target string) error {
 
 func setProductChangesInUpdateDescriptorV3(partialUpdatedProducts *util.PartialUpdatedProducts) *util.ProductChanges {
 	productChanges := &util.ProductChanges{}
-	defaultBugFixes := map[string]string{
-		constant.DEFAULT_JIRA_KEY: constant.DEFAULT_JIRA_SUMMARY,
-	}
 	productChanges.Product_name = partialUpdatedProducts.Product_name
 	productChanges.Product_version = partialUpdatedProducts.Base_version + "." + partialUpdatedProducts.Tag
-	productChanges.Description = constant.DEFAULT_DESCRIPTION
-	productChanges.Instructions = constant.DEFAULT_INSTRUCTIONS
-	productChanges.Bug_fixes = defaultBugFixes
 	productChanges.Added_files = partialUpdatedProducts.Added_files
 	productChanges.Removed_files = partialUpdatedProducts.Removed_files
 	productChanges.Modified_files = partialUpdatedProducts.Modified_files
