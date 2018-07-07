@@ -136,6 +136,7 @@ func startValidation(updateFilePath, distributionLocation string) {
 	util.PrintInfo("'" + updateName + "' validation successfully finished.")
 }
 
+//Todo here validate only when UD2 is available
 // This function compares the files in the update and the distribution.
 func compare(updateFileMap, distributionFileMap map[string]bool, updateDescriptorV2 *util.UpdateDescriptorV2) error {
 	updateName := viper.GetString(constant.UPDATE_NAME)

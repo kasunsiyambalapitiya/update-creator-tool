@@ -349,15 +349,7 @@ func ValidateUpdateDescriptorV3(updateDescriptorV3 *UpdateDescriptorV3) error {
 		HandleErrorAndExit(errors.New("Detected a change in added, " +
 			"modified and removed files in compatible_products/applicable_products sections"))
 	}
-
-	// Check whether user has filled requested information after update-descriptor3.yaml is been created
-	for _, productChanges := range updateDescriptorV3.Compatible_products {
-		isRequestedChangesMade(&productChanges)
-	}
-	for _, productChanges := range updateDescriptorV3.Partial_applicable_products {
-		isRequestedChangesMade(&productChanges)
-
-	}
+	isRequestedChangesMade(updateDescriptorV3)
 	return nil
 }
 
@@ -1001,40 +993,34 @@ func GenerateMd5sumForFileChanges(updateDescriptorV3 *UpdateDescriptorV3) string
 }
 
 // Check whether user has filled requested information after update-descriptor3.yaml is been created
-func isRequestedChangesMade(productChanges *ProductChanges) bool {
+func isRequestedChangesMade(updateDescriptorV3 *UpdateDescriptorV3) bool {
 	// Check if relevant fields are empty
-	if len(productChanges.Description) == 0 {
+	if len(updateDescriptorV3.Description) == 0 {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"description section of product %s version %s in update-descriptor3.yaml is empty.",
-			productChanges.Product_name, productChanges.Product_version)))
+			"value for description key in update-descriptor3.yaml is empty.")))
 	}
-	if len(productChanges.Instructions) == 0 {
+	if len(updateDescriptorV3.Instructions) == 0 {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"intructions section of product %s version %s in update-descriptor3.yaml is empty",
-			productChanges.Product_name, productChanges.Product_version)))
+			"value for intructions key in update-descriptor3.yaml is empty")))
 	}
-	if len(productChanges.Bug_fixes) == 0 {
+	if len(updateDescriptorV3.Bug_fixes) == 0 {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"bug_fixes section of product %s version %s in update-descriptor3.yaml is empty",
-			productChanges.Product_name, productChanges.Product_version)))
+			"value for bug_fixes key in update-descriptor3.yaml is empty")))
 	}
 
 	// Check if relevant fields contain the default value generated in update creation
-	if productChanges.Description == constant.DEFAULT_DESCRIPTION {
+	if updateDescriptorV3.Description == constant.DEFAULT_DESCRIPTION {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"description section of product %s version %s in update-descriptor3.yaml contains the default value.",
-			productChanges.Product_name, productChanges.Product_version)))
+			"value for description key in update-descriptor3.yaml contains the default value.")))
 	}
-	if productChanges.Instructions == constant.DEFAULT_INSTRUCTIONS {
+	if updateDescriptorV3.Instructions == constant.DEFAULT_INSTRUCTIONS {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"intructions section of product %s version %s in update-descriptor3.yaml contains the default value.",
-			productChanges.Product_name, productChanges.Product_version)))
+			"value for intructions key in update-descriptor3.yaml contains the default value.")))
 	}
-	_, exists := productChanges.Bug_fixes[constant.DEFAULT_JIRA_KEY]
+	_, exists := updateDescriptorV3.Bug_fixes[constant.DEFAULT_JIRA_KEY]
 	if exists {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
-			"bug_fixes section of product %s version %s in update-descriptor3.yaml contains the default value.",
-			productChanges.Product_name, productChanges.Product_version)))
+			"value for bug_fixes key in update-descriptor3.yaml contains the default value.")))
 	}
 	return true
 }
