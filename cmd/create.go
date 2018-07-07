@@ -317,14 +317,14 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	util.PrintInBold("Enter relative paths of removed files, please enter 'done' when you are finished entering")
 	fmt.Println()
 	//Todo uncomment
-	/*	for {
+	for {
 		removedFile, err := util.GetUserInput()
 		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 		if strings.ToLower(removedFile) == "done" {
-			return
+			break
 		}
 		updateDescriptorV2.File_changes.Removed_files = append(updateDescriptorV2.File_changes.Removed_files, removedFile)
-	}*/
+	}
 
 	// Get partial updated file changes
 	partialUpdatedFileResponse := util.GetPartialUpdatedFiles(&updateDescriptorV2)

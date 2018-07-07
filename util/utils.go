@@ -89,7 +89,7 @@ type PartialUpdateFileRequest struct {
 	Platform_name    string   `json:"platform-name"`
 	Added_files      []string `json:"added-files"`
 	Removed_files    []string `json:"removed-files"`
-	Modified_files   []string `json:"modified_files"`
+	Modified_files   []string `json:"modified-files"`
 }
 
 type PartialUpdatedFileResponse struct {
@@ -97,7 +97,7 @@ type PartialUpdatedFileResponse struct {
 	Platform_version    string                   `json:"platform-version"`
 	Platform_name       string                   `json:"platform-name"`
 	Backward_compatible bool                     `json:"backward-compatible"`
-	Applicable_products []PartialUpdatedProducts `json:"applicable-products"`
+	Applicable_products []PartialUpdatedProducts `json:"partially-applicable-products"`
 	Compatible_products []PartialUpdatedProducts `json:"compatible-products"`
 	Notify_products     []PartialUpdatedProducts `json:"notify-products"`
 }
@@ -647,6 +647,9 @@ func createPartialUpdateFileRequest(updateDescriptorV2 *UpdateDescriptorV2) *Par
 	partialUpdateFileRequest.Added_files = updateDescriptorV2.File_changes.Added_files
 	partialUpdateFileRequest.Modified_files = updateDescriptorV2.File_changes.Modified_files
 	partialUpdateFileRequest.Removed_files = updateDescriptorV2.File_changes.Removed_files
+	fmt.Println("Request================================")
+
+	fmt.Println(partialUpdateFileRequest)
 	return &partialUpdateFileRequest
 }
 
@@ -658,17 +661,20 @@ func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpda
 	if err := json.NewEncoder(requestBody).Encode(partialUpdateFileRequest); err != nil {
 		HandleErrorAndExit(err)
 	}
+	fmt.Println(requestBody.String())
 	//todo uncomment
 	// Invoke the API
-	/*	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
-		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY*/
-	apiURL := "http://www.mocky.io/v2/5b3da0bf3100006a0b6de0cd"
+	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
+		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY
+	//apiURL := "http://www.mocky.io/v2/5b3da0bf3100006a0b6de0cd"
 	response := InvokePOSTRequest(apiURL, requestBody)
 	if response.StatusCode != http.StatusOK {
 		HandleUnableToConnectErrorAndExit(nil)
 	}
 	partialUpdatedFileResponse := PartialUpdatedFileResponse{}
 	processResponseFromServer(response, &partialUpdatedFileResponse)
+	fmt.Println("Response================================")
+	fmt.Println(partialUpdatedFileResponse)
 	return &partialUpdatedFileResponse
 }
 
