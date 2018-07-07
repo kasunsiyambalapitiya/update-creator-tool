@@ -89,17 +89,17 @@ type PartialUpdateFileRequest struct {
 	Platform_name    string   `json:"platform-name"`
 	Added_files      []string `json:"added-files"`
 	Removed_files    []string `json:"removed-files"`
-	Modified_files   []string `json:"modified_files"`
+	Modified_files   []string `json:"modified-files"`
 }
 
 type PartialUpdatedFileResponse struct {
-	Update_number       string                   `json:"update-no"`
-	Platform_version    string                   `json:"platform-version"`
-	Platform_name       string                   `json:"platform-name"`
-	Backward_compatible bool                     `json:"backward-compatible"`
-	Applicable_products []PartialUpdatedProducts `json:"applicable-products"`
-	Compatible_products []PartialUpdatedProducts `json:"compatible-products"`
-	Notify_products     []PartialUpdatedProducts `json:"notify-products"`
+	Update_number                 string                   `json:"update-no"`
+	Platform_version              string                   `json:"platform-version"`
+	Platform_name                 string                   `json:"platform-name"`
+	Backward_compatible           bool                     `json:"backward-compatible"`
+	Partially_applicable_products []PartialUpdatedProducts `json:"partially-applicable-products"`
+	Compatible_products           []PartialUpdatedProducts `json:"compatible-products"`
+	Notify_products               []PartialUpdatedProducts `json:"notify-products"`
 }
 
 type PartialUpdatedProducts struct {

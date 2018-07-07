@@ -317,14 +317,14 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	util.PrintInBold("Enter relative paths of removed files, please enter 'done' when you are finished entering")
 	fmt.Println()
 	//Todo uncomment
-	/*	for {
+	for {
 		removedFile, err := util.GetUserInput()
 		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 		if strings.ToLower(removedFile) == "done" {
-			return
+			break
 		}
 		updateDescriptorV2.File_changes.Removed_files = append(updateDescriptorV2.File_changes.Removed_files, removedFile)
-	}*/
+	}
 
 	// Get partial updated file changes
 	partialUpdatedFileResponse := util.GetPartialUpdatedFiles(&updateDescriptorV2)
@@ -352,9 +352,25 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 		productChanges := setProductChangesInUpdateDescriptorV3(&partialUpdatedProducts)
 		updateDescriptorV3.Compatible_products = append(updateDescriptorV3.Compatible_products, *productChanges)
 	}
-	for _, partialUpdatedProducts := range partialUpdatedFileResponse.Applicable_products {
+	for _, partialUpdatedProducts := range partialUpdatedFileResponse.Partially_applicable_products {
 		productChanges := setProductChangesInUpdateDescriptorV3(&partialUpdatedProducts)
 		updateDescriptorV3.Applicable_products = append(updateDescriptorV3.Applicable_products, *productChanges)
+	}
+
+	// Set values to compatible products slice
+	var compatibleProducts []string
+	for _, productChange := range updateDescriptorV3.Compatible_products {
+		compatibleProducts = append(compatibleProducts, productChange.Product_name)
+	}
+	// Set values to partially applicable products slice
+	var partiallyApplicableProducts []string
+	for _, productChange := range updateDescriptorV3.Applicable_products {
+		partiallyApplicableProducts = append(partiallyApplicableProducts, productChange.Product_name)
+	}
+	// Set values to notify products slice
+	var notifyProducts []string
+	for _, partialUpdatedProducts := range partialUpdatedFileResponse.Notify_products {
+		notifyProducts = append(notifyProducts, partialUpdatedProducts.Product_name)
 	}
 
 	// Generate md5sum for product changes
@@ -390,8 +406,14 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	signal.Stop(cleanupChannel)
 
 	util.PrintInfo(fmt.Sprintf("'%s' successfully created.", updateZipName))
+
+	util.PrintInBold(fmt.Sprintf("Your update applies to the following products\n"))
+	util.PrintInBold(fmt.Sprintf("\tCompatible products : %v \n", compatibleProducts))
+	util.PrintInBold(fmt.Sprintf("\tPartially applicable products : %v \n", partiallyApplicableProducts))
+	util.PrintInBold(fmt.Sprintf("\tNotify products : %v \n", notifyProducts))
+
 	util.PrintInBold(fmt.Sprintf("Please manually fill the  `description`,"+
-		"`instructions` and `bug_fixes` fields of compatible and applicable products in the update-descriptor3."+
+		"`instructions` and `bug_fixes` fields for above products in the update-descriptor3."+
 		"yaml located inside the created '%s'\n", updateZipName))
 }
 
@@ -689,29 +711,6 @@ func saveUpdateDescriptorInDestination(updateDescriptorFilePath, dataString, des
 	}
 	return absDestination
 }
-
-// Todo delete them
-/*func checkUpdateDescriptors(updateDirectoryPath string, updateDescriptorV2 *util.UpdateDescriptorV2,
-	updateDescriptorV3 *util.UpdateDescriptorV3) {
-	exists := checkUpdateDescriptor(updateDirectoryPath, constant.UPDATE_DESCRIPTOR_V2_FILE)
-	if exists {
-		// validate its content
-	} else {
-		// Create the file in provided location
-	}
-	checkUpdateDescriptor(updateDirectoryPath, constant.UPDATE_DESCRIPTOR_V3_FILE)
-}*/
-
-/*
-func checkUpdateDescriptor(updateDirectoryPath, updateDescriptor string) bool {
-	// Construct the update-descriptor file location
-	updateDescriptorPath := path.Join(updateDirectoryPath, updateDescriptor)
-	exists, err := util.IsFileExists(updateDescriptorPath)
-	util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred while checking for the '%s'",
-		updateDescriptor))
-	logger.Debug(fmt.Sprintf("%s exists. Location %s", updateDescriptor, updateDescriptorPath))
-	return exists
-}*/
 
 // This function will set the update name which will be used when creating the update zip.
 func getUpdateName(updateDescriptorV2 *util.UpdateDescriptorV2, updateNamePrefix string) string {
