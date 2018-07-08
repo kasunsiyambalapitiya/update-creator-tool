@@ -130,9 +130,11 @@ func startValidation(updateFilePath, distributionLocation string) {
 	util.HandleErrorAndExit(err)
 	logger.Trace(fmt.Sprintf("distributionFileMap: %v\n", distributionFileMap))
 
-	// Compares the update with the distribution
-	err = compare(updateFileMap, distributionFileMap, updateDescriptorV2)
-	util.HandleErrorAndExit(err)
+	// Compares the update with the distribution if update-descriptor.yaml exists
+	if updateDescriptorV2.Update_number != "" {
+		err = compare(updateFileMap, distributionFileMap, updateDescriptorV2)
+		util.HandleErrorAndExit(err)
+	}
 	util.PrintInfo("'" + updateName + "' validation successfully finished.")
 }
 

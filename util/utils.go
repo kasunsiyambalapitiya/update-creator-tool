@@ -87,9 +87,9 @@ type PartialUpdateFileRequest struct {
 	Update_number    string   `json:"update-no"`
 	Platform_version string   `json:"platform-version"`
 	Platform_name    string   `json:"platform-name"`
-	Added_files      []string `json:"added-files"`
-	Removed_files    []string `json:"removed-files"`
-	Modified_files   []string `json:"modified-files"`
+	Added_files      []string `json:"added-files,omitempty"`
+	Removed_files    []string `json:"removed-files,omitempty"`
+	Modified_files   []string `json:"modified-files,omitempty"`
 }
 
 type PartialUpdatedFileResponse struct {
@@ -632,13 +632,25 @@ func GetContentFromUrl(url string) ([]byte, error) {
 
 //Todo doc
 func createPartialUpdateFileRequest(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpdateFileRequest {
+	fmt.Println("===================== UpdateV2================")
+	fmt.Println(updateDescriptorV2)
 	partialUpdateFileRequest := PartialUpdateFileRequest{}
+	fmt.Println("===================== partialUpdateFileRequest intialize================")
+	fmt.Println(partialUpdateFileRequest)
 	partialUpdateFileRequest.Update_number = updateDescriptorV2.Update_number
 	partialUpdateFileRequest.Platform_name = updateDescriptorV2.Platform_name
 	partialUpdateFileRequest.Platform_version = updateDescriptorV2.Platform_version
-	partialUpdateFileRequest.Added_files = updateDescriptorV2.File_changes.Added_files
-	partialUpdateFileRequest.Modified_files = updateDescriptorV2.File_changes.Modified_files
-	partialUpdateFileRequest.Removed_files = updateDescriptorV2.File_changes.Removed_files
+	if updateDescriptorV2.File_changes.Added_files != nil {
+		partialUpdateFileRequest.Added_files = updateDescriptorV2.File_changes.Added_files
+	}
+	if updateDescriptorV2.File_changes.Modified_files != nil {
+		partialUpdateFileRequest.Modified_files = updateDescriptorV2.File_changes.Modified_files
+	}
+	if updateDescriptorV2.File_changes.Removed_files != nil {
+		partialUpdateFileRequest.Removed_files = updateDescriptorV2.File_changes.Removed_files
+	}
+	fmt.Println("===================== partialUpdateFileRequest after setting================")
+	fmt.Println(partialUpdateFileRequest)
 	return &partialUpdateFileRequest
 }
 
@@ -650,6 +662,8 @@ func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpda
 	if err := json.NewEncoder(requestBody).Encode(partialUpdateFileRequest); err != nil {
 		HandleErrorAndExit(err)
 	}
+	fmt.Println("===================== Request================")
+	fmt.Println(requestBody)
 	//todo uncomment
 	// Invoke the API
 	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
@@ -660,6 +674,8 @@ func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpda
 		HandleUnableToConnectErrorAndExit(nil)
 	}
 	partialUpdatedFileResponse := PartialUpdatedFileResponse{}
+	fmt.Println("===========partialupdateResponse intialize=======")
+	fmt.Println(partialUpdatedFileResponse)
 	processResponseFromServer(response, &partialUpdatedFileResponse)
 	return &partialUpdatedFileResponse
 }
@@ -903,7 +919,6 @@ func getAccessTokenFromUserCreds(username string, attempt int, wumucConfig *WUMU
 	if (!validEmail || len(password) == 0) && attempt < 3 {
 		fmt.Fprintln(os.Stderr)
 		return getAccessTokenFromUserCreds("", attempt+1, wumucConfig)
-
 	} else if (!validEmail || len(password) == 0) && attempt == 3 {
 		HandleUnableToConnectErrorAndExit(errors.New("Invalid Credentials. " +
 			"Please enter your WSO2 credentials to continue"))
@@ -940,7 +955,13 @@ func getCredentials(username string) (bool, string, []byte) {
 		validEmail := isValidateEmailAddress(username)
 		if !validEmail {
 			fmt.Fprintln(os.Stderr, constant.INVALID_EMAIL_ADDRESS)
+			return validEmail, "", password
 		}
+	}
+	// Validate email address
+	validEmail := isValidateEmailAddress(username)
+	if !validEmail {
+		fmt.Fprintln(os.Stderr, constant.INVALID_EMAIL_ADDRESS)
 		return validEmail, "", password
 	}
 

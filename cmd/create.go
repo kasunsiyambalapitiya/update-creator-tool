@@ -157,6 +157,8 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	// Create new update descriptor structs
 	updateDescriptorV2 := util.UpdateDescriptorV2{}
 	updateDescriptorV3 := util.UpdateDescriptorV3{}
+	fmt.Println("======================After Structs are initialize=======")
+	fmt.Println(updateDescriptorV2)
 
 	//2) Process the README.txt file if it exists
 	readMeDataString := processReadMe(updateDirectoryPath, &updateDescriptorV2)
@@ -232,7 +234,8 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 
 	//todo: save the selected location to generate the final summary map
 	//8) Find matches
-
+	fmt.Println("======================before finding matches=======")
+	fmt.Println(updateDescriptorV2)
 	// This will be used to store all the matches (matching locations in for the given directory)
 	matches := make(map[string]*node)
 	// Find matches in the distribution for all directories in the root level of the update directory
@@ -327,6 +330,8 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 
 	// Get partial updated file changes
 	partialUpdatedFileResponse := util.GetPartialUpdatedFiles(&updateDescriptorV2)
+	fmt.Println("=========== reponse =======================")
+	fmt.Println(partialUpdatedFileResponse)
 	if partialUpdatedFileResponse.Backward_compatible {
 		// Create update-descriptor.yaml
 		if len(readMeDataString) != 0 {
@@ -1457,6 +1462,8 @@ func copyFile(filename string, locationInUpdate, relativeLocationInTemp string, 
 	updateDescriptor *util.UpdateDescriptorV2) error {
 	logger.Debug(fmt.Sprintf("[FINAL][COPY ROOT] Name: %s ; IsDir: false ; From: %s ; To: %s", filename,
 		locationInUpdate, relativeLocationInTemp))
+	fmt.Println("======================Before appending in copy file=======")
+	fmt.Println(updateDescriptor)
 	updateName := viper.GetString(constant.UPDATE_NAME)
 	source := path.Join(locationInUpdate, filename)
 	carbonHome := path.Join(constant.TEMP_DIR, updateName, constant.CARBON_HOME)
