@@ -632,11 +632,7 @@ func GetContentFromUrl(url string) ([]byte, error) {
 
 //Todo doc
 func createPartialUpdateFileRequest(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpdateFileRequest {
-	fmt.Println("===================== UpdateV2================")
-	fmt.Println(updateDescriptorV2)
 	partialUpdateFileRequest := PartialUpdateFileRequest{}
-	fmt.Println("===================== partialUpdateFileRequest intialize================")
-	fmt.Println(partialUpdateFileRequest)
 	partialUpdateFileRequest.Update_number = updateDescriptorV2.Update_number
 	partialUpdateFileRequest.Platform_name = updateDescriptorV2.Platform_name
 	partialUpdateFileRequest.Platform_version = updateDescriptorV2.Platform_version
@@ -649,8 +645,6 @@ func createPartialUpdateFileRequest(updateDescriptorV2 *UpdateDescriptorV2) *Par
 	if updateDescriptorV2.File_changes.Removed_files != nil {
 		partialUpdateFileRequest.Removed_files = updateDescriptorV2.File_changes.Removed_files
 	}
-	fmt.Println("===================== partialUpdateFileRequest after setting================")
-	fmt.Println(partialUpdateFileRequest)
 	return &partialUpdateFileRequest
 }
 
@@ -662,20 +656,16 @@ func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpda
 	if err := json.NewEncoder(requestBody).Encode(partialUpdateFileRequest); err != nil {
 		HandleErrorAndExit(err)
 	}
-	fmt.Println("===================== Request================")
-	fmt.Println(requestBody)
 	//todo uncomment
 	// Invoke the API
-	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
-		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY
-	/*apiURL := "http://www.mocky.io/v2/5b3da0bf3100006a0b6de0cd"*/
+	/*	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
+		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY*/
+	apiURL := "http://www.mocky.io/v2/5b41fdf52e00005c00222ef9"
 	response := InvokePOSTRequest(apiURL, requestBody)
 	if response.StatusCode != http.StatusOK {
 		HandleUnableToConnectErrorAndExit(nil)
 	}
 	partialUpdatedFileResponse := PartialUpdatedFileResponse{}
-	fmt.Println("===========partialupdateResponse intialize=======")
-	fmt.Println(partialUpdatedFileResponse)
 	processResponseFromServer(response, &partialUpdatedFileResponse)
 	return &partialUpdatedFileResponse
 }

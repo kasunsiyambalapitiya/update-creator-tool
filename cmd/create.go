@@ -157,8 +157,6 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	// Create new update descriptor structs
 	updateDescriptorV2 := util.UpdateDescriptorV2{}
 	updateDescriptorV3 := util.UpdateDescriptorV3{}
-	fmt.Println("======================After Structs are initialize=======")
-	fmt.Println(updateDescriptorV2)
 
 	//2) Process the README.txt file if it exists
 	readMeDataString := processReadMe(updateDirectoryPath, &updateDescriptorV2)
@@ -216,7 +214,7 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 
 	// Read the distribution zip file
 	logger.Debug("Reading zip")
-	util.PrintInfo(fmt.Sprintf("Reading %s. Please wait...", distributionName))
+	util.PrintInfo(fmt.Sprintf("\nReading %s. Please wait...\n", distributionName))
 	rootNode, err = readZip(distributionPath)
 	util.HandleErrorAndExit(err)
 	logger.Debug("Reading zip finished")
@@ -234,8 +232,6 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 
 	//todo: save the selected location to generate the final summary map
 	//8) Find matches
-	fmt.Println("======================before finding matches=======")
-	fmt.Println(updateDescriptorV2)
 	// This will be used to store all the matches (matching locations in for the given directory)
 	matches := make(map[string]*node)
 	// Find matches in the distribution for all directories in the root level of the update directory
@@ -316,22 +312,27 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	}
 
 	//9) Request the user to add removed files as they can't be identified by comparing.
-	util.PrintInBold("Enter relative paths of removed files, please enter 'done' when you are finished entering")
-	fmt.Println()
-	//Todo uncomment
+removedFilesInputLoop:
 	for {
-		removedFile, err := util.GetUserInput()
+		util.PrintInBold(fmt.Sprintf("\nDoes existing files in %s distribution being removed from this update? [y,n]",
+			distributionName))
+		fmt.Println()
+		preference, err := util.GetUserInput()
 		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-		if strings.ToLower(removedFile) == "done" {
-			break
+		userPreference := util.ProcessUserPreference(preference)
+		switch userPreference {
+		case constant.YES:
+			appendRemovedFilesToUpdateDescriptor(&updateDescriptorV2)
+			break removedFilesInputLoop
+		case constant.NO:
+			break removedFilesInputLoop
+		default:
+			util.PrintError("Invalid preference. Enter y for Yes or n for No.")
 		}
-		updateDescriptorV2.File_changes.Removed_files = append(updateDescriptorV2.File_changes.Removed_files, removedFile)
 	}
 
 	// Get partial updated file changes
 	partialUpdatedFileResponse := util.GetPartialUpdatedFiles(&updateDescriptorV2)
-	fmt.Println("=========== reponse =======================")
-	fmt.Println(partialUpdatedFileResponse)
 	if partialUpdatedFileResponse.Backward_compatible {
 		// Create update-descriptor.yaml
 		if len(readMeDataString) != 0 {
@@ -416,7 +417,7 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 
 	signal.Stop(cleanupChannel)
 
-	util.PrintInfo(fmt.Sprintf("'%s' successfully created.", updateZipName))
+	util.PrintInfo(fmt.Sprintf("'%s' successfully created.\n", updateZipName))
 
 	util.PrintInBold(fmt.Sprintf("Your update applies to the following products\n"))
 	util.PrintInBold(fmt.Sprintf("\tCompatible products : %v \n", compatibleProducts))
@@ -614,49 +615,71 @@ func setPlatformVersion(updateDescriptorV2 *util.UpdateDescriptorV2) {
 }
 
 func setAppliesTo(updateDescriptorV2 *util.UpdateDescriptorV2) {
-	util.PrintInBold("Enter applies to: ")
+	util.PrintInBold(fmt.Sprintf("\nEnter applies to: "))
 	appliesTo, err := util.GetUserInput()
 	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 	updateDescriptorV2.Applies_to = appliesTo
 }
 
 func setDescription(updateDescriptorV2 *util.UpdateDescriptorV2) {
-	util.PrintInBold("Enter description: ")
+	util.PrintInBold(fmt.Sprintf("\nEnter description: "))
 	description, err := util.GetUserInput()
 	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 	updateDescriptorV2.Description = description
 }
 
 func setBugFixes(updateDescriptorV2 *util.UpdateDescriptorV2) {
-	util.PrintInBold("Enter Bug fixes, please enter 'done' when you are finished adding")
+	util.PrintInBold("Enter Bug fixes,")
 	fmt.Println()
 	bugFixes := make(map[string]string)
+userInputLoop:
 	for {
 		// Todo refactor them to constants, and change constant.JIRA_KEY_DEFAULT and try to make them on using ||
-		util.PrintInBold("Enter JIRA_KEY/GITHUB ISSUE URL: ")
+		util.PrintInBold(fmt.Sprintf("\tEnter JIRA_KEY/GITHUB ISSUE URL: "))
 		jiraKey, err := util.GetUserInput()
 		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-		if strings.ToLower(jiraKey) == "done" {
+		if jiraKey == "" {
 			if len(bugFixes) == 0 {
-				bugFixes[constant.JIRA_NA] = constant.JIRA_NA
+				util.PrintError("Empty input detected, please enter a valid JIRA_KEY/GITHUB ISSUE URL")
+				continue
 			}
-			logger.Debug(fmt.Sprintf("bug_fixes: %v", bugFixes))
-			updateDescriptorV2.Bug_fixes = bugFixes
-			return
-		}
-		util.PrintInBold("Enter JIRA_KEY SUMMARY/GITHUB_ISSUE_SUMMARY: ")
-		jiraSummary, err := util.GetUserInput()
-		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-		if strings.ToLower(jiraSummary) == "done" {
-			if len(bugFixes) == 0 {
-				bugFixes[constant.JIRA_NA] = constant.JIRA_NA
+			util.PrintInBold(fmt.Sprintf("\tEmpty input detected, are you done with adding bug fixes? [Y,n]"))
+			preference, err := util.GetUserInput()
+			util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+			if len(preference) == 0 {
+				preference = "y"
 			}
-			logger.Debug(fmt.Sprintf("bug_fixes: %v", bugFixes))
-			updateDescriptorV2.Bug_fixes = bugFixes
-			return
+			userPreference := util.ProcessUserPreference(preference)
+			switch userPreference {
+			case constant.YES:
+				break userInputLoop
+			case constant.NO:
+				continue
+			default:
+				util.PrintError("Invalid preference. Setting No as input.")
+				continue
+			}
 		}
+		jiraSummary := getJiraSummary(jiraKey)
 		bugFixes[jiraKey] = jiraSummary
 	}
+	logger.Debug(fmt.Sprintf("bug_fixes: %v", bugFixes))
+}
+
+func getJiraSummary(jiraKey string) string {
+	var jiraSummary string
+	for {
+		util.PrintInBold(fmt.Sprintf("\tEnter JIRA_KEY_SUMMARY/GITHUB_ISSUE_SUMMARY for %s :", jiraKey))
+		jiraSummary, err := util.GetUserInput()
+		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+		if jiraSummary == "" {
+			util.PrintError(fmt.Sprintf("\tEmpty input detected, "+
+				"please enter a valid JIRA_KEY_SUMMARY/GITHUB_ISSUE_SUMMARY for %s", jiraKey))
+			continue
+		}
+		break
+	}
+	return jiraSummary
 }
 
 func createUpdateDescriptorV2(updateDirectoryPath string, updateDescriptorV2 *util.UpdateDescriptorV2) {
@@ -755,10 +778,10 @@ func handleNoMatch(filename string, isDir bool, allFilesMap map[string]data, roo
 	util.PrintInBold(fmt.Sprintf("'%s' not found in distribution. ", filename))
 	for {
 		// Get the user preference
-		util.PrintInBold("Do you want to add it as a new file? [y/N]: ")
+		util.PrintInBold("Do you want to add it as a new file? [Y/n]: ")
 		preference, err := util.GetUserInput()
 		if len(preference) == 0 {
-			preference = "n"
+			preference = "y"
 		}
 		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 
@@ -1462,8 +1485,6 @@ func copyFile(filename string, locationInUpdate, relativeLocationInTemp string, 
 	updateDescriptor *util.UpdateDescriptorV2) error {
 	logger.Debug(fmt.Sprintf("[FINAL][COPY ROOT] Name: %s ; IsDir: false ; From: %s ; To: %s", filename,
 		locationInUpdate, relativeLocationInTemp))
-	fmt.Println("======================Before appending in copy file=======")
-	fmt.Println(updateDescriptor)
 	updateName := viper.GetString(constant.UPDATE_NAME)
 	source := path.Join(locationInUpdate, filename)
 	carbonHome := path.Join(constant.TEMP_DIR, updateName, constant.CARBON_HOME)
@@ -1576,4 +1597,32 @@ func setProductChangesInUpdateDescriptorV3(partialUpdatedProducts *util.PartialU
 	productChanges.Removed_files = partialUpdatedProducts.Removed_files
 	productChanges.Modified_files = partialUpdatedProducts.Modified_files
 	return productChanges
+}
+
+func appendRemovedFilesToUpdateDescriptor(updateDescriptorV2 *util.UpdateDescriptorV2) {
+userInputLoop:
+	for {
+		util.PrintInBold("Enter the path of a removed file relative to the CARBON_HOME, " +
+			"press enter when the path is added")
+		fmt.Println()
+		removedFile, err := util.GetUserInput()
+		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+		if removedFile == "" {
+			util.PrintInBold("Empty input detected, are you done with adding inputs? [y,n]")
+			fmt.Println()
+			preference, err := util.GetUserInput()
+			util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+			userPreference := util.ProcessUserPreference(preference)
+			switch userPreference {
+			case constant.YES:
+				break userInputLoop
+			case constant.NO:
+				continue
+			default:
+				util.PrintError("Invalid preference. Setting No as input.")
+				continue
+			}
+		}
+		updateDescriptorV2.File_changes.Removed_files = append(updateDescriptorV2.File_changes.Removed_files, removedFile)
+	}
 }
