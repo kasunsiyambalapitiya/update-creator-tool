@@ -306,6 +306,22 @@ func ValidateUpdateDescriptorV2(updateDescriptorV2 *UpdateDescriptorV2) error {
 	return nil
 }
 
+func ValidateUpdateNumber(updateNumber string) bool {
+	regex, err := regexp.Compile(constant.UPDATE_NUMBER_REGEX)
+	if err != nil {
+		HandleErrorAndExit(err)
+	}
+	return regex.MatchString(updateNumber)
+}
+
+func ValidatePlatformVersion(platformVersion string) bool {
+	regex, err := regexp.Compile(constant.KERNEL_VERSION_REGEX)
+	if err != nil {
+		HandleErrorAndExit(err)
+	}
+	return regex.MatchString(platformVersion)
+}
+
 // Check whether the given string is in the given slice
 func IsStringIsInSlice(a string, list []string) bool {
 	for _, b := range list {

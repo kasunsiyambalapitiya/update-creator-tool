@@ -594,9 +594,23 @@ func setRemainingValuesInUpdateDescriptorsV2(updateDescriptorV2 *util.UpdateDesc
 }
 
 func setUpdateNumber(updateDescriptorV2 *util.UpdateDescriptorV2) {
-	util.PrintInBold("Enter update number: ")
-	updateNumber, err := util.GetUserInput()
-	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+	var updateNumber string
+	for {
+		util.PrintInBold("Enter update number: ")
+		updateNum, err := util.GetUserInput()
+		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+		if len(updateNum) == 0 {
+			util.PrintError(fmt.Sprintf("'update number' is empty"))
+			continue
+		}
+		if !util.ValidateUpdateNumber(updateNum) {
+			util.PrintError(fmt.Sprintf("'update number' is not valid. It should match '%s'.",
+				constant.UPDATE_NUMBER_REGEX))
+			continue
+		}
+		updateNumber = updateNum
+		break
+	}
 	updateDescriptorV2.Update_number = updateNumber
 }
 
@@ -608,9 +622,23 @@ func setPlatformName(updateDescriptorV2 *util.UpdateDescriptorV2) {
 }
 
 func setPlatformVersion(updateDescriptorV2 *util.UpdateDescriptorV2) {
-	util.PrintInBold("Enter platform version: ")
-	platformVersion, err := util.GetUserInput()
-	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+	var platformVersion string
+	for {
+		util.PrintInBold("Enter platform version: ")
+		platformVer, err := util.GetUserInput()
+		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+		if len(platformVer) == 0 {
+			util.PrintError(fmt.Sprintf("'platform version' is empty"))
+			continue
+		}
+		if !util.ValidatePlatformVersion(platformVer) {
+			util.PrintError(fmt.Sprintf("'platform version' is not valid. It should match '%s'.",
+				constant.KERNEL_VERSION_REGEX))
+			continue
+		}
+		platformVersion = platformVer
+		break
+	}
 	updateDescriptorV2.Platform_version = platformVersion
 }
 
