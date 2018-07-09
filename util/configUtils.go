@@ -103,16 +103,16 @@ func WriteConfigFile(wumucConfig *WUMUCConfig, wumucConfigFilePath string) error
 	return nil
 }
 
-//Todo
+// Validate wum-uc configurations
 func (wumucConfig *WUMUCConfig) validate() {
 	if wumucConfig.URL == "" {
-		HandleErrorAndExit(errors.New("invalid configurations, missing value for URL element"))
+		HandleErrorAndExit(errors.New("invalid configurations, missing value for URL key"))
 	}
 	if wumucConfig.TokenURL == "" {
-		HandleErrorAndExit(errors.New("invalid configurations, missing value for TokenURL element"))
+		HandleErrorAndExit(errors.New("invalid configurations, missing value for TokenURL key"))
 	}
 	if wumucConfig.AppKey == "" {
-		HandleErrorAndExit(errors.New("invalid configurations, missing value for AppKey element"))
+		HandleErrorAndExit(errors.New("invalid configurations, missing value for AppKey key"))
 	}
 }
 

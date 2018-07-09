@@ -674,9 +674,9 @@ func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpda
 	}
 	//todo uncomment
 	// Invoke the API
-	/*	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
-		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY*/
-	apiURL := "http://www.mocky.io/v2/5b41fdf52e00005c00222ef9"
+	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
+		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY
+	/*	apiURL := "http://www.mocky.io/v2/5b41fdf52e00005c00222ef9"*/
 	response := InvokePOSTRequest(apiURL, requestBody)
 	if response.StatusCode != http.StatusOK {
 		HandleUnableToConnectErrorAndExit(nil)
@@ -861,6 +861,7 @@ func InvokeTokenAPI(payload *url.Values, wumucConfig *WUMUCConfig, tokenType str
 	return &tokenResponse, nil
 }
 
+// Used to unmarshall the json response received to the provided struct
 func processResponseFromServer(response *http.Response, v interface{}) {
 	defer response.Body.Close()
 	data, err := ioutil.ReadAll(response.Body)
@@ -932,6 +933,7 @@ func getAccessTokenFromUserCreds(username string, attempt int, wumucConfig *WUMU
 	if err != nil && attempt < 3 {
 		// Authentication failure
 		fmt.Fprintln(os.Stderr)
+		PrintError(err)
 		return getAccessTokenFromUserCreds(username, attempt+1, wumucConfig)
 
 	} else if err != nil && attempt == 3 {
