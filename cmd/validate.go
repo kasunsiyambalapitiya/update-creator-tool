@@ -131,7 +131,7 @@ func startValidation(updateFilePath, distributionLocation string) {
 	logger.Trace(fmt.Sprintf("distributionFileMap: %v\n", distributionFileMap))
 
 	// Compares the update with the distribution if update-descriptor.yaml exists
-	if updateDescriptorV2.Update_number != "" {
+	if updateDescriptorV2.UpdateNumber != "" {
 		err = compare(updateFileMap, distributionFileMap, updateDescriptorV2)
 		util.HandleErrorAndExit(err)
 	}
@@ -146,8 +146,8 @@ func compare(updateFileMap, distributionFileMap map[string]bool, updateDescripto
 		logger.Debug(fmt.Sprintf("Searching: %s", filePath))
 		_, found := distributionFileMap[filePath]
 		if !found {
-			logger.Debug("Added files: ", updateDescriptorV2.File_changes.Added_files)
-			isInAddedFiles := util.IsStringIsInSlice(filePath, updateDescriptorV2.File_changes.Added_files)
+			logger.Debug("Added files: ", updateDescriptorV2.FileChanges.AddedFiles)
+			isInAddedFiles := util.IsStringIsInSlice(filePath, updateDescriptorV2.FileChanges.AddedFiles)
 			logger.Debug(fmt.Sprintf("isInAddedFiles: %v", isInAddedFiles))
 			resourceFiles := getResourceFiles()
 			logger.Debug(fmt.Sprintf("resourceFiles: %v", resourceFiles))

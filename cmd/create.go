@@ -97,7 +97,7 @@ func init() {
 // This function will be called when the create command is called.
 func initializeCreateCommand(cmd *cobra.Command, args []string) {
 	if len(args) != 2 {
-		util.HandleErrorAndExit(errors.New("invalid number of argumants. Run 'wum-uc create --help' to " +
+		util.HandleErrorAndExit(errors.New("invalid number of arguments. Run 'wum-uc create --help' to " +
 			"view help"))
 	}
 	createUpdate(args[0], args[1])
@@ -125,11 +125,10 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 			util.PrintInBold(fmt.Sprintf("'%s'does not exists. Do you want to create '%s' directory?"+
 				"[Y/n]: ", updateDirectoryPath, updateDirectoryPath))
 			preference, err := util.GetUserInput()
+			util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 			if len(preference) == 0 {
 				preference = "y"
 			}
-			// Todo to remove redudant call, call this only if error is not null
-			util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 
 			// Get the user preference
 			userPreference := util.ProcessUserPreference(preference)
@@ -147,7 +146,7 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 				util.PrintError("Invalid preference. Enter Y for Yes or N for No.")
 			}
 		}
-		util.PrintInBold(fmt.Sprintf("Directory created. Please copy updated files to '%s' and rerun 'wum-uc create' again", updateDirectoryPath))
+		util.PrintInBold(fmt.Sprintf("Directory created. Please copy updated files to '%s' and rerun 'wum-uc create'", updateDirectoryPath))
 		os.Exit(1)
 	}
 	updateRoot := strings.TrimSuffix(updateDirectoryPath, constant.PATH_SEPARATOR)
@@ -333,7 +332,7 @@ removedFilesInputLoop:
 
 	// Get partial updated file changes
 	partialUpdatedFileResponse := util.GetPartialUpdatedFiles(&updateDescriptorV2)
-	if partialUpdatedFileResponse.Backward_compatible {
+	if partialUpdatedFileResponse.BackwardCompatible {
 		// Create update-descriptor.yaml
 		if len(readMeDataString) != 0 {
 			processReadMeData(&readMeDataString, &updateDescriptorV2)
@@ -353,36 +352,36 @@ removedFilesInputLoop:
 	defaultBugFixes := map[string]string{
 		constant.DEFAULT_JIRA_KEY: constant.DEFAULT_JIRA_SUMMARY,
 	}
-	updateDescriptorV3.Update_number = partialUpdatedFileResponse.Update_number
-	updateDescriptorV3.Platform_name = partialUpdatedFileResponse.Platform_name
-	updateDescriptorV3.Platform_version = partialUpdatedFileResponse.Platform_version
+	updateDescriptorV3.UpdateNumber = partialUpdatedFileResponse.UpdateNumber
+	updateDescriptorV3.PlatformName = partialUpdatedFileResponse.PlatformName
+	updateDescriptorV3.PlatformVersion = partialUpdatedFileResponse.PlatformVersion
 	updateDescriptorV3.Description = constant.DEFAULT_DESCRIPTION
 	updateDescriptorV3.Instructions = constant.DEFAULT_INSTRUCTIONS
-	updateDescriptorV3.Bug_fixes = defaultBugFixes
+	updateDescriptorV3.BugFixes = defaultBugFixes
 
-	for _, partialUpdatedProducts := range partialUpdatedFileResponse.Compatible_products {
+	for _, partialUpdatedProducts := range partialUpdatedFileResponse.CompatibleProducts {
 		productChanges := setProductChangesInUpdateDescriptorV3(&partialUpdatedProducts)
-		updateDescriptorV3.Compatible_products = append(updateDescriptorV3.Compatible_products, *productChanges)
+		updateDescriptorV3.CompatibleProducts = append(updateDescriptorV3.CompatibleProducts, *productChanges)
 	}
-	for _, partialUpdatedProducts := range partialUpdatedFileResponse.Partially_applicable_products {
+	for _, partialUpdatedProducts := range partialUpdatedFileResponse.PartiallyApplicableProducts {
 		productChanges := setProductChangesInUpdateDescriptorV3(&partialUpdatedProducts)
-		updateDescriptorV3.Partially_applicable_products = append(updateDescriptorV3.Partially_applicable_products, *productChanges)
+		updateDescriptorV3.PartiallyApplicableProducts = append(updateDescriptorV3.PartiallyApplicableProducts, *productChanges)
 	}
 
 	// Set values to compatible products slice
 	var compatibleProducts []string
-	for _, productChange := range updateDescriptorV3.Compatible_products {
-		compatibleProducts = append(compatibleProducts, productChange.Product_name)
+	for _, productChange := range updateDescriptorV3.CompatibleProducts {
+		compatibleProducts = append(compatibleProducts, productChange.ProductName)
 	}
 	// Set values to partially applicable products slice
 	var partiallyApplicableProducts []string
-	for _, productChange := range updateDescriptorV3.Partially_applicable_products {
-		partiallyApplicableProducts = append(partiallyApplicableProducts, productChange.Product_name)
+	for _, productChange := range updateDescriptorV3.PartiallyApplicableProducts {
+		partiallyApplicableProducts = append(partiallyApplicableProducts, productChange.ProductName)
 	}
 	// Set values to notify products slice
 	var notifyProducts []string
-	for _, partialUpdatedProducts := range partialUpdatedFileResponse.Notify_products {
-		notifyProducts = append(notifyProducts, partialUpdatedProducts.Product_name)
+	for _, partialUpdatedProducts := range partialUpdatedFileResponse.NotifyProducts {
+		notifyProducts = append(notifyProducts, partialUpdatedProducts.ProductName)
 	}
 
 	// Generate md5sum for product changes
@@ -468,22 +467,22 @@ func processReadMe(updateDirectoryPath string, updateDescriptorV2 *util.UpdateDe
 		// capturing groups are identified.
 		if len(result) != 0 {
 			// Extract details
-			updateDescriptorV2.Update_number = result[2]
-			updateDescriptorV2.Platform_version = result[1]
+			updateDescriptorV2.UpdateNumber = result[2]
+			updateDescriptorV2.PlatformVersion = result[1]
 			platformsMap := viper.GetStringMapString(constant.PLATFORM_VERSIONS)
 			logger.Trace(fmt.Sprintf("Platform Map: %v", platformsMap))
 			// Get the platform details from the map
 			platformName, found := platformsMap[result[1]]
 			if found {
 				logger.Debug("Platform name found in configs")
-				updateDescriptorV2.Platform_name = platformName
+				updateDescriptorV2.PlatformName = platformName
 			} else {
 				//If the platform name is not found, set default
 				logger.Debug("No matching platform name found for:", result[1])
 				util.PrintInBold("Enter platform name for platform version :", result[1])
 				platformName, err := util.GetUserInput()
 				util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-				updateDescriptorV2.Platform_name = platformName
+				updateDescriptorV2.PlatformName = platformName
 			}
 		} else {
 			logger.Debug("PATCH_ID_REGEX results incorrect:", result)
@@ -520,11 +519,11 @@ func processReadMeData(readMeDataString *string, updateDescriptorV2 *util.Update
 		// If it does not appear, result size will be 3.
 		if len(result) == 2 {
 			// If the result size is 2, we know that 1st index contains the 1st capturing group.
-			updateDescriptorV2.Applies_to = util.ProcessString(result[1], ", ", true)
+			updateDescriptorV2.AppliesTo = util.ProcessString(result[1], ", ", true)
 		} else if len(result) == 3 {
 			// If the result size is 3, 1st or 2nd string might contain the match. So we concat them
 			// together and trim the spaces. If one field has an empty string, it will be trimmed.
-			updateDescriptorV2.Applies_to = util.ProcessString(strings.TrimSpace(result[1]+result[2]), ", ",
+			updateDescriptorV2.AppliesTo = util.ProcessString(strings.TrimSpace(result[1]+result[2]), ", ",
 				true)
 		} else {
 			logger.Debug("No matching results found for APPLIES_TO_REGEX:", result)
@@ -542,7 +541,7 @@ func processReadMeData(readMeDataString *string, updateDescriptorV2 *util.Update
 		// Get all matches because there might be multiple Jiras.
 		allResult := regex.FindAllStringSubmatch(*readMeDataString, -1)
 		logger.Trace(fmt.Sprintf("APPLIES_TO_REGEX result: %v", allResult))
-		updateDescriptorV2.Bug_fixes = make(map[string]string)
+		updateDescriptorV2.BugFixes = make(map[string]string)
 		// If no Jiras found, set 'N/A: N/A' as the value
 		if len(allResult) == 0 {
 			logger.Debug("No matching results found for ASSOCIATED_JIRAS_REGEX.")
@@ -554,7 +553,7 @@ func processReadMeData(readMeDataString *string, updateDescriptorV2 *util.Update
 				// Regex has a one capturing group. So the jira ID will be in the 1st index.
 				logger.Debug(fmt.Sprintf("%d: %s", i, match[1]))
 				logger.Debug(fmt.Sprintf("ASSOCIATED_JIRAS_REGEX results is correct: %v", match))
-				updateDescriptorV2.Bug_fixes[match[1]] = util.GetJiraSummary(match[1])
+				updateDescriptorV2.BugFixes[match[1]] = util.GetJiraSummary(match[1])
 			}
 		}
 	} else {
@@ -611,14 +610,14 @@ func setUpdateNumber(updateDescriptorV2 *util.UpdateDescriptorV2) {
 		updateNumber = updateNum
 		break
 	}
-	updateDescriptorV2.Update_number = updateNumber
+	updateDescriptorV2.UpdateNumber = updateNumber
 }
 
 func setPlatformName(updateDescriptorV2 *util.UpdateDescriptorV2) {
 	util.PrintInBold("Enter platform name: ")
 	platformName, err := util.GetUserInput()
 	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-	updateDescriptorV2.Platform_name = platformName
+	updateDescriptorV2.PlatformName = platformName
 }
 
 func setPlatformVersion(updateDescriptorV2 *util.UpdateDescriptorV2) {
@@ -639,14 +638,14 @@ func setPlatformVersion(updateDescriptorV2 *util.UpdateDescriptorV2) {
 		platformVersion = platformVer
 		break
 	}
-	updateDescriptorV2.Platform_version = platformVersion
+	updateDescriptorV2.PlatformVersion = platformVersion
 }
 
 func setAppliesTo(updateDescriptorV2 *util.UpdateDescriptorV2) {
 	util.PrintInBold(fmt.Sprintf("\nEnter applies to: "))
 	appliesTo, err := util.GetUserInput()
 	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-	updateDescriptorV2.Applies_to = appliesTo
+	updateDescriptorV2.AppliesTo = appliesTo
 }
 
 func setDescription(updateDescriptorV2 *util.UpdateDescriptorV2) {
@@ -777,8 +776,8 @@ func saveUpdateDescriptorInDestination(updateDescriptorFilePath, dataString, des
 // This function will set the update name which will be used when creating the update zip.
 func getUpdateName(updateDescriptorV2 *util.UpdateDescriptorV2, updateNamePrefix string) string {
 	// Read the corresponding details from the struct
-	platformVersion := updateDescriptorV2.Platform_version
-	updateNumber := updateDescriptorV2.Update_number
+	platformVersion := updateDescriptorV2.PlatformVersion
+	updateNumber := updateDescriptorV2.UpdateNumber
 	updateName := updateNamePrefix + "-" + platformVersion + "-" + updateNumber
 	return updateName
 }
@@ -1545,10 +1544,10 @@ func copyFile(filename string, locationInUpdate, relativeLocationInTemp string, 
 	logger.Debug(fmt.Sprintf("contains: %v", contains))
 	// If the file already in the distribution, add it as a modified file. Otherwise add it as a new file
 	if contains {
-		updateDescriptor.File_changes.Modified_files = append(updateDescriptor.File_changes.Modified_files,
+		updateDescriptor.FileChanges.ModifiedFiles = append(updateDescriptor.FileChanges.ModifiedFiles,
 			relativePath)
 	} else {
-		updateDescriptor.File_changes.Added_files = append(updateDescriptor.File_changes.Added_files,
+		updateDescriptor.FileChanges.AddedFiles = append(updateDescriptor.FileChanges.AddedFiles,
 			relativePath)
 	}
 	return nil
@@ -1619,11 +1618,11 @@ func ZipFile(source, target string) error {
 
 func setProductChangesInUpdateDescriptorV3(partialUpdatedProducts *util.PartialUpdatedProducts) *util.ProductChanges {
 	productChanges := &util.ProductChanges{}
-	productChanges.Product_name = partialUpdatedProducts.Product_name
-	productChanges.Product_version = partialUpdatedProducts.Base_version + "." + partialUpdatedProducts.Tag
-	productChanges.Added_files = partialUpdatedProducts.Added_files
-	productChanges.Removed_files = partialUpdatedProducts.Removed_files
-	productChanges.Modified_files = partialUpdatedProducts.Modified_files
+	productChanges.ProductName = partialUpdatedProducts.ProductName
+	productChanges.ProductVersion = partialUpdatedProducts.BaseVersion + "." + partialUpdatedProducts.Tag
+	productChanges.AddedFiles = partialUpdatedProducts.AddedFiles
+	productChanges.RemovedFiles = partialUpdatedProducts.RemovedFiles
+	productChanges.ModifiedFiles = partialUpdatedProducts.ModifiedFiles
 	return productChanges
 }
 
@@ -1651,6 +1650,6 @@ userInputLoop:
 				continue
 			}
 		}
-		updateDescriptorV2.File_changes.Removed_files = append(updateDescriptorV2.File_changes.Removed_files, removedFile)
+		updateDescriptorV2.FileChanges.RemovedFiles = append(updateDescriptorV2.FileChanges.RemovedFiles, removedFile)
 	}
 }

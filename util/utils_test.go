@@ -174,31 +174,31 @@ func TestValidateUpdateDescriptor(t *testing.T) {
 		t.Error("Test failed. Error expected")
 	}
 
-	updateDescriptorV2.Update_number = "0001"
+	updateDescriptorV2.UpdateNumber = "0001"
 	err = ValidateUpdateDescriptorV2(&updateDescriptorV2)
 	if err == nil {
 		t.Error("Test failed. Error expected")
 	}
 
-	updateDescriptorV2.Platform_name = "wilkes"
+	updateDescriptorV2.PlatformName = "wilkes"
 	err = ValidateUpdateDescriptorV2(&updateDescriptorV2)
 	if err == nil {
 		t.Error("Test failed. Error expected")
 	}
 
-	updateDescriptorV2.Platform_version = "4.4.0"
+	updateDescriptorV2.PlatformVersion = "4.4.0"
 	err = ValidateUpdateDescriptorV2(&updateDescriptorV2)
 	if err == nil {
 		t.Error("Test failed. Error expected")
 	}
 
-	updateDescriptorV2.Applies_to = "wso2esb-4.9.0"
+	updateDescriptorV2.AppliesTo = "wso2esb-4.9.0"
 	err = ValidateUpdateDescriptorV2(&updateDescriptorV2)
 	if err == nil {
 		t.Error("Test failed. Error expected")
 	}
 
-	updateDescriptorV2.Bug_fixes = map[string]string{
+	updateDescriptorV2.BugFixes = map[string]string{
 		"N/A": "N/A",
 	}
 	err = ValidateUpdateDescriptorV2(&updateDescriptorV2)
