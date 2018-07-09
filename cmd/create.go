@@ -592,6 +592,7 @@ func setRemainingValuesInUpdateDescriptorsV2(updateDescriptorV2 *util.UpdateDesc
 	setDescription(updateDescriptorV2)
 }
 
+// Sets the update number in update-descriptor.yaml
 func setUpdateNumber(updateDescriptorV2 *util.UpdateDescriptorV2) {
 	var updateNumber string
 	for {
@@ -613,13 +614,18 @@ func setUpdateNumber(updateDescriptorV2 *util.UpdateDescriptorV2) {
 	updateDescriptorV2.UpdateNumber = updateNumber
 }
 
+// Sets the platform name in update-descriptor.yaml
 func setPlatformName(updateDescriptorV2 *util.UpdateDescriptorV2) {
-	util.PrintInBold("Enter platform name: ")
+	util.PrintInBold("Select the platform name: ")
+	for _, platformName := range util.PlatformVersions {
+
+	}
 	platformName, err := util.GetUserInput()
 	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 	updateDescriptorV2.PlatformName = platformName
 }
 
+// Sets the platform version in update-descriptor.yaml
 func setPlatformVersion(updateDescriptorV2 *util.UpdateDescriptorV2) {
 	var platformVersion string
 	for {

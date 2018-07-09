@@ -306,6 +306,7 @@ func ValidateUpdateDescriptorV2(updateDescriptorV2 *UpdateDescriptorV2) error {
 	return nil
 }
 
+// Validate the given update number with regex
 func ValidateUpdateNumber(updateNumber string) bool {
 	regex, err := regexp.Compile(constant.UPDATE_NUMBER_REGEX)
 	if err != nil {
@@ -314,6 +315,7 @@ func ValidateUpdateNumber(updateNumber string) bool {
 	return regex.MatchString(updateNumber)
 }
 
+// Validate the given platform version with regex
 func ValidatePlatformVersion(platformVersion string) bool {
 	regex, err := regexp.Compile(constant.KERNEL_VERSION_REGEX)
 	if err != nil {
