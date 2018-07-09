@@ -897,14 +897,11 @@ func Init(username string, password []byte) {
 			HandleUnableToConnectErrorAndExit(errors.New("Invalid Credentials. " +
 				"Please enter valid WSO2 credentials to continue"))
 		}
-
 	} else if len(password) == 0 {
 		if username == "" {
 			username = wumucConfig.Username
 		}
-
 		username, tokenResponse = getAccessTokenFromUserCreds(username, 1, wumucConfig)
-
 	} else {
 		HandleUnableToConnectErrorAndExit(errors.New(constant.USERNAME_PASSWORD_EMPTY_MSG))
 	}
@@ -964,7 +961,7 @@ func getCredentials(username string) (bool, string, []byte) {
 			return validEmail, "", password
 		}
 	}
-	// Validate email address
+	// Validate email address received from user input with -u flag
 	validEmail := isValidateEmailAddress(username)
 	if !validEmail {
 		fmt.Fprintln(os.Stderr, constant.INVALID_EMAIL_ADDRESS)
@@ -977,7 +974,7 @@ func getCredentials(username string) (bool, string, []byte) {
 		HandleErrorAndExit(err, constant.UNABLE_TO_READ_YOUR_INPUT_MSG)
 	}
 	fmt.Fprintln(os.Stderr)
-	// As email already perisisted in config.yaml should be in correct format
+	// As email already validated
 	return true, username, password
 }
 
