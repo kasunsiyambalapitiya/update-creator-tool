@@ -49,66 +49,66 @@ var logger = log.Logger()
 
 // struct which is used to read update-descriptor.yaml
 type UpdateDescriptorV2 struct {
-	Update_number    string
-	Platform_version string
-	Platform_name    string
-	Applies_to       string
-	Bug_fixes        map[string]string
-	Description      string
-	File_changes     struct {
-		Added_files    []string
-		Removed_files  []string
-		Modified_files []string
-	}
+	UpdateNumber    string            `yaml:"update_number"`
+	PlatformVersion string            `yaml:"platform_version"`
+	PlatformName    string            `yaml:"platform_name"`
+	AppliesTo       string            `yaml:"applies_to"`
+	BugFixes        map[string]string `yaml:"bug_fixes"`
+	Description     string            `yaml:"description"`
+	FileChanges     struct {
+		AddedFiles    []string `yaml:"added_files"`
+		RemovedFiles  []string `yaml:"removed_files"`
+		ModifiedFiles []string `yaml:"modified_files"`
+	} `yaml:"file_changes"`
 }
 
+// struct which is used to read update-descriptor3.yaml
 type UpdateDescriptorV3 struct {
-	Update_number                 string
-	Platform_version              string
-	Platform_name                 string
-	Md5sum                        string
-	Description                   string
-	Instructions                  string
-	Bug_fixes                     map[string]string
-	Compatible_products           []ProductChanges
-	Partially_applicable_products []ProductChanges
+	UpdateNumber                string            `yaml:"update_number"`
+	PlatformVersion             string            `yaml:"platform_version"`
+	PlatformName                string            `yaml:"platform_name"`
+	Md5sum                      string            `yaml:"md5sum"`
+	Description                 string            `yaml:"description"`
+	Instructions                string            `yaml:"instructions"`
+	BugFixes                    map[string]string `yaml:"bug_fixes"`
+	CompatibleProducts          []ProductChanges  `yaml:"compatible_products"`
+	PartiallyApplicableProducts []ProductChanges  `yaml:"partially_applicable_products"`
 }
 
 type ProductChanges struct {
-	Product_name    string
-	Product_version string
-	Added_files     []string
-	Removed_files   []string
-	Modified_files  []string
+	ProductName    string   `yaml:"product_name"`
+	ProductVersion string   `yaml:"product_version"`
+	AddedFiles     []string `yaml:"added_files"`
+	RemovedFiles   []string `yaml:"removed_files"`
+	ModifiedFiles  []string `yaml:"modified_files"`
 }
 
-//todo doc
 type PartialUpdateFileRequest struct {
-	Update_number    string   `json:"update-no"`
-	Platform_version string   `json:"platform-version"`
-	Platform_name    string   `json:"platform-name"`
-	Added_files      []string `json:"added-files,omitempty"`
-	Removed_files    []string `json:"removed-files,omitempty"`
-	Modified_files   []string `json:"modified-files,omitempty"`
+	UpdateNumber    string   `json:"update-no"`
+	PlatformVersion string   `json:"platform-version"`
+	PlatformName    string   `json:"platform-name"`
+	AddedFiles      []string `json:"added-files,omitempty"`
+	RemovedFiles    []string `json:"removed-files,omitempty"`
+	ModifiedFiles   []string `json:"modified-files,omitempty"`
 }
 
 type PartialUpdatedFileResponse struct {
-	Update_number                 string                   `json:"update-no"`
-	Platform_version              string                   `json:"platform-version"`
-	Platform_name                 string                   `json:"platform-name"`
-	Backward_compatible           bool                     `json:"backward-compatible"`
-	Partially_applicable_products []PartialUpdatedProducts `json:"partially-applicable-products"`
-	Compatible_products           []PartialUpdatedProducts `json:"compatible-products"`
-	Notify_products               []PartialUpdatedProducts `json:"notify-products"`
+	UpdateNumber                string                   `json:"update-no"`
+	PlatformVersion             string                   `json:"platform-version"`
+	PlatformName                string                   `json:"platform-name"`
+	BackwardCompatible          bool                     `json:"backward-compatible"`
+	PartiallyApplicableProducts []PartialUpdatedProducts `json:"partially-applicable-products"`
+	CompatibleProducts          []PartialUpdatedProducts `json:"compatible-products"`
+	NotifyProducts              []PartialUpdatedProducts `json:"notify-products"`
 }
 
 type PartialUpdatedProducts struct {
-	Product_name   string   `json:"product-name"`
-	Base_version   string   `json:"base-version"`
-	Tag            string   `json:"tag"`
-	Added_files    []string `json:"added-files"`
-	Modified_files []string `json:"modified-files"`
-	Removed_files  []string `json:"removed-files"`
+	ProductName   string   `json:"product-name"`
+	BaseVersion   string   `json:"base-version"`
+	Tag           string   `json:"tag"`
+	AddedFiles    []string `json:"added-files"`
+	ModifiedFiles []string `json:"modified-files"`
+	RemovedFiles  []string `json:"removed-files"`
 }
 
 type TokenResponse struct {
@@ -122,6 +122,13 @@ type TokenResponse struct {
 type TokenErrResp struct {
 	Error            string `json:"error"`
 	ErrorDescription string `json:"error_description"`
+}
+
+type ErrorResponse struct {
+	Error struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	} `json:"error"`
 }
 
 // Structs to get the summary field from the jira response
@@ -263,10 +270,10 @@ func LoadUpdateDescriptor(filename, updateDirectoryPath string) (*UpdateDescript
 
 // This function will validate the basic details of update-descriptor.yaml.
 func ValidateBasicDetailsOfUpdateDescriptorV2(updateDescriptorV2 *UpdateDescriptorV2) error {
-	if len(updateDescriptorV2.Update_number) == 0 {
+	if len(updateDescriptorV2.UpdateNumber) == 0 {
 		return errors.New("'update_number' field not found.")
 	}
-	matches, err := regexp.MatchString(constant.UPDATE_NUMBER_REGEX, updateDescriptorV2.Update_number)
+	matches, err := regexp.MatchString(constant.UPDATE_NUMBER_REGEX, updateDescriptorV2.UpdateNumber)
 	if err != nil {
 		return err
 	}
@@ -274,10 +281,10 @@ func ValidateBasicDetailsOfUpdateDescriptorV2(updateDescriptorV2 *UpdateDescript
 		return errors.New(fmt.Sprintf("'update_number' is not valid. It should match '%s'.",
 			constant.UPDATE_NUMBER_REGEX))
 	}
-	if len(updateDescriptorV2.Platform_version) == 0 {
+	if len(updateDescriptorV2.PlatformVersion) == 0 {
 		return errors.New("'platform_version' field not found.")
 	}
-	matches, err = regexp.MatchString(constant.KERNEL_VERSION_REGEX, updateDescriptorV2.Platform_version)
+	matches, err = regexp.MatchString(constant.KERNEL_VERSION_REGEX, updateDescriptorV2.PlatformVersion)
 	if err != nil {
 		return err
 	}
@@ -285,7 +292,7 @@ func ValidateBasicDetailsOfUpdateDescriptorV2(updateDescriptorV2 *UpdateDescript
 		return errors.New(fmt.Sprintf("'platform_version' is not valid. It should match '%s'.",
 			constant.KERNEL_VERSION_REGEX))
 	}
-	if len(updateDescriptorV2.Platform_name) == 0 {
+	if len(updateDescriptorV2.PlatformName) == 0 {
 		return errors.New("'platform_name' field not found.")
 	}
 	return nil
@@ -294,10 +301,10 @@ func ValidateBasicDetailsOfUpdateDescriptorV2(updateDescriptorV2 *UpdateDescript
 func ValidateUpdateDescriptorV2(updateDescriptorV2 *UpdateDescriptorV2) error {
 	ValidateBasicDetailsOfUpdateDescriptorV2(updateDescriptorV2)
 
-	if len(updateDescriptorV2.Applies_to) == 0 {
+	if len(updateDescriptorV2.AppliesTo) == 0 {
 		return errors.New("'applies_to' field not found.")
 	}
-	if len(updateDescriptorV2.Bug_fixes) == 0 {
+	if len(updateDescriptorV2.BugFixes) == 0 {
 		return errors.New("'bug_fixes' field not found. Add 'N/A: N/A' if there are no bug fixes.")
 	}
 	if len(updateDescriptorV2.Description) == 0 {
@@ -306,6 +313,7 @@ func ValidateUpdateDescriptorV2(updateDescriptorV2 *UpdateDescriptorV2) error {
 	return nil
 }
 
+// Validate the given update number with regex
 func ValidateUpdateNumber(updateNumber string) bool {
 	regex, err := regexp.Compile(constant.UPDATE_NUMBER_REGEX)
 	if err != nil {
@@ -314,6 +322,7 @@ func ValidateUpdateNumber(updateNumber string) bool {
 	return regex.MatchString(updateNumber)
 }
 
+// Validate the given platform version with regex
 func ValidatePlatformVersion(platformVersion string) bool {
 	regex, err := regexp.Compile(constant.KERNEL_VERSION_REGEX)
 	if err != nil {
@@ -333,10 +342,10 @@ func IsStringIsInSlice(a string, list []string) bool {
 }
 
 func ValidateUpdateDescriptorV3(updateDescriptorV3 *UpdateDescriptorV3) error {
-	if len(updateDescriptorV3.Update_number) == 0 {
+	if len(updateDescriptorV3.UpdateNumber) == 0 {
 		return errors.New("'update_number' field not found.")
 	}
-	matches, err := regexp.MatchString(constant.UPDATE_NUMBER_REGEX, updateDescriptorV3.Update_number)
+	matches, err := regexp.MatchString(constant.UPDATE_NUMBER_REGEX, updateDescriptorV3.UpdateNumber)
 	if err != nil {
 		return err
 	}
@@ -344,10 +353,10 @@ func ValidateUpdateDescriptorV3(updateDescriptorV3 *UpdateDescriptorV3) error {
 		return errors.New(fmt.Sprintf("'update_number' is not valid. It should match '%s'.",
 			constant.UPDATE_NUMBER_REGEX))
 	}
-	if len(updateDescriptorV3.Platform_version) == 0 {
+	if len(updateDescriptorV3.PlatformVersion) == 0 {
 		return errors.New("'platform_version' field not found.")
 	}
-	matches, err = regexp.MatchString(constant.KERNEL_VERSION_REGEX, updateDescriptorV3.Platform_version)
+	matches, err = regexp.MatchString(constant.KERNEL_VERSION_REGEX, updateDescriptorV3.PlatformVersion)
 	if err != nil {
 		return err
 	}
@@ -355,7 +364,7 @@ func ValidateUpdateDescriptorV3(updateDescriptorV3 *UpdateDescriptorV3) error {
 		return errors.New(fmt.Sprintf("'platform_version' is not valid. It should match '%s'.",
 			constant.KERNEL_VERSION_REGEX))
 	}
-	if len(updateDescriptorV3.Platform_name) == 0 {
+	if len(updateDescriptorV3.PlatformName) == 0 {
 		return errors.New("'platform_name' field not found.")
 	}
 
@@ -488,6 +497,13 @@ func HandleErrorAndExit(err error, customMessage ...interface{}) {
 func PrintError(args ...interface{}) {
 	color.Set(color.FgRed, color.Bold)
 	fmt.Println(append(append([]interface{}{"\n[ERROR]"}, args...), "\n")...)
+	color.Unset()
+}
+
+// This function is used to print error messages with a tab
+func PrintErrorWithTab(args ...interface{}) {
+	color.Set(color.FgRed, color.Bold)
+	fmt.Println(append(append([]interface{}{"\n\t[ERROR]"}, args...), "\n")...)
 	color.Unset()
 }
 
@@ -646,25 +662,24 @@ func GetContentFromUrl(url string) ([]byte, error) {
 	return respBytes, nil
 }
 
-//Todo doc
 func createPartialUpdateFileRequest(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpdateFileRequest {
 	partialUpdateFileRequest := PartialUpdateFileRequest{}
-	partialUpdateFileRequest.Update_number = updateDescriptorV2.Update_number
-	partialUpdateFileRequest.Platform_name = updateDescriptorV2.Platform_name
-	partialUpdateFileRequest.Platform_version = updateDescriptorV2.Platform_version
-	if updateDescriptorV2.File_changes.Added_files != nil {
-		partialUpdateFileRequest.Added_files = updateDescriptorV2.File_changes.Added_files
+	partialUpdateFileRequest.UpdateNumber = updateDescriptorV2.UpdateNumber
+	partialUpdateFileRequest.PlatformName = updateDescriptorV2.PlatformName
+	partialUpdateFileRequest.PlatformVersion = updateDescriptorV2.PlatformVersion
+	if updateDescriptorV2.FileChanges.AddedFiles != nil {
+		partialUpdateFileRequest.AddedFiles = updateDescriptorV2.FileChanges.AddedFiles
 	}
-	if updateDescriptorV2.File_changes.Modified_files != nil {
-		partialUpdateFileRequest.Modified_files = updateDescriptorV2.File_changes.Modified_files
+	if updateDescriptorV2.FileChanges.ModifiedFiles != nil {
+		partialUpdateFileRequest.ModifiedFiles = updateDescriptorV2.FileChanges.ModifiedFiles
 	}
-	if updateDescriptorV2.File_changes.Removed_files != nil {
-		partialUpdateFileRequest.Removed_files = updateDescriptorV2.File_changes.Removed_files
+	if updateDescriptorV2.FileChanges.RemovedFiles != nil {
+		partialUpdateFileRequest.RemovedFiles = updateDescriptorV2.FileChanges.RemovedFiles
 	}
 	return &partialUpdateFileRequest
 }
 
-// Todo add docs
+// Used for receiving partial updates for the identified file changes
 func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpdatedFileResponse {
 	// Create partial update request
 	partialUpdateFileRequest := createPartialUpdateFileRequest(updateDescriptorV2)
@@ -672,7 +687,7 @@ func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpda
 	if err := json.NewEncoder(requestBody).Encode(partialUpdateFileRequest); err != nil {
 		HandleErrorAndExit(err)
 	}
-	//todo uncomment
+	log.Debug(fmt.Sprintf("Reqeust sent: %v", requestBody))
 	// Invoke the API
 	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
 		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY
@@ -716,9 +731,7 @@ func makeAPICall(request *http.Request) *http.Response {
 		// Expired access token. Renew the access token and update config.yaml. If the refresh token is
 		// invalid, Authenticate() will notify and exit.
 		Authenticate()
-
 		wumucConfig := GetWUMUCConfigs()
-
 		log.Info("Retrying request with renewed Access Token...\n")
 		request.Header.Set(constant.HEADER_AUTHORIZATION, "Bearer "+wumucConfig.AccessToken)
 		return invokeRequest(request, timeout)
@@ -766,13 +779,20 @@ func handleErrorResponses(response *http.Response) {
 	}
 
 	if response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusBadRequest {
-		log.Info("wum: %v\n", constant.INVALID_EXPIRED_REFRESH_TOKEN_MSG)
+		log.Info("wum-uc: %v\n", constant.INVALID_EXPIRED_REFRESH_TOKEN_MSG)
 		return
 	}
 
 	if response.StatusCode == http.StatusNotFound {
-		log.Info("wum: resource not found")
+		log.Info("wum-uc: resource not found")
 		return
+	}
+
+	if response.StatusCode == http.StatusConflict {
+		log.Info("wum-uc:conflict")
+		errorResponse := ErrorResponse{}
+		processResponseFromServer(response, &errorResponse)
+		HandleErrorAndExit(errors.New(errorResponse.Error.Message))
 	}
 
 	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusCreated &&
@@ -861,7 +881,7 @@ func InvokeTokenAPI(payload *url.Values, wumucConfig *WUMUCConfig, tokenType str
 	return &tokenResponse, nil
 }
 
-// Used to unmarshall the json response received to the provided struct
+// Used to unmarshal the json response received to the provided struct
 func processResponseFromServer(response *http.Response, v interface{}) {
 	defer response.Body.Close()
 	data, err := ioutil.ReadAll(response.Body)
@@ -869,6 +889,7 @@ func processResponseFromServer(response *http.Response, v interface{}) {
 		log.Error(constant.ERROR_READING_RESPONSE_MSG)
 		HandleErrorAndExit(err)
 	}
+	log.Debug(fmt.Sprintf("Response received: %v", string(data)))
 	if err = json.Unmarshal(data, v); err != nil {
 		log.Error(constant.ERROR_READING_RESPONSE_MSG)
 		HandleErrorAndExit(err)
@@ -980,40 +1001,43 @@ func getCredentials(username string) (bool, string, []byte) {
 	return true, username, password
 }
 
+// Used to generate the md5sum for file changes which is required in validating the update-descriptor3.yaml.
 func GenerateMd5sumForFileChanges(updateDescriptorV3 *UpdateDescriptorV3) string {
 	var buffer bytes.Buffer
 	var addedFileString string
 	var modifiedFileString string
 	var removedFileString string
 
-	// Sorting the product changes update-descriptor3.yaml
-	sort.Slice(updateDescriptorV3.Compatible_products, func(i, j int) bool {
-		return updateDescriptorV3.Compatible_products[i].Product_name < updateDescriptorV3.Compatible_products[j].Product_name
+	// Sorting the product changes of update-descriptor3.yaml in ascending order on product names
+	sort.Slice(updateDescriptorV3.CompatibleProducts, func(i, j int) bool {
+		return updateDescriptorV3.CompatibleProducts[i].ProductName < updateDescriptorV3.CompatibleProducts[j].ProductName
+	})
+	sort.Slice(updateDescriptorV3.PartiallyApplicableProducts, func(i, j int) bool {
+		return updateDescriptorV3.PartiallyApplicableProducts[i].ProductName < updateDescriptorV3.PartiallyApplicableProducts[j].
+			ProductName
+	})
 
-	})
-	sort.Slice(updateDescriptorV3.Partially_applicable_products, func(i, j int) bool {
-		return updateDescriptorV3.Partially_applicable_products[i].Product_name < updateDescriptorV3.Partially_applicable_products[j].
-			Product_name
-	})
-	for _, productChange := range updateDescriptorV3.Compatible_products {
-		addedFileString = strings.Join(productChange.Added_files, ",")
-		modifiedFileString = strings.Join(productChange.Modified_files, ",")
-		removedFileString = strings.Join(productChange.Removed_files, ",")
+	// Appending product changes of compatible products to buffer
+	for _, productChange := range updateDescriptorV3.CompatibleProducts {
+		addedFileString = strings.Join(productChange.AddedFiles, ",")
+		modifiedFileString = strings.Join(productChange.ModifiedFiles, ",")
+		removedFileString = strings.Join(productChange.RemovedFiles, ",")
 		buffer.WriteString(addedFileString)
 		buffer.WriteString(modifiedFileString)
 		buffer.WriteString(removedFileString)
-		buffer.WriteString(productChange.Product_name)
-		buffer.WriteString(productChange.Product_version)
+		buffer.WriteString(productChange.ProductName)
+		buffer.WriteString(productChange.ProductVersion)
 	}
-	for _, productChange := range updateDescriptorV3.Partially_applicable_products {
-		addedFileString = strings.Join(productChange.Added_files, ",")
-		modifiedFileString = strings.Join(productChange.Modified_files, ",")
-		removedFileString = strings.Join(productChange.Removed_files, ",")
+	// Appending product changes of partially updated products to buffer
+	for _, productChange := range updateDescriptorV3.PartiallyApplicableProducts {
+		addedFileString = strings.Join(productChange.AddedFiles, ",")
+		modifiedFileString = strings.Join(productChange.ModifiedFiles, ",")
+		removedFileString = strings.Join(productChange.RemovedFiles, ",")
 		buffer.WriteString(addedFileString)
 		buffer.WriteString(modifiedFileString)
 		buffer.WriteString(removedFileString)
-		buffer.WriteString(productChange.Product_name)
-		buffer.WriteString(productChange.Product_version)
+		buffer.WriteString(productChange.ProductName)
+		buffer.WriteString(productChange.ProductVersion)
 	}
 	return fmt.Sprintf("%x", md5.Sum(buffer.Bytes()))
 }
@@ -1029,7 +1053,7 @@ func isRequestedChangesMade(updateDescriptorV3 *UpdateDescriptorV3) bool {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
 			"value for intructions key in update-descriptor3.yaml is empty")))
 	}
-	if len(updateDescriptorV3.Bug_fixes) == 0 {
+	if len(updateDescriptorV3.BugFixes) == 0 {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
 			"value for bug_fixes key in update-descriptor3.yaml is empty")))
 	}
@@ -1043,7 +1067,7 @@ func isRequestedChangesMade(updateDescriptorV3 *UpdateDescriptorV3) bool {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
 			"value for intructions key in update-descriptor3.yaml contains the default value.")))
 	}
-	_, exists := updateDescriptorV3.Bug_fixes[constant.DEFAULT_JIRA_KEY]
+	_, exists := updateDescriptorV3.BugFixes[constant.DEFAULT_JIRA_KEY]
 	if exists {
 		HandleErrorAndExit(errors.New(fmt.Sprintf(
 			"value for bug_fixes key in update-descriptor3.yaml contains the default value.")))

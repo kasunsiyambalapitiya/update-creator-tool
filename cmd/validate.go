@@ -130,24 +130,23 @@ func startValidation(updateFilePath, distributionLocation string) {
 	util.HandleErrorAndExit(err)
 	logger.Trace(fmt.Sprintf("distributionFileMap: %v\n", distributionFileMap))
 
-	// Compares the update with the distribution if update-descriptor.yaml exists
-	if updateDescriptorV2.Update_number != "" {
+	// Compares the update with the provided distribution only if update-descriptor.yaml exists
+	if updateDescriptorV2.UpdateNumber != "" {
 		err = compare(updateFileMap, distributionFileMap, updateDescriptorV2)
 		util.HandleErrorAndExit(err)
 	}
 	util.PrintInfo("'" + updateName + "' validation successfully finished.")
 }
 
-//Todo here validate only when UD2 is available
-// This function compares the files in the update and the distribution.
+// This function compares the files in the update and the provided distribution.
 func compare(updateFileMap, distributionFileMap map[string]bool, updateDescriptorV2 *util.UpdateDescriptorV2) error {
 	updateName := viper.GetString(constant.UPDATE_NAME)
 	for filePath := range updateFileMap {
 		logger.Debug(fmt.Sprintf("Searching: %s", filePath))
 		_, found := distributionFileMap[filePath]
 		if !found {
-			logger.Debug("Added files: ", updateDescriptorV2.File_changes.Added_files)
-			isInAddedFiles := util.IsStringIsInSlice(filePath, updateDescriptorV2.File_changes.Added_files)
+			logger.Debug("Added files: ", updateDescriptorV2.FileChanges.AddedFiles)
+			isInAddedFiles := util.IsStringIsInSlice(filePath, updateDescriptorV2.FileChanges.AddedFiles)
 			logger.Debug(fmt.Sprintf("isInAddedFiles: %v", isInAddedFiles))
 			resourceFiles := getResourceFiles()
 			logger.Debug(fmt.Sprintf("resourceFiles: %v", resourceFiles))
