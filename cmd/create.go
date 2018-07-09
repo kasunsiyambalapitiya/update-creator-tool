@@ -213,7 +213,7 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 
 	// Read the distribution zip file
 	logger.Debug("Reading zip")
-	util.PrintInfo(fmt.Sprintf("\nReading %s. Please wait...\n", distributionName))
+	fmt.Println(fmt.Sprintf("\nReading %s. Please wait...\n", distributionName))
 	rootNode, err = readZip(distributionPath)
 	util.HandleErrorAndExit(err)
 	logger.Debug("Reading zip finished")
@@ -313,7 +313,7 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	//9) Request the user to add removed files as they can't be identified by comparing.
 removedFilesInputLoop:
 	for {
-		util.PrintInBold(fmt.Sprintf("\nDoes existing files in %s distribution being removed from this update? [y,n]",
+		util.PrintInBold(fmt.Sprintf("\nDoes existing files in %s distribution being removed from this update? [y/n]",
 			distributionName))
 		fmt.Println()
 		preference, err := util.GetUserInput()
@@ -477,7 +477,7 @@ func processReadMe(updateDirectoryPath string, updateDescriptorV2 *util.UpdateDe
 				logger.Debug("Platform name found in configs")
 				updateDescriptorV2.PlatformName = platformName
 			} else {
-				//If the platform name is not found, set default
+				//If the platform name is not found, request the user
 				logger.Debug("No matching platform name found for:", result[1])
 				util.PrintInBold("Enter platform name for platform version :", result[1])
 				platformName, err := util.GetUserInput()
@@ -502,10 +502,10 @@ func setBasicValuesInUpdateDescriptorV2(updateDescriptorV2 *util.UpdateDescripto
 		"`platform_version` and `platform_name` fields in update-descriptor." +
 		"yaml")
 	setUpdateNumber(updateDescriptorV2)
-	setPlatformVersion(updateDescriptorV2)
-	setPlatformName(updateDescriptorV2)
+	setPlatformNameAndVersion(updateDescriptorV2)
 }
 
+// Process readme data for filling in remaining details of update-descriptor.yaml
 func processReadMeData(readMeDataString *string, updateDescriptorV2 *util.UpdateDescriptorV2) {
 	logger.Debug("Processing README.txt started for filling in `applies_to`," +
 		"`bug_fixes` and `description` in update-descriptor.yaml")
@@ -614,39 +614,40 @@ func setUpdateNumber(updateDescriptorV2 *util.UpdateDescriptorV2) {
 	updateDescriptorV2.UpdateNumber = updateNumber
 }
 
-// Sets the platform name in update-descriptor.yaml
-func setPlatformName(updateDescriptorV2 *util.UpdateDescriptorV2) {
-	util.PrintInBold("Select the platform name: ")
-	for _, platformName := range util.PlatformVersions {
-
-	}
-	platformName, err := util.GetUserInput()
-	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-	updateDescriptorV2.PlatformName = platformName
-}
-
-// Sets the platform version in update-descriptor.yaml
-func setPlatformVersion(updateDescriptorV2 *util.UpdateDescriptorV2) {
-	var platformVersion string
+// Sets the platform name and version in update-descriptor.yaml
+func setPlatformNameAndVersion(updateDescriptorV2 *util.UpdateDescriptorV2) {
+userInputLoop:
 	for {
-		util.PrintInBold("Enter platform version: ")
-		platformVer, err := util.GetUserInput()
-		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-		if len(platformVer) == 0 {
-			util.PrintError(fmt.Sprintf("'platform version' is empty"))
+		util.PrintInBold(fmt.Sprintf("Enter the platform name and version: \n"))
+		util.PrintInBold(fmt.Sprintf("\t1.\t wilkes \t 4.4.0\n"))
+		util.PrintInBold(fmt.Sprintf("\t2.\t hamming \t 5.0.0\n"))
+		userInput, err := util.GetUserInput()
+		if err != nil {
+			util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+		}
+		preference, err := strconv.Atoi(userInput)
+		if err != nil {
+			util.HandleErrorAndExit(err, "Error occurred while casting the user input to int")
+		}
+		switch preference {
+		case 1:
+			updateDescriptorV2.PlatformName = "wilkes"
+			updateDescriptorV2.PlatformVersion = "4.4.0"
+			fmt.Println(fmt.Sprintf("platform name: 'wilkes' and platform version: '4.4.0' selected\n"))
+			break userInputLoop
+		case 2:
+			updateDescriptorV2.PlatformName = "hamming"
+			updateDescriptorV2.PlatformVersion = "5.5.0"
+			fmt.Println(fmt.Sprintf("platform name: 'hamming' and platform version: '5.5.0' selected\n"))
+			break userInputLoop
+		default:
+			util.PrintError("Invalid input")
 			continue
 		}
-		if !util.ValidatePlatformVersion(platformVer) {
-			util.PrintError(fmt.Sprintf("'platform version' is not valid. It should match '%s'.",
-				constant.KERNEL_VERSION_REGEX))
-			continue
-		}
-		platformVersion = platformVer
-		break
 	}
-	updateDescriptorV2.PlatformVersion = platformVersion
 }
 
+// Sets the applies to in update-descriptor.yaml
 func setAppliesTo(updateDescriptorV2 *util.UpdateDescriptorV2) {
 	util.PrintInBold(fmt.Sprintf("\nEnter applies to: "))
 	appliesTo, err := util.GetUserInput()
@@ -654,6 +655,7 @@ func setAppliesTo(updateDescriptorV2 *util.UpdateDescriptorV2) {
 	updateDescriptorV2.AppliesTo = appliesTo
 }
 
+// Sets the description in update-descriptor.yaml
 func setDescription(updateDescriptorV2 *util.UpdateDescriptorV2) {
 	util.PrintInBold(fmt.Sprintf("\nEnter description: "))
 	description, err := util.GetUserInput()
@@ -661,6 +663,7 @@ func setDescription(updateDescriptorV2 *util.UpdateDescriptorV2) {
 	updateDescriptorV2.Description = description
 }
 
+// Sets the bug fixes in update-descriptor.yaml
 func setBugFixes(updateDescriptorV2 *util.UpdateDescriptorV2) {
 	util.PrintInBold("Enter Bug fixes,")
 	fmt.Println()
@@ -676,7 +679,7 @@ userInputLoop:
 				util.PrintError("Empty input detected, please enter a valid JIRA_KEY/GITHUB ISSUE URL")
 				continue
 			}
-			util.PrintInBold(fmt.Sprintf("\tEmpty input detected, are you done with adding bug fixes? [Y,n]"))
+			util.PrintInBold(fmt.Sprintf("\tEmpty input detected, are you done with adding bug fixes? [Y/n]"))
 			preference, err := util.GetUserInput()
 			util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 			if len(preference) == 0 {
@@ -697,8 +700,10 @@ userInputLoop:
 		bugFixes[jiraKey] = jiraSummary
 	}
 	logger.Debug(fmt.Sprintf("bug_fixes: %v", bugFixes))
+	updateDescriptorV2.BugFixes = bugFixes
 }
 
+// Used for getting JIRA_KEY_SUMMARY/GITHUB_ISSUE_SUMMARY for the given JIRA_KEY/GITHUB_ISSUE
 func getJiraSummary(jiraKey string) string {
 	var jiraSummary string
 	for {
@@ -706,7 +711,7 @@ func getJiraSummary(jiraKey string) string {
 		jiraSummary, err := util.GetUserInput()
 		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 		if jiraSummary == "" {
-			util.PrintError(fmt.Sprintf("\tEmpty input detected, "+
+			util.PrintErrorWithTab(fmt.Sprintf("Empty input detected, "+
 				"please enter a valid JIRA_KEY_SUMMARY/GITHUB_ISSUE_SUMMARY for %s", jiraKey))
 			continue
 		}
@@ -715,6 +720,7 @@ func getJiraSummary(jiraKey string) string {
 	return jiraSummary
 }
 
+// Creates the updateDescriptorV2 for saving.
 func createUpdateDescriptorV2(updateDirectoryPath string, updateDescriptorV2 *util.UpdateDescriptorV2) {
 	// Marshall update descriptor struct
 	dataV2, err := yaml.Marshal(updateDescriptorV2)
@@ -736,6 +742,7 @@ func createUpdateDescriptorV2(updateDirectoryPath string, updateDescriptorV2 *ut
 		absDestinationV2))
 }
 
+// Creates the updateDescriptorV3 for saving.
 func createUpdateDescriptorV3(updateDirectoryPath string, updateDescriptorV3 *util.UpdateDescriptorV3) {
 	// Marshall update descriptor structs
 	dataV3, err := yaml.Marshal(updateDescriptorV3)
@@ -756,6 +763,7 @@ func createUpdateDescriptorV3(updateDirectoryPath string, updateDescriptorV3 *ut
 		absDestinationV3))
 }
 
+// Save the given update descriptor in given location
 func saveUpdateDescriptorInDestination(updateDescriptorFilePath, dataString, destination string) string {
 	file, err := os.OpenFile(
 		updateDescriptorFilePath,
@@ -1429,7 +1437,7 @@ func marshalUpdateDescriptor(updateDescriptorV2 *util.UpdateDescriptorV2) ([]byt
 	return data, nil
 }
 
-// This function will save update descriptor after modifying the file_changes section.
+// This function will save update descriptor to temp directory after modifying the file_changes section.
 func saveUpdateDescriptor(updateDescriptorFilename string, data []byte) error {
 	updateName := viper.GetString(constant.UPDATE_NAME)
 	destination := path.Join(constant.TEMP_DIR, updateName, updateDescriptorFilename)
@@ -1632,16 +1640,16 @@ func setProductChangesInUpdateDescriptorV3(partialUpdatedProducts *util.PartialU
 	return productChanges
 }
 
+// This will append removed files to update-descriptor.yaml
 func appendRemovedFilesToUpdateDescriptor(updateDescriptorV2 *util.UpdateDescriptorV2) {
 userInputLoop:
 	for {
-		util.PrintInBold("Enter the path of a removed file relative to the CARBON_HOME, " +
-			"press enter when the path is added")
-		fmt.Println()
+		util.PrintInBold(fmt.Sprintf("Enter the path of a removed file relative to the CARBON_HOME, " +
+			"press enter when the path is added\n"))
 		removedFile, err := util.GetUserInput()
 		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 		if removedFile == "" {
-			util.PrintInBold("Empty input detected, are you done with adding inputs? [y,n]")
+			util.PrintInBold("Empty input detected, are you done with adding inputs? [y/n]")
 			fmt.Println()
 			preference, err := util.GetUserInput()
 			util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")

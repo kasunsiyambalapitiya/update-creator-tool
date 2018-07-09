@@ -493,6 +493,13 @@ func PrintError(args ...interface{}) {
 	color.Unset()
 }
 
+// This function is used to print error messages with a tab
+func PrintErrorWithTab(args ...interface{}) {
+	color.Set(color.FgRed, color.Bold)
+	fmt.Println(append(append([]interface{}{"\n\t[ERROR]"}, args...), "\n")...)
+	color.Unset()
+}
+
 // This function is used to print warning messages
 func PrintWarning(args ...interface{}) {
 	color.Set(color.FgRed, color.Bold)
@@ -666,7 +673,7 @@ func createPartialUpdateFileRequest(updateDescriptorV2 *UpdateDescriptorV2) *Par
 	return &partialUpdateFileRequest
 }
 
-// Todo add docs
+// Used for receiving partial updates for the identified file changes
 func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpdatedFileResponse {
 	// Create partial update request
 	partialUpdateFileRequest := createPartialUpdateFileRequest(updateDescriptorV2)
@@ -674,9 +681,7 @@ func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpda
 	if err := json.NewEncoder(requestBody).Encode(partialUpdateFileRequest); err != nil {
 		HandleErrorAndExit(err)
 	}
-	fmt.Println("============= request====================")
-	fmt.Println(requestBody)
-	//todo uncomment
+	log.Debug(fmt.Sprintf("Reqeust sent: %v", requestBody))
 	// Invoke the API
 	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
 		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY
@@ -720,9 +725,7 @@ func makeAPICall(request *http.Request) *http.Response {
 		// Expired access token. Renew the access token and update config.yaml. If the refresh token is
 		// invalid, Authenticate() will notify and exit.
 		Authenticate()
-
 		wumucConfig := GetWUMUCConfigs()
-
 		log.Info("Retrying request with renewed Access Token...\n")
 		request.Header.Set(constant.HEADER_AUTHORIZATION, "Bearer "+wumucConfig.AccessToken)
 		return invokeRequest(request, timeout)
@@ -873,8 +876,7 @@ func processResponseFromServer(response *http.Response, v interface{}) {
 		log.Error(constant.ERROR_READING_RESPONSE_MSG)
 		HandleErrorAndExit(err)
 	}
-	fmt.Println("================ response=====")
-	fmt.Println(string(data))
+	log.Debug(fmt.Sprintf("Response received: %v", string(data)))
 	if err = json.Unmarshal(data, v); err != nil {
 		log.Error(constant.ERROR_READING_RESPONSE_MSG)
 		HandleErrorAndExit(err)
