@@ -349,14 +349,14 @@ removedFilesInputLoop:
 	}
 
 	// Set values for UpdateDescriptorV3
-	defaultBugFixes := map[string]string{
-		constant.DEFAULT_JIRA_KEY: constant.DEFAULT_JIRA_SUMMARY,
-	}
 	updateDescriptorV3.UpdateNumber = partialUpdatedFileResponse.UpdateNumber
 	updateDescriptorV3.PlatformName = partialUpdatedFileResponse.PlatformName
 	updateDescriptorV3.PlatformVersion = partialUpdatedFileResponse.PlatformVersion
 	updateDescriptorV3.Description = constant.DEFAULT_DESCRIPTION
 	updateDescriptorV3.Instructions = constant.DEFAULT_INSTRUCTIONS
+	defaultBugFixes := map[string]string{
+		constant.DEFAULT_JIRA_KEY: constant.DEFAULT_JIRA_SUMMARY,
+	}
 	updateDescriptorV3.BugFixes = defaultBugFixes
 
 	for _, partialUpdatedProducts := range partialUpdatedFileResponse.CompatibleProducts {
@@ -368,17 +368,17 @@ removedFilesInputLoop:
 		updateDescriptorV3.PartiallyApplicableProducts = append(updateDescriptorV3.PartiallyApplicableProducts, *productChanges)
 	}
 
-	// Set values to compatible products slice
+	// Set values to compatible products slice for displaying purpose
 	var compatibleProducts []string
 	for _, productChange := range updateDescriptorV3.CompatibleProducts {
 		compatibleProducts = append(compatibleProducts, productChange.ProductName)
 	}
-	// Set values to partially applicable products slice
+	// Set values to partially applicable products slice for displaying purpose
 	var partiallyApplicableProducts []string
 	for _, productChange := range updateDescriptorV3.PartiallyApplicableProducts {
 		partiallyApplicableProducts = append(partiallyApplicableProducts, productChange.ProductName)
 	}
-	// Set values to notify products slice
+	// Set values to notify products slice for displaying purpose
 	var notifyProducts []string
 	for _, partialUpdatedProducts := range partialUpdatedFileResponse.NotifyProducts {
 		notifyProducts = append(notifyProducts, partialUpdatedProducts.ProductName)
@@ -390,7 +390,7 @@ removedFilesInputLoop:
 	//9) Copy resource files (LICENSE.txt, etc) to temp directory
 	resourceFiles := getResourceFiles()
 	err = copyResourceFilesToTempDir(resourceFiles)
-	util.HandleErrorAndExit(err, errors.New("Error occurred while copying resource files."))
+	util.HandleErrorAndExit(err, errors.New("error occurred while copying resource files"))
 
 	createUpdateDescriptorV3(updateDirectoryPath, &updateDescriptorV3)
 	// Save the updated update-descriptor3.yaml
@@ -676,15 +676,12 @@ userInputLoop:
 		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 		if jiraKey == "" {
 			if len(bugFixes) == 0 {
-				util.PrintError("Empty input detected, please enter a valid JIRA_KEY/GITHUB ISSUE URL")
+				util.PrintErrorWithTab("Empty input detected, please enter a valid JIRA_KEY/GITHUB ISSUE URL")
 				continue
 			}
-			util.PrintInBold(fmt.Sprintf("\tEmpty input detected, are you done with adding bug fixes? [Y/n]"))
+			util.PrintInBold(fmt.Sprintf("\tEmpty input detected, are you done with adding bug fixes? [y/n]"))
 			preference, err := util.GetUserInput()
 			util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-			if len(preference) == 0 {
-				preference = "y"
-			}
 			userPreference := util.ProcessUserPreference(preference)
 			switch userPreference {
 			case constant.YES:

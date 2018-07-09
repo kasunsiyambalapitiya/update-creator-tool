@@ -62,6 +62,7 @@ type UpdateDescriptorV2 struct {
 	} `yaml:"file_changes"`
 }
 
+// struct which is used to read update-descriptor3.yaml
 type UpdateDescriptorV3 struct {
 	UpdateNumber                string            `yaml:"update_number"`
 	PlatformVersion             string            `yaml:"platform_version"`
@@ -82,7 +83,6 @@ type ProductChanges struct {
 	ModifiedFiles  []string `yaml:"modified_files"`
 }
 
-//todo doc
 type PartialUpdateFileRequest struct {
 	UpdateNumber    string   `json:"update-no"`
 	PlatformVersion string   `json:"platform-version"`
@@ -655,7 +655,6 @@ func GetContentFromUrl(url string) ([]byte, error) {
 	return respBytes, nil
 }
 
-//Todo doc
 func createPartialUpdateFileRequest(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpdateFileRequest {
 	partialUpdateFileRequest := PartialUpdateFileRequest{}
 	partialUpdateFileRequest.UpdateNumber = updateDescriptorV2.UpdateNumber
@@ -988,21 +987,23 @@ func getCredentials(username string) (bool, string, []byte) {
 	return true, username, password
 }
 
+// Used to generate the md5sum for file changes which is required in validating the update-descriptor3.yaml.
 func GenerateMd5sumForFileChanges(updateDescriptorV3 *UpdateDescriptorV3) string {
 	var buffer bytes.Buffer
 	var addedFileString string
 	var modifiedFileString string
 	var removedFileString string
 
-	// Sorting the product changes update-descriptor3.yaml
+	// Sorting the product changes of update-descriptor3.yaml in ascending order on product names
 	sort.Slice(updateDescriptorV3.CompatibleProducts, func(i, j int) bool {
 		return updateDescriptorV3.CompatibleProducts[i].ProductName < updateDescriptorV3.CompatibleProducts[j].ProductName
-
 	})
 	sort.Slice(updateDescriptorV3.PartiallyApplicableProducts, func(i, j int) bool {
 		return updateDescriptorV3.PartiallyApplicableProducts[i].ProductName < updateDescriptorV3.PartiallyApplicableProducts[j].
 			ProductName
 	})
+
+	// Appending product changes of compatible products to buffer
 	for _, productChange := range updateDescriptorV3.CompatibleProducts {
 		addedFileString = strings.Join(productChange.AddedFiles, ",")
 		modifiedFileString = strings.Join(productChange.ModifiedFiles, ",")
@@ -1013,6 +1014,7 @@ func GenerateMd5sumForFileChanges(updateDescriptorV3 *UpdateDescriptorV3) string
 		buffer.WriteString(productChange.ProductName)
 		buffer.WriteString(productChange.ProductVersion)
 	}
+	// Appending product changes of partially updated products to buffer
 	for _, productChange := range updateDescriptorV3.PartiallyApplicableProducts {
 		addedFileString = strings.Join(productChange.AddedFiles, ",")
 		modifiedFileString = strings.Join(productChange.ModifiedFiles, ",")
