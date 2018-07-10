@@ -313,7 +313,7 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	//9) Request the user to add removed files as they can't be identified by comparing.
 removedFilesInputLoop:
 	for {
-		util.PrintInBold(fmt.Sprintf("\nDoes existing files in %s distribution being removed from this update? [y/n] ",
+		util.PrintInBold(fmt.Sprintf("\nDoes existing files in %s distribution being removed from this update? [y/n]: ",
 			distributionName))
 		preference, err := util.GetUserInput()
 		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
@@ -617,9 +617,10 @@ func setUpdateNumber(updateDescriptorV2 *util.UpdateDescriptorV2) {
 func setPlatformNameAndVersion(updateDescriptorV2 *util.UpdateDescriptorV2) {
 userInputLoop:
 	for {
-		util.PrintInBold(fmt.Sprintf("Enter the platform name and version: \n"))
-		util.PrintInBold(fmt.Sprintf("\t1.\t wilkes \t 4.4.0\n"))
-		util.PrintInBold(fmt.Sprintf("\t2.\t hamming \t 5.0.0\n"))
+		util.PrintInBold(fmt.Sprintf("Select the platform name and version from following \n"))
+		util.PrintInBold(fmt.Sprintf("\t1. wilkes \t 4.4.0\n"))
+		util.PrintInBold(fmt.Sprintf("\t2. hamming \t 5.0.0\n"))
+		util.PrintInBold(fmt.Sprintf("Enter your preference [1/2]: "))
 		userInput, err := util.GetUserInput()
 		if err != nil {
 			util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
@@ -678,7 +679,7 @@ userInputLoop:
 				util.PrintErrorWithTab("Empty input detected, please enter a valid JIRA_KEY/GITHUB ISSUE URL")
 				continue
 			}
-			util.PrintInBold(fmt.Sprintf("\tEmpty input detected, are you done with adding bug fixes? [y/n]"))
+			util.PrintInBold(fmt.Sprintf("\tEmpty input detected, are you done with adding bug fixes? [y/n]: "))
 			preference, err := util.GetUserInput()
 			util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 			userPreference := util.ProcessUserPreference(preference)
@@ -1646,7 +1647,7 @@ userInputLoop:
 		removedFile, err := util.GetUserInput()
 		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 		if removedFile == "" {
-			util.PrintInBold("Empty input detected, are you done with adding inputs? [y/n]")
+			util.PrintInBold("Empty input detected, are you done with adding inputs? [y/n]: ")
 			preference, err := util.GetUserInput()
 			util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
 			userPreference := util.ProcessUserPreference(preference)

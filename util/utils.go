@@ -731,7 +731,8 @@ func makeAPICall(request *http.Request) *http.Response {
 		// Expired access token. Renew the access token and update config.yaml. If the refresh token is
 		// invalid, Authenticate() will notify and exit.
 		Authenticate()
-		wumucConfig := GetWUMUCConfigs()
+		// Load the updated config.yaml with new access token
+		wumucConfig := LoadWUMUCConfig(viper.GetString(constant.WUM_UC_HOME))
 		log.Info("Retrying request with renewed Access Token...\n")
 		request.Header.Set(constant.HEADER_AUTHORIZATION, "Bearer "+wumucConfig.AccessToken)
 		return invokeRequest(request, timeout)
@@ -785,11 +786,13 @@ func handleErrorResponses(response *http.Response) {
 
 	if response.StatusCode == http.StatusNotFound {
 		log.Info("wum-uc: resource not found")
-		return
+		errorResponse := ErrorResponse{}
+		processResponseFromServer(response, &errorResponse)
+		HandleErrorAndExit(errors.New(errorResponse.Error.Message))
 	}
 
 	if response.StatusCode == http.StatusConflict {
-		log.Info("wum-uc:conflict")
+		log.Info("wum-uc: conflict")
 		errorResponse := ErrorResponse{}
 		processResponseFromServer(response, &errorResponse)
 		HandleErrorAndExit(errors.New(errorResponse.Error.Message))

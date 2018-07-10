@@ -75,6 +75,7 @@ func startValidation(updateFilePath, distributionLocation string) {
 	// Sets the log level
 	setLogLevel()
 	logger.Debug("validate command called")
+	fmt.Println("Validating update ...")
 
 	updateFileMap := make(map[string]bool)
 	distributionFileMap := make(map[string]bool)
@@ -135,7 +136,7 @@ func startValidation(updateFilePath, distributionLocation string) {
 		err = compare(updateFileMap, distributionFileMap, updateDescriptorV2)
 		util.HandleErrorAndExit(err)
 	}
-	util.PrintInfo("'" + updateName + "' validation successfully finished.")
+	fmt.Println("'" + updateName + "' validation successfully finished.")
 }
 
 // This function compares the files in the update and the provided distribution.
