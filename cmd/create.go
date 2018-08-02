@@ -368,24 +368,27 @@ removedFilesInputLoop:
 		updateDescriptorV3.PartiallyApplicableProducts = append(updateDescriptorV3.PartiallyApplicableProducts, *productChanges)
 	}
 
+	// Generate md5sum for product changes
+	updateDescriptorV3.Md5sum = util.GenerateMd5sumForFileChanges(&updateDescriptorV3)
+
 	// Set values to compatible products slice for displaying purpose
 	var compatibleProducts []string
 	for _, productChange := range updateDescriptorV3.CompatibleProducts {
-		compatibleProducts = append(compatibleProducts, productChange.ProductName)
+		productId := productChange.ProductName + "-" + productChange.ProductVersion
+		compatibleProducts = append(compatibleProducts, productId)
 	}
 	// Set values to partially applicable products slice for displaying purpose
 	var partiallyApplicableProducts []string
 	for _, productChange := range updateDescriptorV3.PartiallyApplicableProducts {
-		partiallyApplicableProducts = append(partiallyApplicableProducts, productChange.ProductName)
+		productId := productChange.ProductName + "-" + productChange.ProductVersion
+		partiallyApplicableProducts = append(partiallyApplicableProducts, productId)
 	}
 	// Set values to notify products slice for displaying purpose
 	var notifyProducts []string
 	for _, partialUpdatedProducts := range partialUpdatedFileResponse.NotifyProducts {
-		notifyProducts = append(notifyProducts, partialUpdatedProducts.ProductName)
+		productId := partialUpdatedProducts.ProductName + "-" + partialUpdatedProducts.BaseVersion
+		notifyProducts = append(notifyProducts, productId)
 	}
-
-	// Generate md5sum for product changes
-	updateDescriptorV3.Md5sum = util.GenerateMd5sumForFileChanges(&updateDescriptorV3)
 
 	//10) Copy resource files (LICENSE.txt, etc) to temp directory
 	resourceFiles := getResourceFiles()
