@@ -311,7 +311,7 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	}
 
 	//9) Request the user to add removed files as they can't be identified by comparing.
-removedFilesInputLoop:
+	/*removedFilesInputLoop:
 	for {
 		util.PrintInBold(fmt.Sprintf("\nAre the existing files in %s removed from this update? [y"+
 			"/n]: ",
@@ -328,7 +328,7 @@ removedFilesInputLoop:
 		default:
 			util.PrintError("Invalid preference. Enter y for Yes or n for No.")
 		}
-	}
+	}*/
 
 	// Get partial updated file changes
 	partialUpdatedFileResponse := util.GetPartialUpdatedFiles(&updateDescriptorV2)
@@ -368,24 +368,27 @@ removedFilesInputLoop:
 		updateDescriptorV3.PartiallyApplicableProducts = append(updateDescriptorV3.PartiallyApplicableProducts, *productChanges)
 	}
 
+	// Generate md5sum for product changes
+	updateDescriptorV3.Md5sum = util.GenerateMd5sumForFileChanges(&updateDescriptorV3)
+
 	// Set values to compatible products slice for displaying purpose
 	var compatibleProducts []string
 	for _, productChange := range updateDescriptorV3.CompatibleProducts {
-		compatibleProducts = append(compatibleProducts, productChange.ProductName)
+		productId := productChange.ProductName + "-" + productChange.ProductVersion
+		compatibleProducts = append(compatibleProducts, productId)
 	}
 	// Set values to partially applicable products slice for displaying purpose
 	var partiallyApplicableProducts []string
 	for _, productChange := range updateDescriptorV3.PartiallyApplicableProducts {
-		partiallyApplicableProducts = append(partiallyApplicableProducts, productChange.ProductName)
+		productId := productChange.ProductName + "-" + productChange.ProductVersion
+		partiallyApplicableProducts = append(partiallyApplicableProducts, productId)
 	}
 	// Set values to notify products slice for displaying purpose
 	var notifyProducts []string
 	for _, partialUpdatedProducts := range partialUpdatedFileResponse.NotifyProducts {
-		notifyProducts = append(notifyProducts, partialUpdatedProducts.ProductName)
+		productId := partialUpdatedProducts.ProductName + "-" + partialUpdatedProducts.BaseVersion
+		notifyProducts = append(notifyProducts, productId)
 	}
-
-	// Generate md5sum for product changes
-	updateDescriptorV3.Md5sum = util.GenerateMd5sumForFileChanges(&updateDescriptorV3)
 
 	//10) Copy resource files (LICENSE.txt, etc) to temp directory
 	resourceFiles := getResourceFiles()
@@ -597,18 +600,18 @@ func setUpdateNumber(updateDescriptorV2 *util.UpdateDescriptorV2) {
 	var updateNumber string
 	for {
 		util.PrintInBold("Enter 'update number': ")
-		updateNum, err := util.GetUserInput()
-		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-		if len(updateNum) == 0 {
-			util.PrintError(fmt.Sprintf("'update number' is empty"))
-			continue
-		}
-		if !util.ValidateUpdateNumber(updateNum) {
-			util.PrintError(fmt.Sprintf("'update number' is not valid. It should match '%s'.",
-				constant.UPDATE_NUMBER_REGEX))
-			continue
-		}
-		updateNumber = updateNum
+		//updateNum, err := util.GetUserInput()
+		//util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
+		//if len(updateNum) == 0 {
+		//	util.PrintError(fmt.Sprintf("'update number' is empty"))
+		//	continue
+		//}
+		//if !util.ValidateUpdateNumber(updateNum) {
+		//	util.PrintError(fmt.Sprintf("'update number' is not valid. It should match '%s'.",
+		//		constant.UPDATE_NUMBER_REGEX))
+		//	continue
+		//}
+		updateNumber = "3067"
 		break
 	}
 	updateDescriptorV2.UpdateNumber = updateNumber
@@ -616,7 +619,7 @@ func setUpdateNumber(updateDescriptorV2 *util.UpdateDescriptorV2) {
 
 // Sets the platform name and version in update-descriptor.yaml
 func setPlatformNameAndVersion(updateDescriptorV2 *util.UpdateDescriptorV2) {
-userInputLoop:
+	/*userInputLoop:
 	for {
 		util.PrintInBold(fmt.Sprintf("Select the platform name and version from following: \n"))
 		util.PrintInBold(fmt.Sprintf("\t1. wilkes \t 4.4.0\n"))
@@ -645,24 +648,26 @@ userInputLoop:
 			util.PrintError("Invalid input")
 			continue
 		}
-	}
+	}*/
+	updateDescriptorV2.PlatformName = "wilkes"
+	updateDescriptorV2.PlatformVersion = "4.4.0"
 }
 
 // Sets the applies to in update-descriptor.yaml
 func setAppliesTo(updateDescriptorV2 *util.UpdateDescriptorV2) {
 	util.PrintInBold(fmt.Sprintf("\nEnter applies to: "))
-	appliesTo, err := util.GetUserInput()
-	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-	updateDescriptorV2.AppliesTo = appliesTo
+	/*	appliesTo, err := util.GetUserInput()
+		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")*/
+	updateDescriptorV2.AppliesTo = "appliesTo"
 }
 
 // Sets the description in update-descriptor.yaml
 func setDescription(updateDescriptorV2 *util.UpdateDescriptorV2) {
 	util.PrintInBold(fmt.Sprintf("\nEnter the description: "))
-	description, err := util.GetUserInput()
-	fmt.Println()
-	util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")
-	updateDescriptorV2.Description = description
+	/*	description, err := util.GetUserInput()
+		fmt.Println()
+		util.HandleErrorAndExit(err, "Error occurred while getting input from the user.")*/
+	updateDescriptorV2.Description = "description"
 }
 
 // Sets the bug fixes in update-descriptor.yaml
@@ -670,7 +675,7 @@ func setBugFixes(updateDescriptorV2 *util.UpdateDescriptorV2) {
 	util.PrintInBold("Enter Bug fixes,")
 	fmt.Println()
 	bugFixes := make(map[string]string)
-userInputLoop:
+	/*userInputLoop:
 	for {
 		util.PrintInBold(fmt.Sprintf("\tEnter JIRA_KEY/GITHUB ISSUE URL: "))
 		jiraKey, err := util.GetUserInput()
@@ -696,7 +701,8 @@ userInputLoop:
 		}
 		jiraSummary := getJiraSummary(jiraKey)
 		bugFixes[jiraKey] = jiraSummary
-	}
+	}*/
+	bugFixes["Key"] = "jiraSummary"
 	logger.Debug(fmt.Sprintf("bug_fixes: %v", bugFixes))
 	updateDescriptorV2.BugFixes = bugFixes
 }

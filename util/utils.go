@@ -1019,36 +1019,114 @@ func GenerateMd5sumForFileChanges(updateDescriptorV3 *UpdateDescriptorV3) string
 	var removedFileString string
 
 	// Sorting the product changes of update-descriptor3.yaml in ascending order on product names
-	sort.Slice(updateDescriptorV3.CompatibleProducts, func(i, j int) bool {
-		return updateDescriptorV3.CompatibleProducts[i].ProductName < updateDescriptorV3.CompatibleProducts[j].ProductName
+	compatibleProductChangesMap := make(map[string]ProductChanges)
+	for _, productChange := range updateDescriptorV3.CompatibleProducts {
+		var buffer bytes.Buffer
+		buffer.WriteString(productChange.ProductName)
+		buffer.WriteString("-")
+		buffer.WriteString(productChange.ProductVersion)
+		compatibleProductChangesMap[buffer.String()] = productChange
+	}
+
+	// Get the keys of compatibleProductChangesMap for sorting
+	var sortedCompatibleProducts []string
+	for key := range compatibleProductChangesMap {
+		sortedCompatibleProducts = append(sortedCompatibleProducts, key)
+	}
+
+	// Sorting the product list on product name and version wise
+	sort.Slice(sortedCompatibleProducts, func(i, j int) bool {
+		productId1 := strings.Split(sortedCompatibleProducts[i], "-")
+		productId2 := strings.Split(sortedCompatibleProducts[j], "-")
+		// If product names are different
+		if productId1[0] != productId2[0] {
+			return sortedCompatibleProducts[i] < sortedCompatibleProducts[j]
+		} else {
+			// Product names are same, check for their version when comparing
+			productVersion1 := strings.Split(productId1[1], ".")
+			productVersion2 := strings.Split(productId2[1], ".")
+
+			for k := 0; k < len(productVersion1); k++ {
+				if productVersion1[k] != productVersion2[k] {
+					return sortedCompatibleProducts[i] < sortedCompatibleProducts[j]
+				}
+			}
+		}
+		return sortedCompatibleProducts[i] < sortedCompatibleProducts[j]
 	})
-	sort.Slice(updateDescriptorV3.PartiallyApplicableProducts, func(i, j int) bool {
-		return updateDescriptorV3.PartiallyApplicableProducts[i].ProductName < updateDescriptorV3.PartiallyApplicableProducts[j].
-			ProductName
+	log.Debug("Sorted compatible products list: ", sortedCompatibleProducts)
+
+	partiallyApplicableProductChangesMap := make(map[string]ProductChanges)
+	for _, productChange := range updateDescriptorV3.PartiallyApplicableProducts {
+		var buffer bytes.Buffer
+		buffer.WriteString(productChange.ProductName)
+		buffer.WriteString("-")
+		buffer.WriteString(productChange.ProductVersion)
+		partiallyApplicableProductChangesMap[buffer.String()] = productChange
+	}
+
+	// Get the keys of partiallyApplicableProductChangesMap for sorting
+	var sortedPartialApplicableProducts []string
+	for product := range partiallyApplicableProductChangesMap {
+		sortedPartialApplicableProducts = append(sortedPartialApplicableProducts, product)
+	}
+
+	// Sorting the product list on product name and version wise
+	sort.Slice(sortedPartialApplicableProducts, func(i, j int) bool {
+		productId1 := strings.Split(sortedPartialApplicableProducts[i], "-")
+		productId2 := strings.Split(sortedPartialApplicableProducts[j], "-")
+		// If product names are different
+		if productId1[0] != productId2[0] {
+			return sortedPartialApplicableProducts[i] < sortedPartialApplicableProducts[j]
+		} else {
+			// Product names are same, check for their version when comparing
+			productVersion1 := strings.Split(productId1[1], ".")
+			productVersion2 := strings.Split(productId2[1], ".")
+
+			for k := 0; k < len(productVersion1); k++ {
+				if productVersion1[k] != productVersion2[k] {
+					return sortedPartialApplicableProducts[i] < sortedPartialApplicableProducts[j]
+				}
+			}
+		}
+		return sortedPartialApplicableProducts[i] < sortedPartialApplicableProducts[j]
 	})
+	log.Debug("Sorted partially applicable products list: ", sortedPartialApplicableProducts)
 
 	// Appending product changes of compatible products to buffer
-	for _, productChange := range updateDescriptorV3.CompatibleProducts {
-		addedFileString = strings.Join(productChange.AddedFiles, ",")
-		modifiedFileString = strings.Join(productChange.ModifiedFiles, ",")
-		removedFileString = strings.Join(productChange.RemovedFiles, ",")
+	var tempCompatibleProducts []ProductChanges
+	for _, productKey := range sortedCompatibleProducts {
+		addedFileString = strings.Join(compatibleProductChangesMap[productKey].AddedFiles, ",")
+		modifiedFileString = strings.Join(compatibleProductChangesMap[productKey].ModifiedFiles, ",")
+		removedFileString = strings.Join(compatibleProductChangesMap[productKey].RemovedFiles, ",")
 		buffer.WriteString(addedFileString)
 		buffer.WriteString(modifiedFileString)
 		buffer.WriteString(removedFileString)
-		buffer.WriteString(productChange.ProductName)
-		buffer.WriteString(productChange.ProductVersion)
+		buffer.WriteString(compatibleProductChangesMap[productKey].ProductName)
+		buffer.WriteString(compatibleProductChangesMap[productKey].ProductVersion)
+		tempCompatibleProducts = append(tempCompatibleProducts, compatibleProductChangesMap[productKey])
 	}
+
+	// Replacing compatible products in updateDescriptorV3 with sorted product names
+	updateDescriptorV3.CompatibleProducts = tempCompatibleProducts
+
 	// Appending product changes of partially updated products to buffer
-	for _, productChange := range updateDescriptorV3.PartiallyApplicableProducts {
-		addedFileString = strings.Join(productChange.AddedFiles, ",")
-		modifiedFileString = strings.Join(productChange.ModifiedFiles, ",")
-		removedFileString = strings.Join(productChange.RemovedFiles, ",")
+	var tempPartiallyApplicableProducts []ProductChanges
+	for _, productKey := range sortedPartialApplicableProducts {
+		addedFileString = strings.Join(partiallyApplicableProductChangesMap[productKey].AddedFiles, ",")
+		modifiedFileString = strings.Join(partiallyApplicableProductChangesMap[productKey].ModifiedFiles, ",")
+		removedFileString = strings.Join(partiallyApplicableProductChangesMap[productKey].RemovedFiles, ",")
 		buffer.WriteString(addedFileString)
 		buffer.WriteString(modifiedFileString)
 		buffer.WriteString(removedFileString)
-		buffer.WriteString(productChange.ProductName)
-		buffer.WriteString(productChange.ProductVersion)
+		buffer.WriteString(partiallyApplicableProductChangesMap[productKey].ProductName)
+		buffer.WriteString(partiallyApplicableProductChangesMap[productKey].ProductVersion)
+		tempPartiallyApplicableProducts = append(tempPartiallyApplicableProducts, partiallyApplicableProductChangesMap[productKey])
 	}
+
+	// Replacing partially updated products in updateDescriptorV3 with sorted product names
+	updateDescriptorV3.PartiallyApplicableProducts = tempPartiallyApplicableProducts
+
 	return fmt.Sprintf("%x", md5.Sum(buffer.Bytes()))
 }
 
