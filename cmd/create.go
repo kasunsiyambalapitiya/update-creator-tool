@@ -641,8 +641,8 @@ userInputLoop:
 			break userInputLoop
 		case 2:
 			updateDescriptorV2.PlatformName = "hamming"
-			updateDescriptorV2.PlatformVersion = "5.5.0"
-			fmt.Println(fmt.Sprintf("platform name: 'hamming' and platform version: '5.5.0' selected\n"))
+			updateDescriptorV2.PlatformVersion = "5.0.0"
+			fmt.Println(fmt.Sprintf("platform name: 'hamming' and platform version: '5.0.0' selected\n"))
 			break userInputLoop
 		default:
 			util.PrintError("Invalid input")
