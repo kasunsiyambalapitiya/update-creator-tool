@@ -95,6 +95,7 @@ const (
 
 	WUMUC_HOME_DIR_NAME = ".wum-uc"
 	WUM_UC_HOME         = "WUM_UC_HOME"
+	WUMUC_RESUME_FILE   = ".wum-uc-resume.yaml"
 
 	WUMUC_AUTHENTICATION_URL               = "https://api.updates.wso2.com"
 	TOKEN_API_CONTEXT                      = "token"
