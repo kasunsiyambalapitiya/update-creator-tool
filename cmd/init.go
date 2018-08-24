@@ -23,7 +23,7 @@ import (
 // Values used to print help command.
 var (
 	initCmdUse       = "init"
-	initCmdShortDesc = "Initialize WUM-UC with your WSO2 credentials"
+	initCmdShortDesc = "Initialize wum-uc with your WSO2 credentials"
 	initCmdLongDesc  = dedent.Dedent(`Initialize WUM-UC with your WSO2 credentials`)
 	InitCmdExamples  = dedent.Dedent(`
 		# You will be prompted to enter WSO2 credentials.

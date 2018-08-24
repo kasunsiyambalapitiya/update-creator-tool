@@ -58,6 +58,15 @@ type node struct {
 	md5Hash          string
 }
 
+// This struct is used for resuming the update creation using `wum-uc create -- continue`
+type resumeFile struct {
+	updateDirectoryLocation string
+	developer               string
+	updateZipName           string
+	distributionPath        string
+	timestamp               int
+}
+
 // This is used to create a new node which will initialize the childNodes map.
 func createNewNode() node {
 	return node{
@@ -83,12 +92,15 @@ var createCmd = &cobra.Command{
 	Run:   initializeCreateCommand,
 }
 
+var isContinueEnabled = false
+
 // This function will be called first and this will add flags to the command.
 func init() {
 	RootCmd.AddCommand(createCmd)
 
 	createCmd.Flags().BoolVarP(&isDebugLogsEnabled, "debug", "d", util.EnableDebugLogs, "Enable debug logs")
 	createCmd.Flags().BoolVarP(&isTraceLogsEnabled, "trace", "t", util.EnableTraceLogs, "Enable trace logs")
+	createCmd.Flags().BoolVar(&isContinueEnabled, "continue", false, "Continue resumed update creation")
 
 	createCmd.Flags().BoolP("md5", "m", util.CheckMd5Disabled, "Disable checking MD5 sum")
 	viper.BindPFlag(constant.CHECK_MD5_DISABLED, createCmd.Flags().Lookup("md5"))
@@ -96,11 +108,17 @@ func init() {
 
 // This function will be called when the create command is called.
 func initializeCreateCommand(cmd *cobra.Command, args []string) {
-	if len(args) != 2 {
-		util.HandleErrorAndExit(errors.New("invalid number of arguments. Run 'wum-uc create --help' to " +
-			"view help"))
+
+	// Check for resuming the update creation or creating the update from scratch
+	if !isContinueEnabled {
+		if len(args) != 2 {
+			util.HandleErrorAndExit(errors.New("invalid number of arguments. Run 'wum-uc create --help' to " +
+				"view help"))
+		}
+		createUpdate(args[0], args[1])
+	} else {
+		continueResumedUpdateCreation()
 	}
-	createUpdate(args[0], args[1])
 }
 
 // This function will start the update creation process.
@@ -407,19 +425,28 @@ removedFilesInputLoop:
 	updateZipName := updateName + ".zip"
 	logger.Debug(fmt.Sprintf("updateZipName: %s", updateZipName))
 
-	targetDirectory := path.Join(constant.TEMP_DIR, updateName)
-	targetDirectory = strings.Replace(targetDirectory, "/", constant.PATH_SEPARATOR, -1)
+	explodedUpdateDirectory := path.Join(constant.TEMP_DIR, updateName)
+	explodedUpdateDirectory = strings.Replace(explodedUpdateDirectory, "/", constant.PATH_SEPARATOR, -1)
 
-	logger.Debug(fmt.Sprintf("targetDirectory: %s", targetDirectory))
-	err = ZipFile(targetDirectory, updateZipName)
-	util.HandleErrorAndExit(err)
+	logger.Debug(fmt.Sprintf("Exploded update directory: %s", explodedUpdateDirectory))
+	WUMUCConfig := util.GetWUMUCConfigs()
 
-	// Remove the temp directories
-	util.CleanUpDirectory(constant.TEMP_DIR)
+	// Write details of the update to the resumeFile struct for resuming update creation
+	resumeFile := resumeFile{}
+	resumeFile.updateDirectoryLocation = explodedUpdateDirectory
+	resumeFile.updateZipName = updateName
+	resumeFile.distributionPath = distributionPath
+	resumeFile.developer = WUMUCConfig.Username
+
+	/*	err = ZipFile(targetDirectory, updateZipName)
+		util.HandleErrorAndExit(err)
+
+		// Remove the temp directories
+		util.CleanUpDirectory(constant.TEMP_DIR)*/
 
 	signal.Stop(cleanupChannel)
 
-	fmt.Println(fmt.Sprintf("'%s' successfully created.\n", updateZipName))
+	fmt.Println(fmt.Sprintf("Resources for '%s' successfully created at %s.\n", updateName, explodedUpdateDirectory))
 
 	util.PrintInBold(fmt.Sprintf("Your update applies to the following products\n"))
 	util.PrintInBold(fmt.Sprintf("\tCompatible products : %v \n", compatibleProducts))
@@ -428,7 +455,8 @@ removedFilesInputLoop:
 
 	util.PrintInBold(fmt.Sprintf("Manually fill the `description`,"+
 		"`instructions` and `bug_fixes` fields for above products in the update-descriptor3."+
-		"yaml located inside the created '%s'\n", updateZipName))
+		"yaml located inside %s directory\n", explodedUpdateDirectory))
+	util.PrintInBold(fmt.Sprintf("When done please run 'wum-uc create --continue' to resume the update creation."))
 }
 
 // This function will process the README.txt file and extract basic details of the update to populate the update
@@ -1473,9 +1501,8 @@ func copyResourceFilesToTempDir(resourceFilesMap map[string]bool) error {
 	// Iterate through all resource files
 	for filename, isMandatory := range resourceFilesMap {
 		updateRoot := viper.GetString(constant.UPDATE_ROOT)
-		updateName := viper.GetString(constant.UPDATE_NAME)
 		source := path.Join(updateRoot, filename)
-		destination := path.Join(constant.TEMP_DIR, updateName, filename)
+		destination = path.Join(constant.TEMP_DIR, updateName, filename)
 		// Copy the file
 		err := util.CopyFile(source, destination)
 		if err != nil {
@@ -1667,4 +1694,49 @@ userInputLoop:
 		}
 		updateDescriptorV2.FileChanges.RemovedFiles = append(updateDescriptorV2.FileChanges.RemovedFiles, removedFile)
 	}
+}
+
+// This function will continue the update creation after manually modifying the relevant sections of the update
+// -descriptor3.yaml by the developer
+func continueResumedUpdateCreation() {
+	// Todo Add interrupt handler
+	// Todo When the mention file is not there we have to delete the temp file and ask the developer to create the
+	// update
+	resumedFile := resumeFile{}
+	// Check for the existence of the temp file
+	wumucResumeFile := filepath.Join(constant.WUM_UC_HOME, constant.WUMUC_RESUME_FILE)
+
+	exits, err := util.IsFileExists(wumucResumeFile)
+	if err != nil {
+		util.HandleErrorAndExit(err, " error occurred while checking the existence of ", wumucResumeFile)
+	}
+	if !exits {
+		util.HandleErrorAndExit(errors.New(fmt.Sprintf("no trace of a resumed update creation found, " +
+			"please recreate the update.")))
+	}
+
+	// Read resumed update creation details
+	data, err := ioutil.ReadFile(wumucResumeFile)
+	if err != nil {
+		util.HandleErrorAndExit(err, "error occurred while reading the ", wumucResumeFile)
+	}
+	err = yaml.Unmarshal(data, resumedFile)
+	if err != nil {
+		util.HandleErrorAndExit(err, "error occurred while un-marshaling the ", wumucResumeFile)
+	}
+	createFinalUpdateZip(&resumedFile)
+
+}
+
+// This function will create the update zip.
+func createFinalUpdateZip(resumedFile *resumeFile) {
+	// Todo validate the update
+
+	err := ZipFile(resumedFile.updateDirectoryLocation, resumedFile.updateZipName)
+	if err != nil {
+		util.HandleErrorAndExit(err, "error occurred when compressing the update zip.")
+	}
+	// Remove the temp directories
+	util.CleanUpDirectory(constant.TEMP_DIR)
+	fmt.Println(fmt.Sprintf("'%s' successfully created.\n", resumedFile.updateZipName))
 }
