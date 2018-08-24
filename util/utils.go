@@ -178,6 +178,25 @@ func CleanUpDirectory(path string) {
 	}
 }
 
+// This function is used to delete files.
+func CleanUpFile(path string) {
+	logger.Debug(fmt.Sprintf("Deleting file %s", path))
+	err := os.RemoveAll(path)
+	if err != nil {
+		logger.Debug(fmt.Sprintf("Error occurred while deleting '%s' file: %v", path, err))
+		time.Sleep(time.Second * 1)
+		err = os.RemoveAll(path)
+		if err != nil {
+			logger.Debug(fmt.Sprintf("Retry failed: %v", err))
+			PrintInfo(fmt.Sprintf("Deleting '%s' failed. Please delete this file manually.",
+				path))
+		} else {
+			logger.Debug(fmt.Sprintf("'%s' successfully deleted on retry", path))
+		}
+	}
+	logger.Debug(fmt.Sprintf("'%s' successfully deleted", path))
+}
+
 // This function handles keyboard interrupts
 func HandleInterrupts(cleanupFunc func()) chan<- os.Signal {
 	c := make(chan os.Signal, 1)
@@ -1166,4 +1185,35 @@ func isValidateEmailAddress(username string) bool {
 		HandleErrorAndExit(err)
 	}
 	return regex.MatchString(username)
+}
+
+// Write the content of given update descriptor passed as a byte array to the destination file.
+func WriteUpdateDescriptorInDestination(data []byte, filePath, destination string) string {
+	WriteFileToDestination(data, filePath)
+	// Get the absolute location
+	absDestination, err := filepath.Abs(destination)
+	if err != nil {
+		absDestination = destination
+	}
+	return absDestination
+}
+
+// Write the content passed as byte array to the destination file.
+func WriteFileToDestination(data []byte, filePath string) {
+	file, err := os.OpenFile(
+		filePath,
+		os.O_WRONLY|os.O_TRUNC|os.O_CREATE,
+		600,
+	)
+	if err != nil {
+		HandleErrorAndExit(err)
+	}
+	defer file.Close()
+
+	// Write bytes to file
+	_, err = file.Write(data)
+	if err != nil {
+		HandleErrorAndExit(err)
+	}
+	log.Trace(fmt.Sprintf("Writing content to %s completed successfully", filePath))
 }

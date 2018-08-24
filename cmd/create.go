@@ -30,6 +30,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ian-kent/go-log/log"
 	"github.com/olekukonko/tablewriter"
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
@@ -60,11 +61,11 @@ type node struct {
 
 // This struct is used for resuming the update creation using `wum-uc create -- continue`
 type resumeFile struct {
-	updateDirectoryLocation string
-	developer               string
-	updateZipName           string
-	distributionPath        string
-	timestamp               int
+	explodedUpdateLocation string
+	developer              string
+	updateName             string
+	distributionPath       string
+	timestamp              int
 }
 
 // This is used to create a new node which will initialize the childNodes map.
@@ -243,8 +244,10 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	logger.Trace("-------------------------------------")
 
 	// Create an interrupt handler
+	wumucResumeFile := filepath.Join(constant.WUM_UC_HOME, constant.WUMUC_RESUME_FILE)
 	cleanupChannel := util.HandleInterrupts(func() {
 		util.CleanUpDirectory(constant.TEMP_DIR)
+		util.CleanUpFile(wumucResumeFile)
 	})
 
 	//todo: save the selected location to generate the final summary map
@@ -431,19 +434,20 @@ removedFilesInputLoop:
 	logger.Debug(fmt.Sprintf("Exploded update directory: %s", explodedUpdateDirectory))
 	WUMUCConfig := util.GetWUMUCConfigs()
 
-	// Write details of the update to the resumeFile struct for resuming update creation
+	// Set details of the update to resumeFile struct for resuming update creation
 	resumeFile := resumeFile{}
-	resumeFile.updateDirectoryLocation = explodedUpdateDirectory
-	resumeFile.updateZipName = updateName
+	resumeFile.explodedUpdateLocation = explodedUpdateDirectory
+	resumeFile.updateName = updateName
 	resumeFile.distributionPath = distributionPath
 	resumeFile.developer = WUMUCConfig.Username
 
-	/*	err = ZipFile(targetDirectory, updateZipName)
-		util.HandleErrorAndExit(err)
+	// Write resumeFile struct to a file
+	data, err = yaml.Marshal(&resumeFile)
+	util.HandleErrorAndExit(err, "error occurred while marshalling the resume file.")
+	util.WriteFileToDestination(data, wumucResumeFile)
+	log.Debug(fmt.Sprintf("%s file created successfully in %s%n", constant.WUMUC_RESUME_FILE, constant.WUM_UC_HOME))
 
-		// Remove the temp directories
-		util.CleanUpDirectory(constant.TEMP_DIR)*/
-
+	// clean un temp file
 	signal.Stop(cleanupChannel)
 
 	fmt.Println(fmt.Sprintf("Resources for '%s' successfully created at %s.\n", updateName, explodedUpdateDirectory))
@@ -758,7 +762,7 @@ func createUpdateDescriptorV2(updateDirectoryPath string, updateDescriptorV2 *ut
 
 	dataStringV2 := string(dataV2)
 
-	//remove " enclosing the update number
+	// Remove "" enclosing the update number
 	dataStringV2 = strings.Replace(dataStringV2, "\"", "", -1)
 	logger.Trace(fmt.Sprintf("update-descriptorV2:\n%s", dataStringV2))
 
@@ -793,28 +797,11 @@ func createUpdateDescriptorV3(updateDirectoryPath string, updateDescriptorV3 *ut
 		absDestinationV3))
 }
 
-// Save the given update descriptor in given location
+// Save the given update descriptor in given location.
 func saveUpdateDescriptorInDestination(updateDescriptorFilePath, dataString, destination string) string {
-	file, err := os.OpenFile(
-		updateDescriptorFilePath,
-		os.O_WRONLY|os.O_TRUNC|os.O_CREATE,
-		0600,
-	)
-	util.HandleErrorAndExit(err)
-	defer file.Close()
-
-	// Write bytes to file
-	_, err = file.Write([]byte(dataString))
-	if err != nil {
-		util.HandleErrorAndExit(err)
-	}
-
-	// Get the absolute location
-	absDestination, err := filepath.Abs(destination)
-	if err != nil {
-		absDestination = destination
-	}
-	return absDestination
+	// Cast the dataString to an array of bytes
+	data := []byte(dataString)
+	return util.WriteUpdateDescriptorInDestination(data, updateDescriptorFilePath, destination)
 }
 
 // This function will set the update name which will be used when creating the update zip.
@@ -1703,9 +1690,8 @@ func continueResumedUpdateCreation() {
 	// Todo When the mention file is not there we have to delete the temp file and ask the developer to create the
 	// update
 	resumedFile := resumeFile{}
-	// Check for the existence of the temp file
+	// Check for the existence of 'wum-uc-resume.yaml' file
 	wumucResumeFile := filepath.Join(constant.WUM_UC_HOME, constant.WUMUC_RESUME_FILE)
-
 	exits, err := util.IsFileExists(wumucResumeFile)
 	if err != nil {
 		util.HandleErrorAndExit(err, " error occurred while checking the existence of ", wumucResumeFile)
@@ -1720,23 +1706,32 @@ func continueResumedUpdateCreation() {
 	if err != nil {
 		util.HandleErrorAndExit(err, "error occurred while reading the ", wumucResumeFile)
 	}
-	err = yaml.Unmarshal(data, resumedFile)
+	err = yaml.Unmarshal(data, &resumedFile)
 	if err != nil {
 		util.HandleErrorAndExit(err, "error occurred while un-marshaling the ", wumucResumeFile)
 	}
-	createFinalUpdateZip(&resumedFile)
-
+	createUpdateZip(&resumedFile)
+	validateUpdate(&resumedFile)
+	// Remove the temp directories and files
+	util.CleanUpDirectory(constant.TEMP_DIR)
+	util.CleanUpFile(wumucResumeFile)
+	fmt.Println(fmt.Sprintf("'%s'.zip successfully created.\n", resumedFile.updateName))
 }
 
 // This function will create the update zip.
-func createFinalUpdateZip(resumedFile *resumeFile) {
-	// Todo validate the update
-
-	err := ZipFile(resumedFile.updateDirectoryLocation, resumedFile.updateZipName)
+func createUpdateZip(resumedFile *resumeFile) {
+	err := ZipFile(resumedFile.explodedUpdateLocation, resumedFile.updateName)
 	if err != nil {
 		util.HandleErrorAndExit(err, "error occurred when compressing the update zip.")
 	}
-	// Remove the temp directories
-	util.CleanUpDirectory(constant.TEMP_DIR)
-	fmt.Println(fmt.Sprintf("'%s' successfully created.\n", resumedFile.updateZipName))
+}
+
+func validateUpdate(resumeFile *resumeFile) {
+	// Get absolute location of the created update zip
+	updateZipName := resumeFile.updateName + ".zip"
+	updateZipPath, err := filepath.Abs(updateZipName)
+	if err != nil {
+		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred in getting the absolute path of %s", updateZipName))
+	}
+	startValidation(updateZipPath, resumeFile.distributionPath)
 }
