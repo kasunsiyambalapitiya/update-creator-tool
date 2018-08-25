@@ -1686,8 +1686,7 @@ userInputLoop:
 // This function will continue the update creation after manually modifying the relevant sections of the update
 // -descriptor3.yaml by the developer
 func continueResumedUpdateCreation() {
-	// Todo Add interrupt handler
-	// Todo When the mention file is not there we have to delete the temp file and ask the developer to create the
+	// Todo when the mention file is not there we have to delete the temp file and ask the developer to create the
 	// update
 	resumedFile := resumeFile{}
 	// Check for the existence of 'wum-uc-resume.yaml' file
@@ -1710,8 +1709,16 @@ func continueResumedUpdateCreation() {
 	if err != nil {
 		util.HandleErrorAndExit(err, "error occurred while un-marshaling the ", wumucResumeFile)
 	}
+
+	updateZipName := resumedFile.updateName + ".zip"
+	cleanupChannel := util.HandleInterrupts(func() {
+		util.CleanUpFile(updateZipName)
+
+	})
 	createUpdateZip(&resumedFile)
 	validateUpdate(&resumedFile)
+
+	signal.Stop(cleanupChannel)
 	// Remove the temp directories and files
 	util.CleanUpDirectory(constant.TEMP_DIR)
 	util.CleanUpFile(wumucResumeFile)
@@ -1719,8 +1726,9 @@ func continueResumedUpdateCreation() {
 }
 
 // This function will create the update zip.
-func createUpdateZip(resumedFile *resumeFile) {
-	err := ZipFile(resumedFile.explodedUpdateLocation, resumedFile.updateName)
+func createUpdateZip(resumeFile *resumeFile) {
+	updateZipName := resumeFile.updateName + ".zip"
+	err := ZipFile(resumeFile.explodedUpdateLocation, updateZipName)
 	if err != nil {
 		util.HandleErrorAndExit(err, "error occurred when compressing the update zip.")
 	}
