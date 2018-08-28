@@ -37,6 +37,7 @@ import (
 	"github.com/wso2/update-creator-tool/constant"
 	"github.com/wso2/update-creator-tool/util"
 	"gopkg.in/yaml.v2"
+	"os/exec"
 	"regexp"
 )
 
@@ -65,6 +66,7 @@ type resumeFile struct {
 	updateName                  string
 	resourceDirectoryPath       string
 	distributionPath            string
+	platformName                string
 	timestamp                   int
 }
 
@@ -118,7 +120,8 @@ func initializeCreateCommand(cmd *cobra.Command, args []string) {
 		}
 		createUpdate(args[0], args[1])
 	} else {
-		continueResumedUpdateCreation()
+		//continueResumedUpdateCreation()
+		commitUpdateToSVN()
 	}
 }
 
@@ -436,6 +439,7 @@ removedFilesInputLoop:
 	resumeFile.distributionPath = distributionPath
 	resumeFile.resourceDirectoryPath = absUpdateDirectoryPath
 	resumeFile.developer = WUMUCConfig.Username
+	resumeFile.platformName = updateDescriptorV3.PlatformName
 
 	// Write resumeFile struct to a file
 	data, err := yaml.Marshal(&resumeFile)
@@ -1731,6 +1735,7 @@ func continueResumedUpdateCreation() {
 	util.CleanUpFile(wumucResumeFile)
 	fmt.Println(fmt.Sprintf("'%s'.zip successfully created.\n", resumedFile.updateName))
 	// Todo commit to SVN
+	commitUpdateToSVN(&resumedFile)
 }
 
 // This function will create the update zip.
@@ -1746,6 +1751,7 @@ func createUpdateZip(resumeFile *resumeFile) {
 	logger.Debug(fmt.Sprintf("Update zip %s created successfully.", updateZipName))
 }
 
+// This function will validate the created update zip before committing it to the pointed SVN.
 func validateUpdate(resumeFile *resumeFile) {
 	// Get absolute location of the created update zip
 	updateZipName := resumeFile.updateName + ".zip"
@@ -1754,4 +1760,42 @@ func validateUpdate(resumeFile *resumeFile) {
 		updateZipPath = updateZipName
 	}
 	startValidation(updateZipPath, resumeFile.distributionPath)
+}
+
+// This function will commit the create update zip to the SVN.
+func commitUpdateToSVN(resumeFile *resumeFile) {
+	// Todo Checkout to see if the update no is there in SVN
+	// If not create the folder using a SVN commit
+	// If it exists go to the folder see if the location is locked, if locked err. If not locked move the zip (
+	// should only have the update zip) to old/old-T and svn add the new file, then commit to the root of relevant update
+	//SVNURI := constant.SVN_UPDATE_REPO + "/" + resumeFile.platformName + "/" + constant.UPDATES
+	SVNURI := "http://172.17.0.2/svn/repo/"
+	updatesSVNURI := SVNURI + "/" + resumeFile.updateName
+
+	// First need to checkout whether the given update is already committed to the SVN.
+	svnListCommand := exec.Command(constant.SVN_COMMAND, constant.LIST_COMMAND, updatesSVNURI)
+	err := svnListCommand.Run()
+	if err != nil {
+		util.HandleErrorAndExit(err)
+	}
+
+	statusOfListCommand := exec.Command(constant.ECHO_COMMAND, "$?")
+	err = statusOfListCommand.Run()
+	if err != nil {
+		util.HandleErrorAndExit(err)
+	}
+	if statusOfListCommand == 0 {
+		// The update directory exists
+	} else if statusOfListCommand == 1 {
+		// The update directory doesnot exists.
+	}
+
+	svnMkdirCommand := exec.Command(constant.SVN_COMMAND, constant.MKDIR_COMMAND, constant.COMMIT_OPTION,
+		"Resources for "+resumeFile.updateName, SVNURI+resumeFile.updateName)
+	svnCheckoutCommand := exec.Command(constant.SVN_COMMAND, constant.CHECKOUT_COMMAND)
+	err := svnMkdirCommand.Run()
+	if err != nil {
+		util.HandleErrorAndExit(err)
+	}
+
 }

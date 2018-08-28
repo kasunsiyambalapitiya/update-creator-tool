@@ -137,4 +137,13 @@ const (
 	HEADER_ACCEPT                      = "Accept"
 	HEADER_VALUE_APPLICATION_JSON      = "application/json"
 	HEADER_VALUE_X_WWW_FORM_URLENCODED = "application/x-www-form-urlencoded"
+
+	SVN_UPDATE_REPO  = "https://svn.wso2.com/wso2/custom/projects/projects/carbon/"
+	SVN_COMMAND      = "svn"
+	MKDIR_COMMAND    = "mkdir"
+	CHECKOUT_COMMAND = "checkout"
+	ECHO_COMMAND     = "echo"
+	UPDATES          = "updates"
+	LIST_COMMAND     = "ls"
+	COMMIT_OPTION    = "-m"
 )
