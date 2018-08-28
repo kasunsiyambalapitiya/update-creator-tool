@@ -421,6 +421,15 @@ func CopyFile(source string, dest string) (err error) {
 	return
 }
 
+// Moves file source to destination
+func MoveFile(source, destination string) {
+	err := CopyFile(source, destination)
+	if err != nil {
+		HandleErrorAndExit(err, fmt.Sprintf("error occurred when copying %s to %s", source, destination))
+	}
+	CleanUpFile(source)
+}
+
 // Recursively copies a directory tree, attempting to preserve permissions
 func CopyDir(source string, dest string) (err error) {
 	logger.Debug(fmt.Sprintf("[CopyFile] Copying %s to %s.", source, dest))

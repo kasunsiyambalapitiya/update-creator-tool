@@ -32,6 +32,7 @@ import (
 var (
 	Version   string
 	BuildDate string
+	WUMUCHome string
 
 	//Create the logger
 	logger = log.Logger()
@@ -72,7 +73,7 @@ func initConfig() {
 	setDefaultValues()
 
 	// Check whether the user has specified the WUM_UC_HOME environment variable.
-	WUMUCHome := os.Getenv(constant.WUM_UC_HOME)
+	WUMUCHome = os.Getenv(constant.WUM_UC_HOME)
 	if WUMUCHome == "" {
 		// User has not specified WUM_UC_HOME.
 		// Get the home directory of the current user.
