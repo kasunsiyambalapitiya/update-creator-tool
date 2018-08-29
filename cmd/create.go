@@ -30,7 +30,6 @@ import (
 	"strconv"
 	"strings"
 
-	"bufio"
 	"github.com/olekukonko/tablewriter"
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
@@ -1736,7 +1735,7 @@ func continueResumedUpdateCreation() {
 	util.CleanUpFile(wumucResumeFile)
 	fmt.Println(fmt.Sprintf("'%s'.zip successfully created.\n", resumedFile.updateName))
 	// Todo commit to SVN
-	commitUpdateToSVN(&resumedFile)
+	//commitUpdateToSVN(&resumedFile)
 }
 
 // This function will create the update zip.
@@ -1764,7 +1763,13 @@ func validateUpdate(resumeFile *resumeFile) {
 }
 
 // This function will commit the create update zip to the SVN.
-func commitUpdateToSVN(resumeFile *resumeFile) {
+//func commitUpdateToSVN(resumeFile *resumeFile) {
+func commitUpdateToSVN() {
+	resumeFile := resumeFile{}
+	resumeFile.updateName = "update0010"
+	resumeFile.developer = "admin"
+	resumeFile.platformName = "hamming"
+
 	// Todo Checkout to see if the update no is there in SVN
 	// Todo We need to check if SVN is there or not
 	//Todo handle interuppts
@@ -1772,22 +1777,38 @@ func commitUpdateToSVN(resumeFile *resumeFile) {
 	// If it exists go to the folder see if the location is locked, if locked err. If not locked move the zip (
 	// should only have the update zip) to old/old-T and svn add the new file, then commit to the root of relevant update
 
-	// Request password from user for committing created update to the SVN
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Fprintf(os.Stdout, "Enter password for %s for committing the update to the SVN: ", resumeFile.developer)
-	password, err := reader.ReadString('\n')
-	if err != nil {
-		util.HandleErrorAndExit(err, constant.UNABLE_TO_READ_YOUR_INPUT_MSG)
-	}
+	/*	// Request password from user for committing created update to the SVN
+		reader := bufio.NewReader(os.Stdin)
+		fmt.Fprintf(os.Stdout, "Enter password for %s for committing the update to the SVN: ", resumeFile.developer)
+		password, err := reader.ReadString('\n')
+		password= strings.TrimSpace(password)
+		if err != nil {
+			util.HandleErrorAndExit(err, constant.UNABLE_TO_READ_YOUR_INPUT_MSG)
+		}*/
+
+	password = "admin"
 
 	//SVNURI := constant.SVN_UPDATE_REPO + "/" + resumeFile.platformName + "/" + constant.UPDATES
-	SVNURI := "http://172.17.0.2/svn/repo/"
+	//SVNURI := "http://172.17.0.2/svn/repo"
+	SVNURI := "http://10.100.1.85:8090/svn/repo"
+
 	updateSVNURI := SVNURI + "/" + resumeFile.updateName
+
+	svnCommitMsg := fmt.Sprintf("Add resources for %s", resumeFile.updateName)
+	svnMkdirCommand := exec.Command(constant.SVN_COMMAND, constant.MKDIR_COMMAND, constant.COMMIT_OPTION,
+		fmt.Sprintf("%q", svnCommitMsg), updateSVNURI, constant.USER_NAME,
+		resumeFile.developer, constant.PASSWORD, password)
+	err := svnMkdirCommand.Run()
 
 	// First need to checkout whether the given update is already committed to the SVN.
 	svnListCommand := exec.Command(constant.SVN_COMMAND, constant.LIST_COMMAND, updateSVNURI, constant.USER_NAME,
 		resumeFile.developer, constant.PASSWORD, password)
-	err = svnListCommand.Run()
+	stringsvn := constant.SVN_COMMAND + " " + constant.LIST_COMMAND + " " + updateSVNURI + " " + constant.USER_NAME + " " +
+		resumeFile.developer + " " + constant.PASSWORD + " " + password
+	fmt.Println(stringsvn)
+	//err = svnListCommand.Run()
+	fmt.Println(svnListCommand.Output())
+	fmt.Println(err)
 	if err != nil {
 		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when checking the existance of %s at SVN.",
 			resumeFile.updateName))
@@ -1798,6 +1819,8 @@ func commitUpdateToSVN(resumeFile *resumeFile) {
 	if err != nil {
 		util.HandleErrorAndExit(err)
 	}
+	sample := string(output)
+	fmt.Println(sample)
 	status := int(output[0])
 	if status == 0 {
 		// The update directory exists, we need to checkout the existing update directory
@@ -1862,7 +1885,5 @@ func commitUpdateToSVN(resumeFile *resumeFile) {
 			util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when commiting %s directory to SVN.",
 				resumeFile.updateName))
 		}
-
 	}
-
 }
