@@ -30,6 +30,7 @@ import (
 	"strconv"
 	"strings"
 
+	"bytes"
 	"github.com/olekukonko/tablewriter"
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
@@ -1765,8 +1766,11 @@ func validateUpdate(resumeFile *resumeFile) {
 // This function will commit the create update zip to the SVN.
 //func commitUpdateToSVN(resumeFile *resumeFile) {
 func commitUpdateToSVN() {
+	var stdErr bytes.Buffer
+	var stdOut bytes.Buffer
+
 	resumeFile := resumeFile{}
-	resumeFile.updateName = "update0010"
+	resumeFile.updateName = "update0012"
 	resumeFile.developer = "admin"
 	resumeFile.platformName = "hamming"
 
@@ -1794,22 +1798,19 @@ func commitUpdateToSVN() {
 
 	updateSVNURI := SVNURI + "/" + resumeFile.updateName
 
-	svnCommitMsg := fmt.Sprintf("Add resources for %s", resumeFile.updateName)
-	svnMkdirCommand := exec.Command(constant.SVN_COMMAND, constant.MKDIR_COMMAND, constant.COMMIT_OPTION,
-		fmt.Sprintf("%q", svnCommitMsg), updateSVNURI, constant.USER_NAME,
-		resumeFile.developer, constant.PASSWORD, password)
-	err := svnMkdirCommand.Run()
-
 	// First need to checkout whether the given update is already committed to the SVN.
 	svnListCommand := exec.Command(constant.SVN_COMMAND, constant.LIST_COMMAND, updateSVNURI, constant.USER_NAME,
 		resumeFile.developer, constant.PASSWORD, password)
-	stringsvn := constant.SVN_COMMAND + " " + constant.LIST_COMMAND + " " + updateSVNURI + " " + constant.USER_NAME + " " +
-		resumeFile.developer + " " + constant.PASSWORD + " " + password
-	fmt.Println(stringsvn)
-	//err = svnListCommand.Run()
-	fmt.Println(svnListCommand.Output())
-	fmt.Println(err)
+	// Todo have two bytes.Buffers for stdOut and stdErr and then use command.Run()
+	//Todo in here catch the error and then see if the echo_command in 0 or 1 (exit code)
+	// Todo --non-interactive --no-auth-cache --username XXXX --password YYYY as https svn https://stackoverflow.com/questions/34687/subversion-ignoring-password-and-username-options
+	//Todo https://stackoverflow.com/questions/10385551/get-exit-code-go use this to solve,
+	// do not call $? it just returns the exit code
+	svnListCommand.Stdout = &stdOut
+	svnListCommand.Stderr = &stdErr
+	err := svnListCommand.Run()
 	if err != nil {
+		if
 		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when checking the existance of %s at SVN.",
 			resumeFile.updateName))
 	}
