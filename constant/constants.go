@@ -146,4 +146,6 @@ const (
 	UPDATES          = "updates"
 	LIST_COMMAND     = "ls"
 	COMMIT_OPTION    = "-m"
+	USER_NAME        = "--username"
+	PASSWORD         = "--password"
 )

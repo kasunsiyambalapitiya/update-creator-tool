@@ -30,6 +30,7 @@ import (
 	"strconv"
 	"strings"
 
+	"bufio"
 	"github.com/olekukonko/tablewriter"
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
@@ -1765,37 +1766,53 @@ func validateUpdate(resumeFile *resumeFile) {
 // This function will commit the create update zip to the SVN.
 func commitUpdateToSVN(resumeFile *resumeFile) {
 	// Todo Checkout to see if the update no is there in SVN
+	// Todo We need to check if SVN is there or not
 	// If not create the folder using a SVN commit
 	// If it exists go to the folder see if the location is locked, if locked err. If not locked move the zip (
 	// should only have the update zip) to old/old-T and svn add the new file, then commit to the root of relevant update
+
+	// Request password from user for committing to the SVN
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Println("Enter Password: ")
+	password, err := reader.ReadString("\n")
+	if err != nil {
+		util.HandleErrorAndExit(err, "")
+	}
 	//SVNURI := constant.SVN_UPDATE_REPO + "/" + resumeFile.platformName + "/" + constant.UPDATES
 	SVNURI := "http://172.17.0.2/svn/repo/"
-	updatesSVNURI := SVNURI + "/" + resumeFile.updateName
+	updateSVNURI := SVNURI + "/" + resumeFile.updateName
 
 	// First need to checkout whether the given update is already committed to the SVN.
-	svnListCommand := exec.Command(constant.SVN_COMMAND, constant.LIST_COMMAND, updatesSVNURI)
+	svnListCommand := exec.Command(constant.SVN_COMMAND, constant.LIST_COMMAND, updateSVNURI, constant.USER_NAME,
+		resumeFile.developer, constant.PASSWORD, password)
 	err := svnListCommand.Run()
 	if err != nil {
 		util.HandleErrorAndExit(err)
 	}
 
 	statusOfListCommand := exec.Command(constant.ECHO_COMMAND, "$?")
-	err = statusOfListCommand.Run()
+	output, err := statusOfListCommand.Output()
 	if err != nil {
 		util.HandleErrorAndExit(err)
 	}
-	if statusOfListCommand == 0 {
-		// The update directory exists
-	} else if statusOfListCommand == 1 {
-		// The update directory doesnot exists.
-	}
-
-	svnMkdirCommand := exec.Command(constant.SVN_COMMAND, constant.MKDIR_COMMAND, constant.COMMIT_OPTION,
-		"Resources for "+resumeFile.updateName, SVNURI+resumeFile.updateName)
-	svnCheckoutCommand := exec.Command(constant.SVN_COMMAND, constant.CHECKOUT_COMMAND)
-	err := svnMkdirCommand.Run()
-	if err != nil {
-		util.HandleErrorAndExit(err)
+	status := int(output[0])
+	if status == 0 {
+		// The update directory exists, we need to checkout the existing update directory
+		svnCheckoutCommand := exec.Command(constant.SVN_COMMAND, constant.CHECKOUT_COMMAND)
+		err = svnCheckoutCommand.Run()
+		if err != nil {
+			util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when checkingout %s directory at SVN.",
+				resumeFile.updateName))
+		}
+	} else if status == 1 {
+		// The update directory does not exists. So we need to create the directory at SVN
+		svnMkdirCommand := exec.Command(constant.SVN_COMMAND, constant.MKDIR_COMMAND, constant.COMMIT_OPTION,
+			"Resources for "+resumeFile.updateName, updateSVNURI)
+		err = svnMkdirCommand.Run()
+		if err != nil {
+			util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when creating %s directory at SVN.",
+				resumeFile.updateName))
+		}
 	}
 
 }
