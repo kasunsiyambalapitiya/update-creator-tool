@@ -40,6 +40,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"os/exec"
 	"regexp"
+	"syscall"
 )
 
 // This struct is used to store file/directory information.
@@ -1766,13 +1767,14 @@ func validateUpdate(resumeFile *resumeFile) {
 // This function will commit the create update zip to the SVN.
 //func commitUpdateToSVN(resumeFile *resumeFile) {
 func commitUpdateToSVN() {
-	var stdErr bytes.Buffer
 	var stdOut bytes.Buffer
-
+	var stdErr bytes.Buffer
+	//-------------Testing----------------
 	resumeFile := resumeFile{}
 	resumeFile.updateName = "update0012"
 	resumeFile.developer = "admin"
 	resumeFile.platformName = "hamming"
+	//-------------Testing-done----------------
 
 	// Todo Checkout to see if the update no is there in SVN
 	// Todo We need to check if SVN is there or not
@@ -1790,11 +1792,14 @@ func commitUpdateToSVN() {
 			util.HandleErrorAndExit(err, constant.UNABLE_TO_READ_YOUR_INPUT_MSG)
 		}*/
 
+	//-------------Testing----------------
+
 	password = "admin"
 
 	//SVNURI := constant.SVN_UPDATE_REPO + "/" + resumeFile.platformName + "/" + constant.UPDATES
 	//SVNURI := "http://172.17.0.2/svn/repo"
-	SVNURI := "http://10.100.1.85:8090/svn/repo"
+	SVNURI := "http://localhost:8090/svn/repo"
+	//-------------Testing-done----------------
 
 	updateSVNURI := SVNURI + "/" + resumeFile.updateName
 
@@ -1810,10 +1815,29 @@ func commitUpdateToSVN() {
 	svnListCommand.Stderr = &stdErr
 	err := svnListCommand.Run()
 	if err != nil {
-		if
-		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when checking the existance of %s at SVN.",
-			resumeFile.updateName))
+		if exitError, ok := err.(*exec.ExitError); ok {
+			// err interface value holds a value of type exec.ExitError
+			ws := exitError.Sys().(syscall.WaitStatus)
+			exitCode := ws.ExitStatus()
+			logger.Debug(fmt.Sprintf("Error occured in svnListCommand, \n err: %s , exit code: %d", err, exitCode))
+			if exitCode == 1 {
+				// The update directory does not exists at SVN Repo.
+				// So we need to create the update directory at SVN and commit the created update zip to the SVN.
+				createAndCommitUpdateToSVN(resumeFile, updateSVNURI)
+			} else {
+				util.HandleErrorAndExit(err, fmt.Sprintf("Error occured in svnListCommand, exit code: %d", exitCode))
+			}
+		} else {
+			// Error cause due to an another reason
+			util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when checking the existance of %s at SVN.",
+				resumeFile.updateName))
+		}
 	}
+	// Successfully ran the 'svn ls' command,
+	// so update directory should already exists in the SVN and the exit code should be zero
+
+	createAndCommitUpdateToSVNWhenUpdateExists(resumeFile, updateSVNURI)
+
 	// Check the status of the 'svn ls' command
 	statusOfListCommand := exec.Command(constant.ECHO_COMMAND, "$?")
 	output, err := statusOfListCommand.Output()
@@ -1824,67 +1848,94 @@ func commitUpdateToSVN() {
 	fmt.Println(sample)
 	status := int(output[0])
 	if status == 0 {
-		// The update directory exists, we need to checkout the existing update directory
-		svnCheckoutCommand := exec.Command(constant.SVN_COMMAND, constant.CHECKOUT_COMMAND, updateSVNURI,
-			constant.USER_NAME, resumeFile.developer, constant.PASSWORD, password)
-		svnCheckoutCommand.Dir = WUMUCHome
-		err = svnCheckoutCommand.Run()
-		if err != nil {
-			util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when checkingout %s directory at SVN.",
-				resumeFile.updateName))
-		}
-		// Todo Check whether the update zip exists.
 
-	} else if status == 1 {
-		// The update directory does not exists. So we need to create the update directory at SVN
-		svnCommitMsg := fmt.Sprintf("Add resources for %s", resumeFile.updateName)
-		svnMkdirCommand := exec.Command(constant.SVN_COMMAND, constant.MKDIR_COMMAND, constant.COMMIT_OPTION,
-			fmt.Sprintf("%q", svnCommitMsg), updateSVNURI, constant.USER_NAME,
-			resumeFile.developer, constant.PASSWORD, password)
-		err = svnMkdirCommand.Run()
-		if err != nil {
-			util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when creating %s directory at SVN.",
-				resumeFile.updateName))
-		}
-
-		// Checkout the created update directory at SVN
-		svnCheckoutCommand := exec.Command(constant.SVN_COMMAND, constant.CHECKOUT_COMMAND, updateSVNURI,
-			constant.USER_NAME, resumeFile.developer, constant.PASSWORD, password)
-		svnCheckoutCommand.Dir = WUMUCHome
-		err = svnCheckoutCommand.Run()
-		if err != nil {
-			util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when checking out %s directory at SVN.",
-				resumeFile.updateName))
-		}
-
-		// Copy the created update.zip file to the checkout location
-		updateZipName := resumeFile.updateName + ".zip"
-		updateDirectory := path.Join(WUMUCHome, resumeFile.updateName)
-		err = util.CopyFile(updateZipName, updateDirectory)
-		if err != nil {
-			util.HandleErrorAndExit(err, fmt.Sprintf("error occured when copying the %s to %s", updateZipName,
-				updateDirectory))
-		}
-		logger.Debug(fmt.Sprintf("%s successfully copied to %s for commiting to the SVN", updateZipName, updateDirectory))
-
-		// Add the update directory to the SVN
-		svnAddCommand := exec.Command(constant.SVN_COMMAND, constant.ADD_COMMAND, updateZipName)
-		svnAddCommand.Dir = updateDirectory
-		err = svnAddCommand.Run()
-		if err != nil {
-			util.HandleErrorAndExit(err,
-				fmt.Sprintf("error occurred when adding %s directory to SVN pending change list.",
-					resumeFile.updateName))
-		}
-
-		// Commit the created update to SVN
-		svnCommitMsg = fmt.Sprintf("Add %s", resumeFile.updateName)
-		svnCommitCommand := exec.Command(constant.SVN_COMMAND, constant.COMMIT_COMMAND, constant.COMMIT_OPTION,
-			fmt.Sprintf("%q", svnCommitMsg))
-		err = svnCommitCommand.Run()
-		if err != nil {
-			util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when commiting %s directory to SVN.",
-				resumeFile.updateName))
-		}
 	}
+
+}
+
+// This function creates the update directory at SVN and commit the created update zip to the SVN.
+func createAndCommitUpdateToSVN(resumeFile resumeFile, updateSVNURI string) {
+	//todo have byte.buffers
+	// Todo print stdout and stderr in debug logs
+	var stdOut bytes.Buffer
+	var stdErr bytes.Buffer
+
+	svnCommitMsg := fmt.Sprintf("Add resources for %s", resumeFile.updateName)
+	svnMkdirCommand := exec.Command(constant.SVN_COMMAND, constant.MKDIR_COMMAND, constant.COMMIT_OPTION,
+		fmt.Sprintf("%q", svnCommitMsg), updateSVNURI, constant.USER_NAME,
+		resumeFile.developer, constant.PASSWORD, password)
+	svnMkdirCommand.Stdout = &stdOut
+	svnMkdirCommand.Stderr = &stdErr
+	err := svnMkdirCommand.Run()
+	logger.Debug(fmt.Sprintf("stdout of svnMkdirCommand %s", stdOut.String()))
+	if err != nil {
+		logger.Debug(fmt.Sprintf("stderr of svnMkdirCommand %s", stdErr.String()))
+		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when creating %s directory at SVN.",
+			resumeFile.updateName))
+	}
+
+	// Checkout the created update directory at SVN
+	svnCheckoutCommand := exec.Command(constant.SVN_COMMAND, constant.CHECKOUT_COMMAND, updateSVNURI,
+		constant.USER_NAME, resumeFile.developer, constant.PASSWORD, password)
+	svnCheckoutCommand.Dir = WUMUCHome
+	svnCheckoutCommand.Stdout = &stdOut
+	svnCheckoutCommand.Stderr = &stdErr
+	err = svnCheckoutCommand.Run()
+	logger.Debug(fmt.Sprintf("stdout of svnCheckoutCommand %s", stdOut.String()))
+	if err != nil {
+		logger.Debug(fmt.Sprintf("stderr of svnCheckoutCommand %s", stdErr.String()))
+		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when checking out %s directory at SVN.",
+			resumeFile.updateName))
+	}
+
+	// Copy the created update.zip file to the checkout location
+	updateZipName := resumeFile.updateName + ".zip"
+	updateDirectory := path.Join(WUMUCHome, resumeFile.updateName)
+	err = util.CopyFile(updateZipName, updateDirectory)
+	if err != nil {
+		util.HandleErrorAndExit(err, fmt.Sprintf("error occured when copying the %s to %s", updateZipName,
+			updateDirectory))
+	}
+	logger.Debug(fmt.Sprintf("%s successfully copied to %s for commiting to the SVN", updateZipName, updateDirectory))
+
+	// Add the update directory to the SVN
+	svnAddCommand := exec.Command(constant.SVN_COMMAND, constant.ADD_COMMAND, updateZipName)
+	svnAddCommand.Dir = updateDirectory
+	svnAddCommand.Stdout = &stdOut
+	svnAddCommand.Stderr = &stdErr
+	err = svnAddCommand.Run()
+	logger.Debug(fmt.Sprintf("stdout of svnAddCommand %s", stdOut.String()))
+	if err != nil {
+		logger.Debug(fmt.Sprintf("stderr of svnAddCommand %s", stdErr.String()))
+		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when adding %s directory to SVN pending change list."+
+			"", resumeFile.updateName))
+	}
+
+	// Commit the created update to SVN
+	svnCommitMsg = fmt.Sprintf("Add %s", resumeFile.updateName)
+	svnCommitCommand := exec.Command(constant.SVN_COMMAND, constant.COMMIT_COMMAND, constant.COMMIT_OPTION,
+		fmt.Sprintf("%q", svnCommitMsg))
+	svnCommitCommand.Dir = updateDirectory
+	svnCommitCommand.Stdout = &stdOut
+	svnCommitCommand.Stderr = &stdErr
+	err = svnCommitCommand.Run()
+	logger.Debug(fmt.Sprintf("stdout of svnCommitCommand %s", stdOut.String()))
+	if err != nil {
+		logger.Debug(fmt.Sprintf("stderr of svnCommitCommand %s", stdErr.String()))
+		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when commiting %s directory to SVN.",
+			resumeFile.updateName))
+	}
+}
+
+func createAndCommitUpdateToSVNWhenUpdateExists(resumeFile resumeFile, updateSVNURI string) {
+	// The update directory exists, we need to checkout the existing update directory
+	svnCheckoutCommand := exec.Command(constant.SVN_COMMAND, constant.CHECKOUT_COMMAND, updateSVNURI,
+		constant.USER_NAME, resumeFile.developer, constant.PASSWORD, password)
+	svnCheckoutCommand.Dir = WUMUCHome
+	err := svnCheckoutCommand.Run()
+	if err != nil {
+		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when checkingout %s directory at SVN.",
+			resumeFile.updateName))
+	}
+	// Todo Check whether the update zip exists.
 }
