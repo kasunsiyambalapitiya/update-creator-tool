@@ -1777,7 +1777,6 @@ func commitUpdateToSVN() {
 	//-------------Testing-done----------------
 
 	// Todo Checkout to see if the update no is there in SVN
-	// Todo We need to check if SVN is there or not
 	//Todo handle interuppts
 	// If not create the folder using a SVN commit
 	// If it exists go to the folder see if the location is locked, if locked err. If not locked move the zip (
@@ -1801,6 +1800,13 @@ func commitUpdateToSVN() {
 	SVNURI := "http://localhost:8090/svn/repo"
 	//-------------Testing-done----------------
 
+	// First we need to check whether `svn` is in the system's PATH
+	isAvailable, err := isSVNCommandAvailableInPath()
+	if isAvailable == false {
+		util.HandleErrorAndExit(err, fmt.Sprintf("%s command not found in system PATH, "+
+			"please install `svn` and rerun `wum-uc update --continue` to resume update creation.",
+			constant.SVN_COMMAND))
+	}
 	updateSVNURI := SVNURI + "/" + resumeFile.updateName
 
 	// First need to checkout whether the given update is already committed to the SVN.
@@ -1810,10 +1816,11 @@ func commitUpdateToSVN() {
 	//Todo in here catch the error and then see if the echo_command in 0 or 1 (exit code)
 	// Todo --non-interactive --no-auth-cache --username XXXX --password YYYY as https svn https://stackoverflow.com/questions/34687/subversion-ignoring-password-and-username-options
 	//Todo https://stackoverflow.com/questions/10385551/get-exit-code-go use this to solve,
+	//Todo make this repo private
 	// do not call $? it just returns the exit code
 	svnListCommand.Stdout = &stdOut
 	svnListCommand.Stderr = &stdErr
-	err := svnListCommand.Run()
+	err = svnListCommand.Run()
 	if err != nil {
 		if exitError, ok := err.(*exec.ExitError); ok {
 			// err interface value holds a value of type exec.ExitError
@@ -1821,40 +1828,26 @@ func commitUpdateToSVN() {
 			exitCode := ws.ExitStatus()
 			logger.Debug(fmt.Sprintf("Error occured in svnListCommand, \n err: %s , exit code: %d", err, exitCode))
 			if exitCode == 1 {
-				// The update directory does not exists at SVN Repo.
-				// So we need to create the update directory at SVN and commit the created update zip to the SVN.
-				createAndCommitUpdateToSVN(resumeFile, updateSVNURI)
+				/*The update directory does not exists at SVN Repo.
+				So we need to create the update directory at SVN and commit the created update zip to the SVN.*/
+				commitNewUpdateToSVN(resumeFile, updateSVNURI)
 			} else {
-				util.HandleErrorAndExit(err, fmt.Sprintf("Error occured in svnListCommand, exit code: %d", exitCode))
+				// Error occurred due to an exit code other than zero
+				util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when checking the existance of %s at SVN, "+
+					"exit code: %d", resumeFile.updateName, exitCode))
 			}
 		} else {
-			// Error cause due to an another reason
 			util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when checking the existance of %s at SVN.",
 				resumeFile.updateName))
 		}
 	}
 	// Successfully ran the 'svn ls' command,
 	// so update directory should already exists in the SVN and the exit code should be zero
-
-	createAndCommitUpdateToSVNWhenUpdateExists(resumeFile, updateSVNURI)
-
-	// Check the status of the 'svn ls' command
-	statusOfListCommand := exec.Command(constant.ECHO_COMMAND, "$?")
-	output, err := statusOfListCommand.Output()
-	if err != nil {
-		util.HandleErrorAndExit(err)
-	}
-	sample := string(output)
-	fmt.Println(sample)
-	status := int(output[0])
-	if status == 0 {
-
-	}
-
+	recommitExistingUpdateToSVN(resumeFile, updateSVNURI)
 }
 
 // This function creates the update directory at SVN and commit the created update zip to the SVN.
-func createAndCommitUpdateToSVN(resumeFile resumeFile, updateSVNURI string) {
+func commitNewUpdateToSVN(resumeFile resumeFile, updateSVNURI string) {
 	//todo have byte.buffers
 	// Todo print stdout and stderr in debug logs
 	var stdOut bytes.Buffer
@@ -1925,17 +1918,63 @@ func createAndCommitUpdateToSVN(resumeFile resumeFile, updateSVNURI string) {
 		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when commiting %s directory to SVN.",
 			resumeFile.updateName))
 	}
+	// Todo to keep or deleted the update directory after sucessfull commiting
 }
 
-func createAndCommitUpdateToSVNWhenUpdateExists(resumeFile resumeFile, updateSVNURI string) {
-	// The update directory exists, we need to checkout the existing update directory
+// This function change the directory structure of given update at SVN and commit the newly created update zip.
+func recommitExistingUpdateToSVN(resumeFile resumeFile, updateSVNURI string) {
+	var stdOut bytes.Buffer
+	var stdErr bytes.Buffer
+
+	updateZipName := resumeFile.updateName + ".zip"
+	// As the update directory exists, we need to checkout the existing update directory from SVN
 	svnCheckoutCommand := exec.Command(constant.SVN_COMMAND, constant.CHECKOUT_COMMAND, updateSVNURI,
 		constant.USER_NAME, resumeFile.developer, constant.PASSWORD, password)
 	svnCheckoutCommand.Dir = WUMUCHome
+	svnCheckoutCommand.Stdout = &stdOut
+	svnCheckoutCommand.Stderr = &stdErr
 	err := svnCheckoutCommand.Run()
+	logger.Debug(fmt.Sprintf("stdout of svnCheckoutCommand %s", stdOut.String()))
 	if err != nil {
+		logger.Debug(fmt.Sprintf("stderr of svnCheckoutCommand %s", stdErr.String()))
 		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when checkingout %s directory at SVN.",
 			resumeFile.updateName))
 	}
+	// Check if `old` directory exists
+	updateDirectory := path.Join(WUMUCHome, resumeFile.updateName)
+	oldUpdatesDirectoryPath := path.Join(updateDirectory, constant.OLD_UPDATE_DIRECTORY)
+	exists, err := util.IsDirectoryExists(oldUpdatesDirectoryPath)
+	if err != nil {
+		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when checking the existance of %s directory",
+			oldUpdatesDirectoryPath))
+	}
+	if !exists {
+		// Create the directory
+		err := util.CreateDirectory(oldUpdatesDirectoryPath)
+		if err != nil {
+			util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when creating the directory %s", oldUpdatesDirectoryPath))
+		}
+		// Copy previous update.zip to the `old` directory
+		oldUpdateZipPath := path.Join(updateDirectory, updateZipName)
+		util.CopyFile(oldUpdateZipPath, oldUpdatesDirectoryPath)
+		// Copy newly created update.zip to the checkout directory
+
+		// Add newly created update.zip to svn
+
+		// Commit the changes to SVN
+	} else {
+
+	}
+
 	// Todo Check whether the update zip exists.
+}
+
+// This function checks whether `svn` command is available in host machine.
+func isSVNCommandAvailableInPath() (bool, error) {
+	svnPath, err := exec.LookPath(constant.SVN_COMMAND)
+	if err != nil {
+		return false, err
+	}
+	logger.Debug(fmt.Sprintf("%s executable found in %s", constant.SVN_COMMAND, svnPath))
+	return true, nil
 }
