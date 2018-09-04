@@ -22,6 +22,7 @@ import (
 	"github.com/ian-kent/go-log/levels"
 	"github.com/ian-kent/go-log/log"
 	"github.com/mitchellh/go-homedir"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/wso2/update-creator-tool/constant"
@@ -60,7 +61,7 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(checkPrerequisites, initConfig)
+	cobra.OnInitialize(setLogLevel, checkPrerequisites, initConfig)
 }
 
 // This function checks the existence of prerequisite programs needed for running 'wum-uc' tool.
@@ -68,8 +69,9 @@ func checkPrerequisites() {
 	// Check whether `SVN` is in the system's PATH
 	isAvailable, err := isSVNCommandAvailableInPath()
 	if isAvailable == false {
-		util.HandleErrorAndExit(err, fmt.Sprintf("%s executable not found in system PATH, "+
-			"please install `SVN` before using `wum-uc`.", constant.SVN_COMMAND))
+		logger.Debug(err)
+		util.HandleErrorAndExit(errors.New("svn executable not found in system $PATH, " +
+			"please install `svn` before using `wum-uc`."))
 	}
 }
 
@@ -85,7 +87,6 @@ func isSVNCommandAvailableInPath() (bool, error) {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	setLogLevel()
 	if cfgFile != "" {
 		// enable ability to specify config file via flag
 		viper.SetConfigFile(cfgFile)
