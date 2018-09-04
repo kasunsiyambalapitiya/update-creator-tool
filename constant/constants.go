@@ -143,7 +143,7 @@ const (
 	MKDIR_COMMAND        = "mkdir"
 	CHECKOUT_COMMAND     = "checkout"
 	COMMIT_COMMAND       = "commit"
-	ECHO_COMMAND         = "echo"
+	MOVE_COMMAND         = "move"
 	ADD_COMMAND          = "add"
 	SVN_UPDATES          = "updates"
 	SVN_UPDATE           = "update"
@@ -151,5 +151,6 @@ const (
 	COMMIT_OPTION        = "-m"
 	USER_NAME            = "--username"
 	PASSWORD             = "--password"
+	NON_INTERACTIVE      = "--non-interactive"
 	OLD_UPDATE_DIRECTORY = "old-updates"
 )
