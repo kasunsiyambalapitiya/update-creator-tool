@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/wso2/update-creator-tool/constant"
 	"github.com/wso2/update-creator-tool/util"
+	"os/exec"
 	"path/filepath"
 )
 
@@ -59,7 +60,27 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
+	cobra.OnInitialize(checkPrerequisites, initConfig)
+}
+
+// This function checks the existence of prerequisite programs needed for running 'wum-uc' tool.
+func checkPrerequisites() {
+	// Check whether `SVN` is in the system's PATH
+	isAvailable, err := isSVNCommandAvailableInPath()
+	if isAvailable == false {
+		util.HandleErrorAndExit(err, fmt.Sprintf("%s executable not found in system PATH, "+
+			"please install `SVN` before using `wum-uc`.", constant.SVN_COMMAND))
+	}
+}
+
+// This function checks whether `SVN` command is available in host machine.
+func isSVNCommandAvailableInPath() (bool, error) {
+	SVNPath, err := exec.LookPath(constant.SVN_COMMAND)
+	if err != nil {
+		return false, err
+	}
+	logger.Debug(fmt.Sprintf("%s executable found in %s", constant.SVN_COMMAND, SVNPath))
+	return true, nil
 }
 
 // initConfig reads in config file and ENV variables if set.

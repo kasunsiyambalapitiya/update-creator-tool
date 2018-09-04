@@ -1695,8 +1695,8 @@ func saveResumeFile(resumeFile *resumeFile) {
 	logger.Debug(fmt.Sprintf("%s file created successfully in %s \n", constant.WUMUC_RESUME_FILE, constant.WUM_UC_HOME))
 }
 
-// This function will continue the update creation after manually modifying the relevant sections of the update
-// -descriptor3.yaml by the developer.
+/* This function will continue the update creation after manually modifying the relevant sections of the
+update-descriptor3.yaml by the developer.*/
 func continueResumedUpdateCreation() {
 	resumedFile := resumeFile{}
 	// Check for the existence of 'wum-uc-resume.yaml' file
@@ -1722,7 +1722,7 @@ func continueResumedUpdateCreation() {
 
 	// Check if the update zip is already being created
 	if resumedFile.isUpdateZipCreated {
-		// Todo check if additional steps and args are required to be passed
+		// Todo check if additional steps and args are required to be passed and uncomment below line
 		//commitUpdateToSVN(&resumedFile)
 
 	} else {
@@ -1759,7 +1759,7 @@ func continueResumedUpdateCreation() {
 		saveResumeFile(&resumedFile)
 		fmt.Println(fmt.Sprintf("'%s'.zip successfully created.\n", resumedFile.updateName))
 		logger.Debug(fmt.Sprintf("%s successfully updated with the status of update zip creation", constant.WUMUC_RESUME_FILE))
-		// Todo commit to SVN
+		// Todo commit to SVN (uncomment the below line)
 		//commitUpdateToSVN(&resumedFile)
 		util.CleanUpFile(wumucResumeFile)
 	}
@@ -1826,14 +1826,6 @@ func commitUpdateToSVN() {
 	SVNURI := "http://localhost:8090/svn/repo"
 	//-------------Testing-done----------------
 
-	// First we need to check whether `SVN` is in the system's PATH
-	isAvailable, err := isSVNCommandAvailableInPath()
-	if isAvailable == false {
-		// Todo here not wum-uc create --continue, file deletions must be handled.
-		util.HandleErrorAndExit(err, fmt.Sprintf("%s command not found in system PATH, "+
-			"please install `SVN` and rerun `wum-uc update --continue` to resume update creation.",
-			constant.SVN_COMMAND))
-	}
 	updateSVNURI := SVNURI + "/" + constant.SVN_UPDATE + resumeFile.updateNumber
 
 	// First need to checkout whether the given update is already committed to the SVN.
@@ -1847,7 +1839,7 @@ func commitUpdateToSVN() {
 	// do not call $? it just returns the exit code
 	SVNListCommand.Stdout = &stdOut
 	SVNListCommand.Stderr = &stdErr
-	err = SVNListCommand.Run()
+	err := SVNListCommand.Run()
 	if err != nil {
 		if exitError, ok := err.(*exec.ExitError); ok {
 			// err interface value holds a value of type exec.ExitError
@@ -1996,16 +1988,6 @@ func commitUpgradedUpdatesWithPreservingPreviousUpdatesAtSVN(resumeFile *resumeF
 	performSVNAddCommand(resumeFile, true)
 	// Commit the changes to SVN
 	performSVNCommitCommand(resumeFile)
-}
-
-// This function checks whether `SVN` command is available in host machine.
-func isSVNCommandAvailableInPath() (bool, error) {
-	SVNPath, err := exec.LookPath(constant.SVN_COMMAND)
-	if err != nil {
-		return false, err
-	}
-	logger.Debug(fmt.Sprintf("%s executable found in %s", constant.SVN_COMMAND, SVNPath))
-	return true, nil
 }
 
 // This function add files to the SVN pending change list.
