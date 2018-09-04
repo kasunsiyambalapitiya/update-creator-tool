@@ -1795,7 +1795,8 @@ func commitUpdateToSVN() {
 	var stdOut, stdErr bytes.Buffer
 	//-------------Testing----------------
 	resumeFile := resumeFile{}
-	resumeFile.updateName = "update0013"
+	resumeFile.updateNumber = "0012"
+	resumeFile.updateName = "WSO2-CARBON-UPDATE-5.0.0-0012"
 	resumeFile.developer = "admin"
 	resumeFile.platformName = "hamming"
 	//-------------Testing-done----------------
@@ -1840,8 +1841,11 @@ func commitUpdateToSVN() {
 	SVNListCommand.Stdout = &stdOut
 	SVNListCommand.Stderr = &stdErr
 	err := SVNListCommand.Run()
+	logger.Debug(fmt.Sprintf("stdout of SVNListCommand %s", stdOut.String()))
 	if err != nil {
-		if exitError, ok := err.(*exec.ExitError); ok {
+		logger.Debug(fmt.Sprintf("stderr of SVNListCommand %s", stdErr.String()))
+		exitError, ok := err.(*exec.ExitError)
+		if ok {
 			// err interface value holds a value of type exec.ExitError
 			ws := exitError.Sys().(syscall.WaitStatus)
 			exitCode := ws.ExitStatus()
@@ -1968,17 +1972,19 @@ func commitUpgradedUpdatesWithPreservingPreviousUpdatesAtSVN(resumeFile *resumeF
 	oldUpdatesDirectoryPath := path.Join(updateDirectoryPath, constant.OLD_UPDATE_DIRECTORY)
 
 	// Copy previous update.zip to the `old` directory
-	oldUpdateZipPath := path.Join(updateDirectoryPath, updateZipName)
-	util.MoveFile(oldUpdateZipPath, oldUpdatesDirectoryPath)
+	oldUpdateZipCurrentPath := path.Join(updateDirectoryPath, updateZipName)
+	oldUpdateZipNewPath := path.Join(oldUpdatesDirectoryPath, updateZipName)
+	util.MoveFile(oldUpdateZipCurrentPath, oldUpdateZipNewPath)
 	// Get the current timestamp
 	utcTime := time2.Now().UTC()
 	nanoSecUTCTime := utcTime.UnixNano()
 	miliSecUTCTime := nanoSecUTCTime / 1000000
 	// Append the current timestamp for previous update zip
-	oldUpdateZipPath = path.Join(oldUpdatesDirectoryPath, updateZipName)
+	// Todo here the conversion between int64 to string is the issue
+	logger.Debug(fmt.Sprintf("%v", string(miliSecUTCTime)))
 	newUpdateZipName := resumeFile.updateName + "." + string(miliSecUTCTime) + ".zip"
 	newUpdateZipPath := path.Join(oldUpdatesDirectoryPath, newUpdateZipName)
-	os.Rename(oldUpdateZipPath, newUpdateZipPath)
+	os.Rename(oldUpdateZipNewPath, newUpdateZipPath)
 	// Copy newly created update.zip to the checkout directory
 	err := util.CopyFile(updateZipName, updateDirectoryPath)
 	if err != nil {
