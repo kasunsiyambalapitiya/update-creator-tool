@@ -1789,21 +1789,22 @@ func validateUpdate(resumeFile *resumeFile) {
 	startValidation(updateZipPath, resumeFile.distributionPath)
 }
 
-// This function will commit the create update zip to the SVN.
+// This function will commit the create update zip to the update SVN repo.
 //func commitUpdateToSVN(resumeFile *resumeFile) {
 func commitUpdateToSVN() {
 	var stdOut, stdErr bytes.Buffer
 	//-------------Testing----------------
-	resumeFile := resumeFile{}
-	resumeFile.updateNumber = "0013"
-	resumeFile.updateName = "WSO2-CARBON-UPDATE-5.0.0-0013"
-	resumeFile.developer = "admin"
-	resumeFile.platformName = "hamming"
+	resumeFileTest := resumeFile{}
+	resumeFileTest.updateNumber = "0013"
+	resumeFileTest.updateName = "WSO2-CARBON-UPDATE-5.0.0-0013"
+	resumeFileTest.developer = "admin"
+	resumeFileTest.platformName = "hamming"
+	resumeFile := &resumeFileTest
 	//-------------Testing-done----------------
 
-	// Todo Checkout to see if the update no is there in SVN
 	//Todo handle interuppts and delete created iupdate zip when commiting SVN failed.
 	// Retry committing update when failed.
+
 	// If not create the folder using a SVN commit
 	// If it exists go to the folder see if the location is locked, if locked err. If not locked move the zip (
 	// should only have the update zip) to old/old-T and SVN add the new file, then commit to the root of relevant update
@@ -1870,7 +1871,7 @@ func commitUpdateToSVN() {
 }
 
 // This function creates the update directory at SVN and commit the created update zip to the SVN.
-func commitNewUpdateToSVN(resumeFile resumeFile, updateSVNURI string, password []byte) {
+func commitNewUpdateToSVN(resumeFile *resumeFile, updateSVNURI string, password []byte) {
 	//todo have byte.buffers
 	// Todo print stdout and stderr in debug logs
 	var stdOut, stdErr bytes.Buffer
@@ -1915,16 +1916,16 @@ func commitNewUpdateToSVN(resumeFile resumeFile, updateSVNURI string, password [
 	logger.Debug(fmt.Sprintf("%s successfully copied to %s for commiting to the SVN", updateZipName, updateDirectoryPath))
 
 	// Add the update directory to the SVN
-	performSVNAddCommand(&resumeFile, false)
+	performSVNAddCommand(resumeFile, false)
 
 	// Commit the created update to SVN
 	SVNCommitMsg = fmt.Sprintf("Add %s", resumeFile.updateName)
-	performSVNCommitCommand(&resumeFile, password, SVNCommitMsg)
+	performSVNCommitCommand(resumeFile, password, SVNCommitMsg)
 	// Todo to keep or deleted the update directory after sucessfull commiting
 }
 
 // This function change the directory structure of given update at SVN and commit the newly created update zip.
-func commitUpgradedUpdateToSVN(resumeFile resumeFile, updateSVNURI string, password []byte) {
+func commitUpgradedUpdateToSVN(resumeFile *resumeFile, updateSVNURI string, password []byte) {
 	var stdOut, stdErr bytes.Buffer
 	updateDirectory := constant.SVN_UPDATE + resumeFile.updateNumber
 
@@ -1962,10 +1963,10 @@ func commitUpgradedUpdateToSVN(resumeFile resumeFile, updateSVNURI string, passw
 			logger.Debug(fmt.Sprintf("stderr of SVNMkdirCommand \n%s", stdErr.String()))
 			util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when creating the directory %s", oldUpdatesDirectoryPath))
 		}
-		commitUpgradedUpdatesWithPreservingPreviousUpdatesAtSVN(&resumeFile, password)
+		commitUpgradedUpdatesWithPreservingPreviousUpdatesAtSVN(resumeFile, password)
 	} else {
 		// Same update is being created more than two times
-		commitUpgradedUpdatesWithPreservingPreviousUpdatesAtSVN(&resumeFile, password)
+		commitUpgradedUpdatesWithPreservingPreviousUpdatesAtSVN(resumeFile, password)
 	}
 
 	// Todo Check whether the update zip exists.
