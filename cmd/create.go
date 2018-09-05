@@ -535,7 +535,7 @@ func processReadMe(updateDirectoryPath string, updateDescriptorV2 *util.UpdateDe
 	return readMeDataString
 }
 
-//This function will set basic values in the update-descriptor.yaml.
+// This function will set basic values in the update-descriptor.yaml.
 func setBasicValuesInUpdateDescriptorV2(updateDescriptorV2 *util.UpdateDescriptorV2) {
 	logger.Debug("Setting values for `update_number`," +
 		"`platform_version` and `platform_name` fields in update-descriptor." +
@@ -622,7 +622,7 @@ func processReadMeData(readMeDataString *string, updateDescriptorV2 *util.Update
 	logger.Debug("Processing README finished")
 }
 
-//This function will set remaining values in the update-descriptor.yaml.
+// This function will set remaining values in the update-descriptor.yaml
 func setRemainingValuesInUpdateDescriptorsV2(updateDescriptorV2 *util.UpdateDescriptorV2) {
 	logger.Debug("Setting values for `applies_to`,`bug_fixes` and `description` fields in update-descriptor." +
 		"yaml")
@@ -740,7 +740,7 @@ userInputLoop:
 	updateDescriptorV2.BugFixes = bugFixes
 }
 
-// Used for getting JIRA_KEY_SUMMARY/GITHUB_ISSUE_SUMMARY for the given JIRA_KEY/GITHUB_ISSUE
+// Used for getting JIRA_KEY_SUMMARY/GITHUB_ISSUE_SUMMARY for the given JIRA_KEY/GITHUB_ISSUE.
 func getJiraSummary(jiraKey string) string {
 	var jiraSummary string
 	for {
@@ -817,6 +817,7 @@ func getUpdateName(updateDescriptorV2 *util.UpdateDescriptorV2, updateNamePrefix
 	return updateName
 }
 
+// This function acts as a helper method for downloading a file from given url to the given location.
 func downloadFile(directory, urlName, downloadUrl, fileName string) {
 	url, exists := os.LookupEnv(urlName)
 	if !exists {
@@ -1541,7 +1542,7 @@ func generateLocationTable(filename string, locationsInDistribution map[string]*
 	return locationTable, indexMap
 }
 
-//This function will copy the file/directory from update to temp location.
+// This function will copy the file/directory from update to temp location.
 func copyFile(filename string, locationInUpdate, relativeLocationInTemp string, rootNode *node,
 	updateDescriptor *util.UpdateDescriptorV2) error {
 	logger.Debug(fmt.Sprintf("[FINAL][COPY ROOT] Name: %s ; IsDir: false ; From: %s ; To: %s", filename,
@@ -1587,7 +1588,7 @@ func copyFile(filename string, locationInUpdate, relativeLocationInTemp string, 
 	return nil
 }
 
-//This function will create a zip file from the source to the target folder
+// This function will create a zip file from the source to the target folder.
 func ZipFile(source, target string) error {
 	zipfile, err := os.Create(target)
 	if err != nil {
@@ -1813,7 +1814,6 @@ func commitUpdateToSVN() {
 		util.CleanUpDirectory(updateDirectoryPath)
 	})
 
-	// If not create the folder using a SVN commit
 	// Todo If it exists go to the folder see if the location is locked, if locked err. If not locked move the zip (
 	// should only have the update zip) to old/old-T and SVN add the new file, then commit to the root of relevant update
 
@@ -2044,6 +2044,7 @@ func performSVNAddCommand(resumeFile *resumeFile, isOldUpdatesExists bool) {
 	}
 }
 
+// This function commit the SVN pending change list to the remote SVN repo.
 func performSVNCommitCommand(resumeFile *resumeFile, password []byte, commitMsg string) {
 	var stdOut, stdErr bytes.Buffer
 	updateDirectory := constant.SVN_UPDATE + resumeFile.updateNumber
