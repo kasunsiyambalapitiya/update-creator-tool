@@ -1864,8 +1864,8 @@ func commitUpdateToSVN() {
 				resumeFile.updateName))
 		}
 	}
-	// Successfully ran the 'svn ls' command,
-	// so update directory should already exists in the SVN and the exit code should be zero
+	/*	Successfully ran the 'svn ls' command,
+		so update directory should already exists in the SVN and the exit code should be zero*/
 	commitUpgradedUpdateToSVN(resumeFile, updateSVNURI, password)
 }
 
@@ -1935,9 +1935,9 @@ func commitUpgradedUpdateToSVN(resumeFile resumeFile, updateSVNURI string, passw
 	SVNCheckoutCommand.Stdout = &stdOut
 	SVNCheckoutCommand.Stderr = &stdErr
 	err := SVNCheckoutCommand.Run()
-	logger.Debug(fmt.Sprintf("stdout of SVNCheckoutCommand \n %s", stdOut.String()))
+	logger.Debug(fmt.Sprintf("stdout of SVNCheckoutCommand \n%v", stdOut.String()))
 	if err != nil {
-		logger.Debug(fmt.Sprintf("stderr of SVNCheckoutCommand \n %s", stdErr.String()))
+		logger.Debug(fmt.Sprintf("stderr of SVNCheckoutCommand \n%v", stdErr.String()))
 		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when checkingout %s directory at SVN.",
 			updateDirectory))
 	}
@@ -1951,9 +1951,15 @@ func commitUpgradedUpdateToSVN(resumeFile resumeFile, updateSVNURI string, passw
 	}
 	if !exists {
 		// Same update is being created for the second time
-		// Create 'old-updates' directory for storing old updates
-		err := util.CreateDirectory(oldUpdatesDirectoryPath)
+		// Create 'old-updates' directory using SVN for storing old updates
+		SVNMkdirCommand := exec.Command(constant.SVN_COMMAND, constant.MKDIR_COMMAND, oldUpdatesDirectoryPath)
+		SVNMkdirCommand.Dir = updateDirectoryPath
+		SVNMkdirCommand.Stdout = &stdOut
+		SVNMkdirCommand.Stderr = &stdErr
+		err = SVNMkdirCommand.Run()
+		logger.Debug(fmt.Sprintf("stdout of SVNMkdirCommand \n%s", stdOut.String()))
 		if err != nil {
+			logger.Debug(fmt.Sprintf("stderr of SVNMkdirCommand \n%s", stdErr.String()))
 			util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when creating the directory %s", oldUpdatesDirectoryPath))
 		}
 		commitUpgradedUpdatesWithPreservingPreviousUpdatesAtSVN(&resumeFile, password)
@@ -1965,7 +1971,7 @@ func commitUpgradedUpdateToSVN(resumeFile resumeFile, updateSVNURI string, passw
 	// Todo Check whether the update zip exists.
 }
 
-// Todo doc here
+// This function commit the newly created update zip with preserving the previously committed update zip.
 func commitUpgradedUpdatesWithPreservingPreviousUpdatesAtSVN(resumeFile *resumeFile, password []byte) {
 	updateZipName := resumeFile.updateName + ".zip"
 	updateDirectory := constant.SVN_UPDATE + resumeFile.updateNumber
@@ -1989,12 +1995,30 @@ func commitUpgradedUpdatesWithPreservingPreviousUpdatesAtSVN(resumeFile *resumeF
 		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when copying %s to %s", updateZipName, updateDirectoryPath))
 	}
 	// Add file changes to the SVN pending change list
-	performSVNAddCommand(resumeFile, true)
+	performSVNAddCommand(resumeFile, false)
 	// Commit the changes to SVN
 	SVNCommitMsg := fmt.Sprintf("Add upgraded %s -timestamp %s", resumeFile.updateName,
 		strconv.FormatInt(miliSecUTCTime, 10))
 	performSVNCommitCommand(resumeFile, password, SVNCommitMsg)
 }
+
+/*func performSVNMkdir(resumeFile *resumeFile, updateSVNURI, SVNCommitMsg string, password []byte) {
+	var stdOut,stdErr bytes.Buffer
+
+
+	SVNMkdirCommand := exec.Command(constant.SVN_COMMAND, constant.MKDIR_COMMAND, constant.COMMIT_OPTION,
+		fmt.Sprintf("%q", SVNCommitMsg), updateSVNURI, constant.USER_NAME,
+		resumeFile.developer, constant.PASSWORD, string(password))
+	SVNMkdirCommand.Stdout = &stdOut
+	SVNMkdirCommand.Stderr = &stdErr
+	err := SVNMkdirCommand.Run()
+	logger.Debug(fmt.Sprintf("stdout of SVNMkdirCommand %s", stdOut.String()))
+	if err != nil {
+		logger.Debug(fmt.Sprintf("stderr of SVNMkdirCommand %s", stdErr.String()))
+		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when creating %s directory at SVN.",
+			resumeFile.updateNumber))
+	}
+}*/
 
 // This function moves source file to given destination using 'svn move' command.
 func performSVNMoveFile(resumeFile *resumeFile, source, destination string) {
@@ -2007,7 +2031,7 @@ func performSVNMoveFile(resumeFile *resumeFile, source, destination string) {
 	SVNMoveCommand.Stdout = &stdOut
 	SVNMoveCommand.Stderr = &stdErr
 	err := SVNMoveCommand.Run()
-	logger.Debug(fmt.Sprintf("stdout of SVNMoveCommand \n %v", stdOut.String()))
+	logger.Debug(fmt.Sprintf("stdout of SVNMoveCommand \n%v", stdOut.String()))
 	if err != nil {
 		// Todo add \n logs of exec.Command
 		logger.Debug(fmt.Sprintf("stderr of SVNMoveCommand \n %v", stdErr.String()))
@@ -2023,36 +2047,18 @@ func performSVNAddCommand(resumeFile *resumeFile, isOldUpdatesExists bool) {
 	updateDirectory := constant.SVN_UPDATE + resumeFile.updateNumber
 	updateDirectoryPath := path.Join(WUMUCHome, updateDirectory)
 
-	if isOldUpdatesExists {
-		// Add newly created update zip and old updates to SVN pending change list.
-		oldUpdatesDirectoryPath := path.Join(updateDirectoryPath, constant.OLD_UPDATE_DIRECTORY)
-		SVNAddCommand := exec.Command(constant.SVN_COMMAND, constant.ADD_COMMAND, oldUpdatesDirectoryPath, updateZipName)
-		SVNAddCommand.Dir = updateDirectoryPath
-		SVNAddCommand.Stdout = &stdOut
-		SVNAddCommand.Stderr = &stdErr
-		err := SVNAddCommand.Run()
-		// Todo format sdtout command output
-		logger.Debug(fmt.Sprintf("stdout of SVNAddCommand \n %v", stdOut.String()))
-		if err != nil {
-			logger.Debug(fmt.Sprintf("stderr of SVNAddCommand %s", stdErr.String()))
-			util.HandleErrorAndExit(err,
-				fmt.Sprintf("error occurred when adding contents of %s directory to SVN pending change list."+
-					"", updateDirectory))
-		}
-	} else {
-		// Add newly created update zip to SVN pending change list.
-		SVNAddCommand := exec.Command(constant.SVN_COMMAND, constant.ADD_COMMAND, updateZipName)
-		SVNAddCommand.Dir = updateDirectoryPath
-		SVNAddCommand.Stdout = &stdOut
-		SVNAddCommand.Stderr = &stdErr
-		err := SVNAddCommand.Run()
-		logger.Debug(fmt.Sprintf("stdout of SVNAddCommand %s", stdOut.String()))
-		if err != nil {
-			logger.Debug(fmt.Sprintf("stderr of SVNAddCommand %s", stdErr.String()))
-			util.HandleErrorAndExit(err,
-				fmt.Sprintf("error occurred when adding contents of %s directory to SVN pending change list."+
-					"", updateDirectory))
-		}
+	// Add newly created update zip to SVN pending change list.
+	SVNAddCommand := exec.Command(constant.SVN_COMMAND, constant.ADD_COMMAND, updateZipName)
+	SVNAddCommand.Dir = updateDirectoryPath
+	SVNAddCommand.Stdout = &stdOut
+	SVNAddCommand.Stderr = &stdErr
+	err := SVNAddCommand.Run()
+	logger.Debug(fmt.Sprintf("stdout of SVNAddCommand \n%v", stdOut.String()))
+	if err != nil {
+		logger.Debug(fmt.Sprintf("stderr of SVNAddCommand \n%v", stdErr.String()))
+		util.HandleErrorAndExit(err,
+			fmt.Sprintf("error occurred when adding contents of %s directory to SVN pending change list.",
+				updateDirectory))
 	}
 }
 
@@ -2068,9 +2074,9 @@ func performSVNCommitCommand(resumeFile *resumeFile, password []byte, commitMsg 
 	SVNCommitCommand.Stdout = &stdOut
 	SVNCommitCommand.Stderr = &stdErr
 	err := SVNCommitCommand.Run()
-	logger.Debug(fmt.Sprintf("stdout of SVNCommitCommand \n %v", stdOut.String()))
+	logger.Debug(fmt.Sprintf("stdout of SVNCommitCommand \n%v", stdOut.String()))
 	if err != nil {
-		logger.Debug(fmt.Sprintf("stderr of SVNCommitCommand %s", stdErr.String()))
+		logger.Debug(fmt.Sprintf("stderr of SVNCommitCommand \n%v", stdErr.String()))
 		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when commiting contents of %s directory to SVN.",
 			updateDirectory))
 	}
