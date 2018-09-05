@@ -84,6 +84,7 @@ type ProductChanges struct {
 }
 
 type PartialUpdateFileRequest struct {
+	//WUMUCVersion    string   `json:"wum-uc-version"`
 	UpdateNumber    string   `json:"update-no"`
 	PlatformVersion string   `json:"platform-version"`
 	PlatformName    string   `json:"platform-name"`
@@ -684,6 +685,7 @@ func GetContentFromUrl(url string) ([]byte, error) {
 
 func createPartialUpdateFileRequest(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpdateFileRequest {
 	partialUpdateFileRequest := PartialUpdateFileRequest{}
+	//partialUpdateFileRequest.WUMUCVersion = cmd.Version
 	partialUpdateFileRequest.UpdateNumber = updateDescriptorV2.UpdateNumber
 	partialUpdateFileRequest.PlatformName = updateDescriptorV2.PlatformName
 	partialUpdateFileRequest.PlatformVersion = updateDescriptorV2.PlatformVersion
@@ -709,6 +711,7 @@ func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpda
 	}
 	log.Debug(fmt.Sprintf("Reqeust sent: %v", requestBody))
 	// Invoke the API
+	// Todo uncomment before production
 	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
 		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY
 	response := InvokePOSTRequest(apiURL, requestBody)
@@ -733,10 +736,10 @@ func InvokePOSTRequest(url string, body io.Reader) *http.Response {
 
 func HandleUnableToConnectErrorAndExit(err error) {
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "wum-uc: %v\n", "unable to connect to WSO2 Update")
+		fmt.Fprintf(os.Stderr, "wum-uc: %v\n", "unable to connect to WUM servers")
 		logger.Error(err.Error())
 	}
-	fmt.Fprintf(os.Stderr, "wum-uc: %v\n", constant.UNABLE_TO_CONNECT_WSO2_UPDATE)
+	fmt.Fprintf(os.Stderr, "wum-uc: %v\n", constant.UNABLE_TO_CONNECT_WUM_SERVERS)
 	os.Exit(1)
 }
 
@@ -962,7 +965,6 @@ func Init(username string, password []byte) {
 	wumucConfig.RefreshToken = tokenResponse.RefreshToken
 	wumucConfig.AccessToken = tokenResponse.AccessToken
 	WriteConfigFile(wumucConfig, filepath.Join(WUMUCHomePath, constant.WUMUC_CONFIG_FILE))
-	fmt.Fprintln(os.Stderr, constant.DONE_MSG)
 }
 
 // Get credentials from the user. Maximum password attempts is 3. If the user specify both the
