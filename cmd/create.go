@@ -70,7 +70,6 @@ type resumeFile struct {
 	resourceDirectoryPath       string
 	distributionPath            string
 	platformName                string
-	timestamp                   int
 	updateNumber                string
 	isUpdateZipCreated          bool
 }
@@ -1795,6 +1794,8 @@ func validateUpdate(resumeFile *resumeFile) {
 // Todo uncomment before production
 //func commitUpdateToSVN(resumeFile *resumeFile) {
 func commitUpdateToSVN() {
+	// Todo uncomment before production
+	//fmt.Println(fmt.Sprintf("Committing the %s to the update SVN repo started", resumeFile.updateName))
 	var stdOut, stdErr bytes.Buffer
 	//-------------Testing----------------
 	resumeFileTest := resumeFile{}
@@ -1805,13 +1806,19 @@ func commitUpdateToSVN() {
 	resumeFile := &resumeFileTest
 	//-------------Testing-done----------------
 
-	//Todo handle interuppts
+	// Handle interrupts received during processing
+	cleanupChannel := util.HandleInterrupts(func() {
+		updateDirectory := constant.SVN_UPDATES + resumeFile.updateName
+		updateDirectoryPath := path.Join(WUMUCHome, updateDirectory)
+		util.CleanUpDirectory(updateDirectoryPath)
+	})
 
 	// If not create the folder using a SVN commit
 	// Todo If it exists go to the folder see if the location is locked, if locked err. If not locked move the zip (
 	// should only have the update zip) to old/old-T and SVN add the new file, then commit to the root of relevant update
 
 	// Request password from user for committing created update to the SVN
+	// Todo uncomment before production
 	/*	var password []byte
 		fmt.Fprintf(os.Stdout, "Enter password for %s for committing the update to the SVN: ", resumeFile.developer)
 		password, err := terminal.ReadPassword(int(syscall.Stdin))
@@ -1861,6 +1868,10 @@ func commitUpdateToSVN() {
 	/*	Successfully ran the 'svn ls' command,
 		so update directory should already exists in the SVN and the exit code should be zero*/
 	commitUpgradedUpdateToSVN(resumeFile, updateSVNURI, password)
+	// Stop interrupts being further received to the 'cleanupchannel' as processing completed successfully
+	signal.Stop(cleanupChannel)
+	// Todo uncomment before production
+	//fmt.Println(fmt.Sprintf("%s committed successfully to the update SVN repo", resumeFile.updateName))
 }
 
 // This function creates the update directory at SVN and commit the created update zip to the SVN.
