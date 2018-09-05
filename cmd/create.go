@@ -126,6 +126,7 @@ func initializeCreateCommand(cmd *cobra.Command, args []string) {
 		}
 		createUpdate(args[0], args[1])
 	} else {
+		// Todo uncomment before production
 		//continueResumedUpdateCreation()
 		//---------- Testing -----------
 		commitUpdateToSVN()
@@ -1720,9 +1721,9 @@ func continueResumedUpdateCreation() {
 		util.HandleErrorAndExit(err, "error occurred while un-marshaling the ", wumucResumeFile)
 	}
 
-	// Check if the update zip is already being created
+	// Check if the update zip has already being created
 	if resumedFile.isUpdateZipCreated {
-		// Todo check if additional steps and args are required to be passed and uncomment below line
+		// Todo Uncomment before production
 		//commitUpdateToSVN(&resumedFile)
 
 	} else {
@@ -1759,8 +1760,9 @@ func continueResumedUpdateCreation() {
 		saveResumeFile(&resumedFile)
 		fmt.Println(fmt.Sprintf("'%s'.zip successfully created.\n", resumedFile.updateName))
 		logger.Debug(fmt.Sprintf("%s successfully updated with the status of update zip creation", constant.WUMUC_RESUME_FILE))
-		// Todo commit to SVN (uncomment the below line)
+		// Todo uncomment before production
 		//commitUpdateToSVN(&resumedFile)
+		// Cleanup the '.wum-uc-resume.yaml' file upon successful committing of the created update zip
 		util.CleanUpFile(wumucResumeFile)
 	}
 }
@@ -1790,6 +1792,7 @@ func validateUpdate(resumeFile *resumeFile) {
 }
 
 // This function will commit the create update zip to the update SVN repo.
+// Todo uncomment before production
 //func commitUpdateToSVN(resumeFile *resumeFile) {
 func commitUpdateToSVN() {
 	var stdOut, stdErr bytes.Buffer
@@ -1802,11 +1805,10 @@ func commitUpdateToSVN() {
 	resumeFile := &resumeFileTest
 	//-------------Testing-done----------------
 
-	//Todo handle interuppts and delete created iupdate zip when commiting SVN failed.
-	// Retry committing update when failed.
+	//Todo handle interuppts
 
 	// If not create the folder using a SVN commit
-	// If it exists go to the folder see if the location is locked, if locked err. If not locked move the zip (
+	// Todo If it exists go to the folder see if the location is locked, if locked err. If not locked move the zip (
 	// should only have the update zip) to old/old-T and SVN add the new file, then commit to the root of relevant update
 
 	// Request password from user for committing created update to the SVN
@@ -1830,9 +1832,6 @@ func commitUpdateToSVN() {
 	// First need to checkout whether the given update is already committed to the SVN.
 	SVNListCommand := exec.Command(constant.SVN_COMMAND, constant.LIST_COMMAND, updateSVNURI,
 		constant.NON_INTERACTIVE, constant.USER_NAME, resumeFile.developer, constant.PASSWORD, string(password))
-	//Todo https://stackoverflow.com/questions/10385551/get-exit-code-go use this to solve,
-	//Todo make this repo private
-	// do not call $? it just returns the exit code
 	SVNListCommand.Stdout = &stdOut
 	SVNListCommand.Stderr = &stdErr
 	err := SVNListCommand.Run()
@@ -1866,7 +1865,6 @@ func commitUpdateToSVN() {
 
 // This function creates the update directory at SVN and commit the created update zip to the SVN.
 func commitNewUpdateToSVN(resumeFile *resumeFile, updateSVNURI string, password []byte) {
-	// Todo print stdout and stderr in debug logs
 	var stdOut, stdErr bytes.Buffer
 	SVNCommitMsg := fmt.Sprintf("Add resources for %s", resumeFile.updateName)
 
@@ -1876,9 +1874,9 @@ func commitNewUpdateToSVN(resumeFile *resumeFile, updateSVNURI string, password 
 	SVNMkdirCommand.Stdout = &stdOut
 	SVNMkdirCommand.Stderr = &stdErr
 	err := SVNMkdirCommand.Run()
-	logger.Debug(fmt.Sprintf("stdout of SVNMkdirCommand %s", stdOut.String()))
+	logger.Debug(fmt.Sprintf("stdout of SVNMkdirCommand \n%v", stdOut.String()))
 	if err != nil {
-		logger.Debug(fmt.Sprintf("stderr of SVNMkdirCommand %s", stdErr.String()))
+		logger.Debug(fmt.Sprintf("stderr of SVNMkdirCommand \n%v", stdErr.String()))
 		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when creating %s directory at SVN.",
 			resumeFile.updateNumber))
 	}
@@ -1890,9 +1888,9 @@ func commitNewUpdateToSVN(resumeFile *resumeFile, updateSVNURI string, password 
 	SVNCheckoutCommand.Stdout = &stdOut
 	SVNCheckoutCommand.Stderr = &stdErr
 	err = SVNCheckoutCommand.Run()
-	logger.Debug(fmt.Sprintf("stdout of SVNCheckoutCommand %s", stdOut.String()))
+	logger.Debug(fmt.Sprintf("stdout of SVNCheckoutCommand \n%v", stdOut.String()))
 	if err != nil {
-		logger.Debug(fmt.Sprintf("stderr of SVNCheckoutCommand %s", stdErr.String()))
+		logger.Debug(fmt.Sprintf("stderr of SVNCheckoutCommand \n%v", stdErr.String()))
 		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when checking out %s directory at SVN.",
 			resumeFile.updateNumber))
 	}
@@ -1951,9 +1949,9 @@ func commitUpgradedUpdateToSVN(resumeFile *resumeFile, updateSVNURI string, pass
 		SVNMkdirCommand.Stdout = &stdOut
 		SVNMkdirCommand.Stderr = &stdErr
 		err = SVNMkdirCommand.Run()
-		logger.Debug(fmt.Sprintf("stdout of SVNMkdirCommand \n%s", stdOut.String()))
+		logger.Debug(fmt.Sprintf("stdout of SVNMkdirCommand \n%v", stdOut.String()))
 		if err != nil {
-			logger.Debug(fmt.Sprintf("stderr of SVNMkdirCommand \n%s", stdErr.String()))
+			logger.Debug(fmt.Sprintf("stderr of SVNMkdirCommand \n%v", stdErr.String()))
 			util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when creating the directory %s", oldUpdatesDirectoryPath))
 		}
 		commitUpgradedUpdatesWithPreservingPreviousUpdatesAtSVN(resumeFile, password)
@@ -1961,8 +1959,6 @@ func commitUpgradedUpdateToSVN(resumeFile *resumeFile, updateSVNURI string, pass
 		// Same update is being created more than two times
 		commitUpgradedUpdatesWithPreservingPreviousUpdatesAtSVN(resumeFile, password)
 	}
-
-	// Todo Check whether the update zip exists.
 }
 
 // This function commit the newly created update zip with preserving the previously committed update zip.
@@ -2009,8 +2005,7 @@ func performSVNMoveFile(resumeFile *resumeFile, source, destination string) {
 	err := SVNMoveCommand.Run()
 	logger.Debug(fmt.Sprintf("stdout of SVNMoveCommand \n%v", stdOut.String()))
 	if err != nil {
-		// Todo add \n logs of exec.Command
-		logger.Debug(fmt.Sprintf("stderr of SVNMoveCommand \n %v", stdErr.String()))
+		logger.Debug(fmt.Sprintf("stderr of SVNMoveCommand \n%v", stdErr.String()))
 		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when moving %s to %s", source, destination))
 	}
 }
