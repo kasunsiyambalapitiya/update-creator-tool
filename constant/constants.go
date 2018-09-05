@@ -151,5 +151,6 @@ const (
 	COMMIT_OPTION        = "-m"
 	USER_NAME            = "--username"
 	PASSWORD             = "--password"
+	NON_INTERACTIVE      = "--non-interactive"
 	OLD_UPDATE_DIRECTORY = "old-updates"
 )

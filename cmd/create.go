@@ -1818,39 +1818,33 @@ func commitUpdateToSVN() {
 		}
 		fmt.Fprintln(os.Stdout)*/
 
-	// Todo send pointer of resumeFile to SVN methods
 	//-------------Testing----------------
-
 	password := []byte("admin")
-
-	//SVNURI := constant.SVN_UPDATE_REPO + "/" + resumeFile.platformName + "/" + constant.SVN_UPDATES
 	//SVNURI := "http://172.17.0.2/svn/repo"
 	SVNURI := "http://localhost:8090/svn/repo"
 	//-------------Testing-done----------------
 
+	//SVNURI := constant.SVN_UPDATE_REPO + "/" + resumeFile.platformName + "/" + constant.SVN_UPDATES
 	updateSVNURI := SVNURI + "/" + constant.SVN_UPDATE + resumeFile.updateNumber
 
 	// First need to checkout whether the given update is already committed to the SVN.
-	SVNListCommand := exec.Command(constant.SVN_COMMAND, constant.LIST_COMMAND, updateSVNURI, constant.USER_NAME,
-		resumeFile.developer, constant.PASSWORD, string(password))
-	// Todo have two bytes.Buffers for stdOut and stdErr and then use command.Run()
-	//Todo in here catch the error and then see if the echo_command in 0 or 1 (exit code)
-	// Todo --non-interactive --no-auth-cache --username XXXX --password YYYY as https svn https://stackoverflow.com/questions/34687/subversion-ignoring-password-and-username-options
+	SVNListCommand := exec.Command(constant.SVN_COMMAND, constant.LIST_COMMAND, updateSVNURI,
+		constant.NON_INTERACTIVE, constant.USER_NAME, resumeFile.developer, constant.PASSWORD, string(password))
 	//Todo https://stackoverflow.com/questions/10385551/get-exit-code-go use this to solve,
 	//Todo make this repo private
 	// do not call $? it just returns the exit code
 	SVNListCommand.Stdout = &stdOut
 	SVNListCommand.Stderr = &stdErr
 	err := SVNListCommand.Run()
-	logger.Debug(fmt.Sprintf("stdout of SVNListCommand %s", stdOut.String()))
+	logger.Debug(fmt.Sprintf("stdout of SVNListCommand \n%v", stdOut.String()))
 	if err != nil {
-		logger.Debug(fmt.Sprintf("stderr of SVNListCommand %s", stdErr.String()))
+		logger.Debug(fmt.Sprintf("stderr of SVNListCommand \n%v", stdErr.String()))
 		exitError, ok := err.(*exec.ExitError)
 		if ok {
 			// err interface value holds a value of type exec.ExitError
 			ws := exitError.Sys().(syscall.WaitStatus)
 			exitCode := ws.ExitStatus()
-			logger.Debug(fmt.Sprintf("Error occured in SVNListCommand, \n err: %s , exit code: %d", err, exitCode))
+			logger.Debug(fmt.Sprintf("Error occured in SVNListCommand, \nerr: %s , exit code: %d", err, exitCode))
 			if exitCode == 1 {
 				/*The update directory does not exists at SVN Repo.
 				So we need to create the update directory at SVN and commit the created update zip to the SVN.*/
@@ -1872,13 +1866,12 @@ func commitUpdateToSVN() {
 
 // This function creates the update directory at SVN and commit the created update zip to the SVN.
 func commitNewUpdateToSVN(resumeFile *resumeFile, updateSVNURI string, password []byte) {
-	//todo have byte.buffers
 	// Todo print stdout and stderr in debug logs
 	var stdOut, stdErr bytes.Buffer
 	SVNCommitMsg := fmt.Sprintf("Add resources for %s", resumeFile.updateName)
 
 	SVNMkdirCommand := exec.Command(constant.SVN_COMMAND, constant.MKDIR_COMMAND, constant.COMMIT_OPTION,
-		fmt.Sprintf("%q", SVNCommitMsg), updateSVNURI, constant.USER_NAME,
+		fmt.Sprintf("%q", SVNCommitMsg), updateSVNURI, constant.NON_INTERACTIVE, constant.USER_NAME,
 		resumeFile.developer, constant.PASSWORD, string(password))
 	SVNMkdirCommand.Stdout = &stdOut
 	SVNMkdirCommand.Stderr = &stdErr
@@ -1892,7 +1885,7 @@ func commitNewUpdateToSVN(resumeFile *resumeFile, updateSVNURI string, password 
 
 	// Checkout the created update directory at SVN
 	SVNCheckoutCommand := exec.Command(constant.SVN_COMMAND, constant.CHECKOUT_COMMAND, updateSVNURI,
-		constant.USER_NAME, resumeFile.developer, constant.PASSWORD, string(password))
+		constant.NON_INTERACTIVE, constant.USER_NAME, resumeFile.developer, constant.PASSWORD, string(password))
 	SVNCheckoutCommand.Dir = WUMUCHome
 	SVNCheckoutCommand.Stdout = &stdOut
 	SVNCheckoutCommand.Stderr = &stdErr
@@ -1931,7 +1924,7 @@ func commitUpgradedUpdateToSVN(resumeFile *resumeFile, updateSVNURI string, pass
 
 	// As the update directory exists, we need to checkout the existing update directory from SVN
 	SVNCheckoutCommand := exec.Command(constant.SVN_COMMAND, constant.CHECKOUT_COMMAND, updateSVNURI,
-		constant.USER_NAME, resumeFile.developer, constant.PASSWORD, string(password))
+		constant.NON_INTERACTIVE, constant.USER_NAME, resumeFile.developer, constant.PASSWORD, string(password))
 	SVNCheckoutCommand.Dir = WUMUCHome
 	SVNCheckoutCommand.Stdout = &stdOut
 	SVNCheckoutCommand.Stderr = &stdErr
@@ -2003,24 +1996,6 @@ func commitUpgradedUpdatesWithPreservingPreviousUpdatesAtSVN(resumeFile *resumeF
 	performSVNCommitCommand(resumeFile, password, SVNCommitMsg)
 }
 
-/*func performSVNMkdir(resumeFile *resumeFile, updateSVNURI, SVNCommitMsg string, password []byte) {
-	var stdOut,stdErr bytes.Buffer
-
-
-	SVNMkdirCommand := exec.Command(constant.SVN_COMMAND, constant.MKDIR_COMMAND, constant.COMMIT_OPTION,
-		fmt.Sprintf("%q", SVNCommitMsg), updateSVNURI, constant.USER_NAME,
-		resumeFile.developer, constant.PASSWORD, string(password))
-	SVNMkdirCommand.Stdout = &stdOut
-	SVNMkdirCommand.Stderr = &stdErr
-	err := SVNMkdirCommand.Run()
-	logger.Debug(fmt.Sprintf("stdout of SVNMkdirCommand %s", stdOut.String()))
-	if err != nil {
-		logger.Debug(fmt.Sprintf("stderr of SVNMkdirCommand %s", stdErr.String()))
-		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when creating %s directory at SVN.",
-			resumeFile.updateNumber))
-	}
-}*/
-
 // This function moves source file to given destination using 'svn move' command.
 func performSVNMoveFile(resumeFile *resumeFile, source, destination string) {
 	var stdOut, stdErr bytes.Buffer
@@ -2070,7 +2045,8 @@ func performSVNCommitCommand(resumeFile *resumeFile, password []byte, commitMsg 
 
 	// Commit the created update to SVN
 	SVNCommitCommand := exec.Command(constant.SVN_COMMAND, constant.COMMIT_COMMAND, constant.COMMIT_OPTION,
-		fmt.Sprintf("%q", commitMsg), constant.USER_NAME, resumeFile.developer, constant.PASSWORD, string(password))
+		fmt.Sprintf("%q", commitMsg), constant.NON_INTERACTIVE, constant.USER_NAME, resumeFile.developer,
+		constant.PASSWORD, string(password))
 	SVNCommitCommand.Dir = updateDirectoryPath
 	SVNCommitCommand.Stdout = &stdOut
 	SVNCommitCommand.Stderr = &stdErr
