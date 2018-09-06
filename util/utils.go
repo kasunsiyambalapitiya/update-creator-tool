@@ -1205,7 +1205,7 @@ func WriteFileToDestination(data []byte, filePath string) {
 	file, err := os.OpenFile(
 		filePath,
 		os.O_WRONLY|os.O_TRUNC|os.O_CREATE,
-		600,
+		0600,
 	)
 	if err != nil {
 		HandleErrorAndExit(err)
