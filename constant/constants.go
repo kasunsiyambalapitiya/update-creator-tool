@@ -124,7 +124,7 @@ const (
 	PRODUCT_API_VERSION                  = "3.0.0"
 	APPLICABLE_PRODUCTS                  = "applicable-products"
 	FILE_LIST_ONLY                       = "fileListOnly=true"
-	UNABLE_TO_CONNECT_WSO2_UPDATE        = "there is a problem connecting to WSO2 Update please try again"
+	UNABLE_TO_CONNECT_WUM_SERVERS        = "there is a problem connecting to WUM Servers please try again"
 	WUMUC_API_CALL_TIMEOUT               = 5
 	TOO_MANY_REQUESTS_ERROR_MSG          = "servers are busy at the moment. Please try again later."
 	CONTINUED_ERROR_REPORT_MSG           = "if you continue to have this problem, please contact WUM team"

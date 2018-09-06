@@ -126,15 +126,15 @@ func initializeCreateCommand(cmd *cobra.Command, args []string) {
 		createUpdate(args[0], args[1])
 	} else {
 		// Todo uncomment before production
-		//continueResumedUpdateCreation()
+		continueResumedUpdateCreation()
 		//---------- Testing -----------
-		commitUpdateToSVN()
+		//commitUpdateToSVN()
 		//---------- Testing End -----------
 
 	}
 }
 
-// Todo version check of wum-uc
+// Todo resume working or not
 // Todo file validation check from update-descriptor3.yaml
 // Todo allow multiple selection for same update name
 // Todo add all the content of update-descriptor3.yaml for hash value
