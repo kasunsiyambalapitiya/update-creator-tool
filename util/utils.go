@@ -37,6 +37,7 @@ import (
 	"github.com/ian-kent/go-log/log"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
+	"github.com/wso2/update-creator-tool/cmd"
 	"github.com/wso2/update-creator-tool/constant"
 	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/yaml.v2"
@@ -84,6 +85,7 @@ type ProductChanges struct {
 }
 
 type PartialUpdateFileRequest struct {
+	WUMUCVersion    string   `json:"wum-uc-version"`
 	UpdateNumber    string   `json:"update-no"`
 	PlatformVersion string   `json:"platform-version"`
 	PlatformName    string   `json:"platform-name"`
@@ -684,6 +686,7 @@ func GetContentFromUrl(url string) ([]byte, error) {
 
 func createPartialUpdateFileRequest(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpdateFileRequest {
 	partialUpdateFileRequest := PartialUpdateFileRequest{}
+	partialUpdateFileRequest.WUMUCVersion = cmd.Version
 	partialUpdateFileRequest.UpdateNumber = updateDescriptorV2.UpdateNumber
 	partialUpdateFileRequest.PlatformName = updateDescriptorV2.PlatformName
 	partialUpdateFileRequest.PlatformVersion = updateDescriptorV2.PlatformVersion
