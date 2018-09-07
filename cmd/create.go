@@ -64,14 +64,14 @@ type node struct {
 
 // This struct is used for resuming the update creation using `wum-uc create -- continue`
 type ResumeFile struct {
-	ExplodedUpdateDirectoryPath string
-	developer                   string
-	updateName                  string
-	resourceDirectoryPath       string
-	distributionPath            string
-	platformName                string
-	updateNumber                string
-	isUpdateZipCreated          bool
+	ExplodedUpdateDirectoryPath string `yaml:"exploded-update-directory-path"`
+	Developer                   string `yaml:"developer"`
+	UpdateName                  string `yaml:"update-name"`
+	ResourceDirectoryPath       string `yaml:"resource-directory-path"`
+	DistributionPath            string `yaml:"distribution-path"`
+	PlatformName                string `yaml:"platform-name"`
+	UpdateNumber                string `yaml:"update-number"`
+	IsUpdateZipCreated          bool   `yaml:"is-update-zip-created"`
 }
 
 // This is used to create a new node which will initialize the childNodes map.
@@ -448,12 +448,12 @@ removedFilesInputLoop:
 	logger.Debug(fmt.Sprintf("Setting values to %s for resuming update creation", constant.WUMUC_RESUME_FILE))
 	resumeFile := ResumeFile{}
 	resumeFile.ExplodedUpdateDirectoryPath = explodedUpdateDirectory
-	resumeFile.updateName = updateName
-	resumeFile.distributionPath = distributionPath
-	resumeFile.resourceDirectoryPath = absUpdateDirectoryPath
-	resumeFile.developer = WUMUCConfig.Username
-	resumeFile.platformName = updateDescriptorV3.PlatformName
-	resumeFile.updateNumber = updateDescriptorV3.UpdateNumber
+	resumeFile.UpdateName = updateName
+	resumeFile.DistributionPath = distributionPath
+	resumeFile.ResourceDirectoryPath = absUpdateDirectoryPath
+	resumeFile.Developer = WUMUCConfig.Username
+	resumeFile.PlatformName = updateDescriptorV3.PlatformName
+	resumeFile.UpdateNumber = updateDescriptorV3.UpdateNumber
 
 	// Write resumeFile struct to a file
 	saveResumeFile(&resumeFile)
@@ -1666,6 +1666,7 @@ func setProductChangesInUpdateDescriptorV3(partialUpdatedProducts *util.PartialU
 	return productChanges
 }
 
+// Todo check SVN with Maheshika
 // This will append removed files to update-descriptor.yaml
 func appendRemovedFilesToUpdateDescriptor(updateDescriptorV2 *util.UpdateDescriptorV2) {
 userInputLoop:
@@ -1702,7 +1703,7 @@ func saveResumeFile(resumeFile *ResumeFile) {
 }
 
 /* This function will continue the update creation after manually modifying the relevant sections of the
-update-descriptor3.yaml by the developer.*/
+update-descriptor3.yaml by the Developer.*/
 func continueResumedUpdateCreation() {
 	resumedFile := ResumeFile{}
 	// Check for the existence of 'wum-uc-resume.yaml' file
@@ -1726,17 +1727,31 @@ func continueResumedUpdateCreation() {
 		util.HandleErrorAndExit(err, "error occurred while un-marshaling the ", wumucResumeFile)
 	}
 
+	// TOdo move version check to the begingin of 'create' command
 	// Check if the update zip has already being created
-	if resumedFile.isUpdateZipCreated {
+	if resumedFile.IsUpdateZipCreated {
 		// Todo Uncomment before production
 		//commitUpdateToSVN(&resumedFile)
 
 	} else {
 		// Create the update zip from resumed state
-		// Copy developer edited `update-descriptor3.yaml` to the temp location for creating the update.
-		source := path.Join(resumedFile.resourceDirectoryPath, constant.UPDATE_DESCRIPTOR_V3_FILE)
+		// Check if the exploded update directory exists
+		exists, err := util.IsDirectoryExists(resumedFile.ExplodedUpdateDirectoryPath)
+		if err != nil {
+			logger.Debug(fmt.Sprintf("error occurred in checking the existance of %s exploded update directory", resumedFile.ExplodedUpdateDirectoryPath))
+			util.HandleErrorAndExit(err, fmt.Sprintf("error occured when resuming the update creation"))
+		}
+
+		if !exists {
+			// Temporary exploded update directory not found
+			util.CleanUpFile(wumucResumeFile)
+			util.HandleErrorAndExit(err, fmt.Sprintf("error occured when resuming the update creation, "+
+				"please recreate the update using 'wum-uc create' command"))
+		}
+		// Copy Developer edited `update-descriptor3.yaml` to the temp location for creating the update.
+		source := path.Join(resumedFile.ResourceDirectoryPath, constant.UPDATE_DESCRIPTOR_V3_FILE)
 		destination := path.Join(resumedFile.ExplodedUpdateDirectoryPath, constant.UPDATE_DESCRIPTOR_V3_FILE)
-		updateZipName := resumedFile.updateName + ".zip"
+		updateZipName := resumedFile.UpdateName + ".zip"
 		cleanupChannel := util.HandleInterrupts(func() {
 			util.CleanUpFile(updateZipName)
 			util.CleanUpFile(destination)
@@ -1749,7 +1764,7 @@ func continueResumedUpdateCreation() {
 			util.HandleErrorAndExit(err, fmt.Sprintf("error occured when copying the modified %s to %s.",
 				constant.UPDATE_DESCRIPTOR_V3_FILE, resumedFile.ExplodedUpdateDirectoryPath))
 		}
-		logger.Debug(fmt.Sprintf("Resources required for '%s' successfully generated at %s.\n", resumedFile.updateName,
+		logger.Debug(fmt.Sprintf("Resources required for '%s' successfully generated at %s.\n", resumedFile.UpdateName,
 			resumedFile.ExplodedUpdateDirectoryPath))
 		// Create the update zip
 		createUpdateZip(&resumedFile)
@@ -1761,10 +1776,12 @@ func continueResumedUpdateCreation() {
 		util.CleanUpDirectory(constant.TEMP_DIR)
 
 		// Update '.wum-uc-resume.yaml' file as the update zip created successfully
-		resumedFile.isUpdateZipCreated = true
+		resumedFile.IsUpdateZipCreated = true
 		saveResumeFile(&resumedFile)
-		fmt.Println(fmt.Sprintf("'%s'.zip successfully created.\n", resumedFile.updateName))
+		fmt.Println(fmt.Sprintf("'%s'.zip successfully created.\n", resumedFile.UpdateName))
 		logger.Debug(fmt.Sprintf("%s successfully updated with the status of update zip creation", constant.WUMUC_RESUME_FILE))
+		// Todo create a .cache file and read it for every time (in root) if it is greater than one day,
+		// ask the user to reint wum-uc. Then in init check for version
 		// Todo uncomment before production
 		//commitUpdateToSVN(&resumedFile)
 		// Cleanup the '.wum-uc-resume.yaml' file upon successful committing of the created update zip
@@ -1775,7 +1792,7 @@ func continueResumedUpdateCreation() {
 // This function will create the update zip.
 func createUpdateZip(resumeFile *ResumeFile) {
 	// Construct the update zip name
-	updateZipName := resumeFile.updateName + ".zip"
+	updateZipName := resumeFile.UpdateName + ".zip"
 	logger.Debug(fmt.Sprintf("Name of the update zip: %s", updateZipName))
 	logger.Debug(fmt.Sprintf("Creating the update zip %s", updateZipName))
 	err := ZipFile(resumeFile.ExplodedUpdateDirectoryPath, updateZipName)
@@ -1788,12 +1805,12 @@ func createUpdateZip(resumeFile *ResumeFile) {
 // This function will validate the created update zip before committing it to the pointed SVN.
 func validateUpdate(resumeFile *ResumeFile) {
 	// Get absolute location of the created update zip
-	updateZipName := resumeFile.updateName + ".zip"
+	updateZipName := resumeFile.UpdateName + ".zip"
 	updateZipPath, err := filepath.Abs(updateZipName)
 	if err != nil {
 		updateZipPath = updateZipName
 	}
-	startValidation(updateZipPath, resumeFile.distributionPath)
+	startValidation(updateZipPath, resumeFile.DistributionPath)
 }
 
 // This function will commit the create update zip to the update SVN repo.
@@ -1801,20 +1818,20 @@ func validateUpdate(resumeFile *ResumeFile) {
 //func commitUpdateToSVN(resumeFile *resumeFile) {
 func commitUpdateToSVN() {
 	// Todo uncomment before production
-	//fmt.Println(fmt.Sprintf("Committing the %s to the update SVN repo started", resumeFile.updateName))
+	//fmt.Println(fmt.Sprintf("Committing the %s to the update SVN repo started", resumeFile.UpdateName))
 	var stdOut, stdErr bytes.Buffer
 	//-------------Testing----------------
 	resumeFileTest := ResumeFile{}
-	resumeFileTest.updateNumber = "0013"
-	resumeFileTest.updateName = "WSO2-CARBON-UPDATE-5.0.0-0013"
-	resumeFileTest.developer = "admin"
-	resumeFileTest.platformName = "hamming"
+	resumeFileTest.UpdateNumber = "0013"
+	resumeFileTest.UpdateName = "WSO2-CARBON-UPDATE-5.0.0-0013"
+	resumeFileTest.Developer = "admin"
+	resumeFileTest.PlatformName = "hamming"
 	resumeFile := &resumeFileTest
 	//-------------Testing-done----------------
 
 	// Handle interrupts received during processing
 	cleanupChannel := util.HandleInterrupts(func() {
-		updateDirectory := constant.SVN_UPDATES + resumeFile.updateName
+		updateDirectory := constant.SVN_UPDATES + resumeFile.UpdateName
 		updateDirectoryPath := path.Join(WUMUCHome, updateDirectory)
 		util.CleanUpDirectory(updateDirectoryPath)
 	})
@@ -1825,7 +1842,7 @@ func commitUpdateToSVN() {
 	// Request password from user for committing created update to the SVN
 	// Todo uncomment before production
 	/*	var password []byte
-		fmt.Fprintf(os.Stdout, "Enter password for %s for committing the update to the SVN: ", resumeFile.developer)
+		fmt.Fprintf(os.Stdout, "Enter password for %s for committing the update to the SVN: ", resumeFile.Developer)
 		password, err := terminal.ReadPassword(int(syscall.Stdin))
 		if err != nil {
 			util.HandleErrorAndExit(err, constant.UNABLE_TO_READ_YOUR_INPUT_MSG)
@@ -1838,12 +1855,12 @@ func commitUpdateToSVN() {
 	SVNURI := "http://localhost:8090/svn/repo"
 	//-------------Testing-done----------------
 
-	//SVNURI := constant.SVN_UPDATE_REPO + "/" + resumeFile.platformName + "/" + constant.SVN_UPDATES
-	updateSVNURI := SVNURI + "/" + constant.SVN_UPDATE + resumeFile.updateNumber
+	//SVNURI := constant.SVN_UPDATE_REPO + "/" + resumeFile.PlatformName + "/" + constant.SVN_UPDATES
+	updateSVNURI := SVNURI + "/" + constant.SVN_UPDATE + resumeFile.UpdateNumber
 
 	// First need to checkout whether the given update is already committed to the SVN.
 	SVNListCommand := exec.Command(constant.SVN_COMMAND, constant.LIST_COMMAND, updateSVNURI,
-		constant.NON_INTERACTIVE, constant.USER_NAME, resumeFile.developer, constant.PASSWORD, string(password))
+		constant.NON_INTERACTIVE, constant.USER_NAME, resumeFile.Developer, constant.PASSWORD, string(password))
 	SVNListCommand.Stdout = &stdOut
 	SVNListCommand.Stderr = &stdErr
 	err := SVNListCommand.Run()
@@ -1863,11 +1880,11 @@ func commitUpdateToSVN() {
 			} else {
 				// Error occurred due to an exit code other than zero
 				util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when checking the existance of %s at SVN, "+
-					"exit code: %d", resumeFile.updateName, exitCode))
+					"exit code: %d", resumeFile.UpdateName, exitCode))
 			}
 		} else {
 			util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when checking the existance of %s at SVN.",
-				resumeFile.updateName))
+				resumeFile.UpdateName))
 		}
 	}
 	/*	Successfully ran the 'svn ls' command,
@@ -1876,17 +1893,17 @@ func commitUpdateToSVN() {
 	// Stop interrupts being further received to the 'cleanupchannel' as processing completed successfully
 	signal.Stop(cleanupChannel)
 	// Todo uncomment before production
-	//fmt.Println(fmt.Sprintf("%s committed successfully to the update SVN repo", resumeFile.updateName))
+	//fmt.Println(fmt.Sprintf("%s committed successfully to the update SVN repo", resumeFile.UpdateName))
 }
 
 // This function creates the update directory at SVN and commit the created update zip to the SVN.
 func commitNewUpdateToSVN(resumeFile *ResumeFile, updateSVNURI string, password []byte) {
 	var stdOut, stdErr bytes.Buffer
-	SVNCommitMsg := fmt.Sprintf("Add resources for %s", resumeFile.updateName)
+	SVNCommitMsg := fmt.Sprintf("Add resources for %s", resumeFile.UpdateName)
 
 	SVNMkdirCommand := exec.Command(constant.SVN_COMMAND, constant.MKDIR_COMMAND, constant.COMMIT_OPTION,
 		fmt.Sprintf("%q", SVNCommitMsg), updateSVNURI, constant.NON_INTERACTIVE, constant.USER_NAME,
-		resumeFile.developer, constant.PASSWORD, string(password))
+		resumeFile.Developer, constant.PASSWORD, string(password))
 	SVNMkdirCommand.Stdout = &stdOut
 	SVNMkdirCommand.Stderr = &stdErr
 	err := SVNMkdirCommand.Run()
@@ -1894,12 +1911,12 @@ func commitNewUpdateToSVN(resumeFile *ResumeFile, updateSVNURI string, password 
 	if err != nil {
 		logger.Debug(fmt.Sprintf("stderr of SVNMkdirCommand \n%v", stdErr.String()))
 		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when creating %s directory at SVN.",
-			resumeFile.updateNumber))
+			resumeFile.UpdateNumber))
 	}
 
 	// Checkout the created update directory at SVN
 	SVNCheckoutCommand := exec.Command(constant.SVN_COMMAND, constant.CHECKOUT_COMMAND, updateSVNURI,
-		constant.NON_INTERACTIVE, constant.USER_NAME, resumeFile.developer, constant.PASSWORD, string(password))
+		constant.NON_INTERACTIVE, constant.USER_NAME, resumeFile.Developer, constant.PASSWORD, string(password))
 	SVNCheckoutCommand.Dir = WUMUCHome
 	SVNCheckoutCommand.Stdout = &stdOut
 	SVNCheckoutCommand.Stderr = &stdErr
@@ -1908,12 +1925,12 @@ func commitNewUpdateToSVN(resumeFile *ResumeFile, updateSVNURI string, password 
 	if err != nil {
 		logger.Debug(fmt.Sprintf("stderr of SVNCheckoutCommand \n%v", stdErr.String()))
 		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when checking out %s directory at SVN.",
-			resumeFile.updateNumber))
+			resumeFile.UpdateNumber))
 	}
 
 	// Copy the created update.zip file to the checkout location
-	updateZipName := resumeFile.updateName + ".zip"
-	updateDirectory := constant.SVN_UPDATE + resumeFile.updateNumber
+	updateZipName := resumeFile.UpdateName + ".zip"
+	updateDirectory := constant.SVN_UPDATE + resumeFile.UpdateNumber
 	updateDirectoryPath := path.Join(WUMUCHome, updateDirectory)
 	err = util.CopyFile(updateZipName, updateDirectoryPath)
 	if err != nil {
@@ -1926,7 +1943,7 @@ func commitNewUpdateToSVN(resumeFile *ResumeFile, updateSVNURI string, password 
 	performSVNAddCommand(resumeFile, false)
 
 	// Commit the created update to SVN
-	SVNCommitMsg = fmt.Sprintf("Add %s", resumeFile.updateName)
+	SVNCommitMsg = fmt.Sprintf("Add %s", resumeFile.UpdateName)
 	performSVNCommitCommand(resumeFile, password, SVNCommitMsg)
 	// Todo to keep or deleted the update directory after sucessfull commiting
 }
@@ -1934,11 +1951,11 @@ func commitNewUpdateToSVN(resumeFile *ResumeFile, updateSVNURI string, password 
 // This function change the directory structure of given update at SVN and commit the newly created update zip.
 func commitUpgradedUpdateToSVN(resumeFile *ResumeFile, updateSVNURI string, password []byte) {
 	var stdOut, stdErr bytes.Buffer
-	updateDirectory := constant.SVN_UPDATE + resumeFile.updateNumber
+	updateDirectory := constant.SVN_UPDATE + resumeFile.UpdateNumber
 
 	// As the update directory exists, we need to checkout the existing update directory from SVN
 	SVNCheckoutCommand := exec.Command(constant.SVN_COMMAND, constant.CHECKOUT_COMMAND, updateSVNURI,
-		constant.NON_INTERACTIVE, constant.USER_NAME, resumeFile.developer, constant.PASSWORD, string(password))
+		constant.NON_INTERACTIVE, constant.USER_NAME, resumeFile.Developer, constant.PASSWORD, string(password))
 	SVNCheckoutCommand.Dir = WUMUCHome
 	SVNCheckoutCommand.Stdout = &stdOut
 	SVNCheckoutCommand.Stderr = &stdErr
@@ -1979,8 +1996,8 @@ func commitUpgradedUpdateToSVN(resumeFile *ResumeFile, updateSVNURI string, pass
 
 // This function commit the newly created update zip with preserving the previously committed update zip.
 func commitUpgradedUpdatesWithPreservingPreviousUpdatesAtSVN(resumeFile *ResumeFile, password []byte) {
-	updateZipName := resumeFile.updateName + ".zip"
-	updateDirectory := constant.SVN_UPDATE + resumeFile.updateNumber
+	updateZipName := resumeFile.UpdateName + ".zip"
+	updateDirectory := constant.SVN_UPDATE + resumeFile.UpdateNumber
 	updateDirectoryPath := path.Join(WUMUCHome, updateDirectory)
 	oldUpdatesDirectoryPath := path.Join(updateDirectoryPath, constant.OLD_UPDATE_DIRECTORY)
 
@@ -1991,7 +2008,7 @@ func commitUpgradedUpdatesWithPreservingPreviousUpdatesAtSVN(resumeFile *ResumeF
 	nanoSecUTCTime := utcTime.UnixNano()
 	miliSecUTCTime := nanoSecUTCTime / 1000000
 	// Append the current timestamp for previous update zip name
-	newUpdateZipName := resumeFile.updateName + "." + strconv.FormatInt(miliSecUTCTime, 10) + ".zip"
+	newUpdateZipName := resumeFile.UpdateName + "." + strconv.FormatInt(miliSecUTCTime, 10) + ".zip"
 	oldUpdateZipNewPath := path.Join(oldUpdatesDirectoryPath, newUpdateZipName)
 	performSVNMoveFile(resumeFile, oldUpdateZipCurrentPath, oldUpdateZipNewPath)
 	// Copy newly created update.zip to the checkout directory
@@ -2003,7 +2020,7 @@ func commitUpgradedUpdatesWithPreservingPreviousUpdatesAtSVN(resumeFile *ResumeF
 	// Add file changes to the SVN pending change list
 	performSVNAddCommand(resumeFile, false)
 	// Commit the changes to SVN
-	SVNCommitMsg := fmt.Sprintf("Add upgraded %s -timestamp %s", resumeFile.updateName,
+	SVNCommitMsg := fmt.Sprintf("Add upgraded %s -timestamp %s", resumeFile.UpdateName,
 		strconv.FormatInt(miliSecUTCTime, 10))
 	performSVNCommitCommand(resumeFile, password, SVNCommitMsg)
 }
@@ -2011,7 +2028,7 @@ func commitUpgradedUpdatesWithPreservingPreviousUpdatesAtSVN(resumeFile *ResumeF
 // This function moves source file to given destination using 'svn move' command.
 func performSVNMoveFile(resumeFile *ResumeFile, source, destination string) {
 	var stdOut, stdErr bytes.Buffer
-	updateDirectory := constant.SVN_UPDATE + resumeFile.updateNumber
+	updateDirectory := constant.SVN_UPDATE + resumeFile.UpdateNumber
 	updateDirectoryPath := path.Join(WUMUCHome, updateDirectory)
 
 	SVNMoveCommand := exec.Command(constant.SVN_COMMAND, constant.MOVE_COMMAND, source, destination)
@@ -2030,8 +2047,8 @@ func performSVNMoveFile(resumeFile *ResumeFile, source, destination string) {
 // Todo add logs
 func performSVNAddCommand(resumeFile *ResumeFile, isOldUpdatesExists bool) {
 	var stdOut, stdErr bytes.Buffer
-	updateZipName := resumeFile.updateName + ".zip"
-	updateDirectory := constant.SVN_UPDATE + resumeFile.updateNumber
+	updateZipName := resumeFile.UpdateName + ".zip"
+	updateDirectory := constant.SVN_UPDATE + resumeFile.UpdateNumber
 	updateDirectoryPath := path.Join(WUMUCHome, updateDirectory)
 
 	// Add newly created update zip to SVN pending change list.
@@ -2052,12 +2069,12 @@ func performSVNAddCommand(resumeFile *ResumeFile, isOldUpdatesExists bool) {
 // This function commit the SVN pending change list to the remote SVN repo.
 func performSVNCommitCommand(resumeFile *ResumeFile, password []byte, commitMsg string) {
 	var stdOut, stdErr bytes.Buffer
-	updateDirectory := constant.SVN_UPDATE + resumeFile.updateNumber
+	updateDirectory := constant.SVN_UPDATE + resumeFile.UpdateNumber
 	updateDirectoryPath := path.Join(WUMUCHome, updateDirectory)
 
 	// Commit the created update to SVN
 	SVNCommitCommand := exec.Command(constant.SVN_COMMAND, constant.COMMIT_COMMAND, constant.COMMIT_OPTION,
-		fmt.Sprintf("%q", commitMsg), constant.NON_INTERACTIVE, constant.USER_NAME, resumeFile.developer,
+		fmt.Sprintf("%q", commitMsg), constant.NON_INTERACTIVE, constant.USER_NAME, resumeFile.Developer,
 		constant.PASSWORD, string(password))
 	SVNCommitCommand.Dir = updateDirectoryPath
 	SVNCommitCommand.Stdout = &stdOut

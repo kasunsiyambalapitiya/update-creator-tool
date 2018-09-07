@@ -185,7 +185,7 @@ func readUpdateZip(filename string) (map[string]bool, *util.UpdateDescriptorV2, 
 	defer zipReader.Close()
 
 	updateName := viper.GetString(constant.UPDATE_NAME)
-	logger.Debug("updateName:", updateName)
+	logger.Debug("UpdateName:", updateName)
 	// Iterate through each file/dir found in
 	for _, file := range zipReader.Reader.File {
 		name := getFileName(file.FileInfo().Name())
