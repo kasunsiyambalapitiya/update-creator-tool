@@ -122,7 +122,7 @@ func startValidation(updateFilePath, distributionLocation string) {
 	viper.Set(constant.UPDATE_NAME, updateName)
 
 	// Reads the update zip file
-	updateFileMap, updateDescriptorV2, err := readUpdateZip(updateFilePath)
+	updateFileMap, updateDescriptorV3, err := readUpdateZip(updateFilePath)
 	util.HandleErrorAndExit(err)
 	logger.Trace(fmt.Sprintf("updateFileMap: %v\n", updateFileMap))
 
@@ -131,24 +131,27 @@ func startValidation(updateFilePath, distributionLocation string) {
 	util.HandleErrorAndExit(err)
 	logger.Trace(fmt.Sprintf("distributionFileMap: %v\n", distributionFileMap))
 
-	// Compares the update with the provided distribution only if update-descriptor.yaml exists
-	if updateDescriptorV2.UpdateNumber != "" {
-		err = compare(updateFileMap, distributionFileMap, updateDescriptorV2)
+	// Compares the update with the provided distribution only if update-descriptor3.yaml exists
+	if updateDescriptorV3.UpdateNumber != "" {
+		err = compare(updateFileMap, distributionFileMap, updateDescriptorV3)
 		util.HandleErrorAndExit(err)
 	}
 	fmt.Println("'" + updateName + "' validation successfully finished.")
 }
 
 // This function compares the files in the update and the provided distribution.
-func compare(updateFileMap, distributionFileMap map[string]bool, updateDescriptorV2 *util.UpdateDescriptorV2) error {
+func compare(updateFileMap, distributionFileMap map[string]bool, updateDescriptorV3 *util.UpdateDescriptorV3) error {
 	updateName := viper.GetString(constant.UPDATE_NAME)
 	for filePath := range updateFileMap {
 		logger.Debug(fmt.Sprintf("Searching: %s", filePath))
 		_, found := distributionFileMap[filePath]
 		if !found {
-			logger.Debug("Added files: ", updateDescriptorV2.FileChanges.AddedFiles)
-			isInAddedFiles := util.IsStringIsInSlice(filePath, updateDescriptorV2.FileChanges.AddedFiles)
-			logger.Debug(fmt.Sprintf("isInAddedFiles: %v", isInAddedFiles))
+			logger.Debug(fmt.Sprintf("Added files of %s-%s: ", updateDescriptorV3.CompatibleProducts[0].ProductName,
+				updateDescriptorV3.CompatibleProducts[0].ProductVersion),
+				updateDescriptorV3.CompatibleProducts[0].AddedFiles)
+			isInAddedFiles := util.IsStringIsInSlice(filePath, updateDescriptorV3.CompatibleProducts[0].AddedFiles)
+			logger.Debug(fmt.Sprintf("isInAddedFiles of %s-%s: %v", updateDescriptorV3.CompatibleProducts[0].ProductName,
+				updateDescriptorV3.CompatibleProducts[0].ProductVersion, isInAddedFiles))
 			resourceFiles := getResourceFiles()
 			logger.Debug(fmt.Sprintf("resourceFiles: %v", resourceFiles))
 			fileName := strings.TrimPrefix(filePath, updateName+"/")
@@ -158,9 +161,9 @@ func compare(updateFileMap, distributionFileMap map[string]bool, updateDescripto
 			//check
 			if !isInAddedFiles && !foundInResources {
 				return errors.New(fmt.Sprintf("File not found in the distribution: '%v'. If this is "+
-					"a new file, add an entry to the 'added_files' sections in the '%v' file",
-					filePath, constant.UPDATE_DESCRIPTOR_V2_FILE))
-			} else {
+					"a new file, add an entry to the 'added_files' sections in both the '%v' and '%v' files",
+					filePath, constant.UPDATE_DESCRIPTOR_V2_FILE, constant.UPDATE_DESCRIPTOR_V3_FILE))
+			} else if isInAddedFiles {
 				logger.Debug("'" + filePath + "' found in added files.")
 			}
 		}
@@ -169,7 +172,7 @@ func compare(updateFileMap, distributionFileMap map[string]bool, updateDescripto
 }
 
 // This function will read the update zip at the the given location.
-func readUpdateZip(filename string) (map[string]bool, *util.UpdateDescriptorV2, error) {
+func readUpdateZip(filename string) (map[string]bool, *util.UpdateDescriptorV3, error) {
 	fileMap := make(map[string]bool)
 	updateDescriptorV2 := util.UpdateDescriptorV2{}
 	updateDescriptorV3 := util.UpdateDescriptorV3{}
@@ -286,7 +289,7 @@ func readUpdateZip(filename string) (map[string]bool, *util.UpdateDescriptorV2, 
 			"and remove '%v' file if necessary.", constant.NOT_A_CONTRIBUTION_FILE,
 			constant.NOT_A_CONTRIBUTION_FILE))
 	}
-	return fileMap, &updateDescriptorV2, nil
+	return fileMap, &updateDescriptorV3, nil
 }
 
 // This function will validate the provided file. If the word 'patch' is found, a warning message is printed.
