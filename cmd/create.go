@@ -100,7 +100,6 @@ var createCmd = &cobra.Command{
 }
 
 var isContinueEnabled = false
-var wumucResumeFile = filepath.Join(WUMUCHome, constant.WUMUC_RESUME_FILE)
 
 // This function will be called first and this will add flags to the command.
 func init() {
@@ -260,10 +259,11 @@ func createUpdate(updateDirectoryPath, distributionPath string) {
 	}
 	logger.Trace("-------------------------------------")
 
+	wumucResumeFilePath := filepath.Join(WUMUCHome, constant.WUMUC_RESUME_FILE)
 	// Create an interrupt handler
 	cleanupChannel := util.HandleInterrupts(func() {
 		util.CleanUpDirectory(constant.TEMP_DIR)
-		util.CleanUpFile(wumucResumeFile)
+		util.CleanUpFile(wumucResumeFilePath)
 	})
 
 	//todo: save the selected location to generate the final summary map
@@ -456,7 +456,7 @@ removedFilesInputLoop:
 	resumeFile.UpdateNumber = updateDescriptorV3.UpdateNumber
 
 	// Write resumeFile struct to a file
-	saveResumeFile(&resumeFile)
+	saveResumeFile(&resumeFile, wumucResumeFilePath)
 
 	// clean un temp file
 	signal.Stop(cleanupChannel)
@@ -469,7 +469,7 @@ removedFilesInputLoop:
 	util.PrintInBold(fmt.Sprintf("Manually fill the `description`,"+
 		"`instructions` and `bug_fixes` fields for above products in the update-descriptor3."+
 		"yaml located inside %s directory\n", updateDirectoryPath))
-	util.PrintInBold(fmt.Sprintf("When done please run 'wum-uc create --continue' to resume the update creation.\n"))
+	util.PrintInBold(fmt.Sprintf("\nWhen done please run 'wum-uc create --continue' to resume the update creation.\n"))
 }
 
 // This function will process the README.txt file and extract basic details of the update to populate the update
@@ -1695,10 +1695,11 @@ userInputLoop:
 }
 
 // This function save '.wum-uc-resume.yaml' file for resuming update creation (wum-uc create --continue) in future.
-func saveResumeFile(resumeFile *ResumeFile) {
+func saveResumeFile(resumeFile *ResumeFile, wumucResumeFilePath string) {
 	data, err := yaml.Marshal(resumeFile)
 	util.HandleErrorAndExit(err, "error occurred while marshalling the resume file.")
-	util.WriteFileToDestination(data, wumucResumeFile)
+	logger.Debug(fmt.Sprintf("Resume file location %s", wumucResumeFilePath))
+	util.WriteFileToDestination(data, wumucResumeFilePath)
 	logger.Debug(fmt.Sprintf("%s file created successfully in %s \n", constant.WUMUC_RESUME_FILE, constant.WUM_UC_HOME))
 }
 
@@ -1707,10 +1708,10 @@ update-descriptor3.yaml by the Developer.*/
 func continueResumedUpdateCreation() {
 	resumedFile := ResumeFile{}
 	// Check for the existence of 'wum-uc-resume.yaml' file
-	wumucResumeFile := filepath.Join(WUMUCHome, constant.WUMUC_RESUME_FILE)
-	exits, err := util.IsFileExists(wumucResumeFile)
+	wumucResumeFilePath := filepath.Join(WUMUCHome, constant.WUMUC_RESUME_FILE)
+	exits, err := util.IsFileExists(wumucResumeFilePath)
 	if err != nil {
-		util.HandleErrorAndExit(err, " error occurred while checking the existence of ", wumucResumeFile)
+		util.HandleErrorAndExit(err, " error occurred while checking the existence of ", wumucResumeFilePath)
 	}
 	if !exits {
 		util.HandleErrorAndExit(errors.New(fmt.Sprintf("no trace of a resumed update creation found, " +
@@ -1718,13 +1719,13 @@ func continueResumedUpdateCreation() {
 	}
 
 	// Read resumed update creation details
-	data, err := ioutil.ReadFile(wumucResumeFile)
+	data, err := ioutil.ReadFile(wumucResumeFilePath)
 	if err != nil {
-		util.HandleErrorAndExit(err, "error occurred while reading the ", wumucResumeFile)
+		util.HandleErrorAndExit(err, "error occurred while reading the ", wumucResumeFilePath)
 	}
 	err = yaml.Unmarshal(data, &resumedFile)
 	if err != nil {
-		util.HandleErrorAndExit(err, "error occurred while un-marshaling the ", wumucResumeFile)
+		util.HandleErrorAndExit(err, "error occurred while un-marshaling the ", wumucResumeFilePath)
 	}
 
 	// TOdo move version check to the begingin of 'create' command
@@ -1744,7 +1745,7 @@ func continueResumedUpdateCreation() {
 
 		if !exists {
 			// Temporary exploded update directory not found
-			util.CleanUpFile(wumucResumeFile)
+			util.CleanUpFile(wumucResumeFilePath)
 			util.HandleErrorAndExit(err, fmt.Sprintf("error occured when resuming the update creation, "+
 				"please recreate the update using 'wum-uc create' command"))
 		}
@@ -1777,15 +1778,19 @@ func continueResumedUpdateCreation() {
 
 		// Update '.wum-uc-resume.yaml' file as the update zip created successfully
 		resumedFile.IsUpdateZipCreated = true
-		saveResumeFile(&resumedFile)
+		saveResumeFile(&resumedFile, wumucResumeFilePath)
 		fmt.Println(fmt.Sprintf("'%s'.zip successfully created.\n", resumedFile.UpdateName))
 		logger.Debug(fmt.Sprintf("%s successfully updated with the status of update zip creation", constant.WUMUC_RESUME_FILE))
 		// Todo create a .cache file and read it for every time (in root) if it is greater than one day,
 		// ask the user to reint wum-uc. Then in init check for version
 		// Todo uncomment before production
 		//commitUpdateToSVN(&resumedFile)
-		// Cleanup the '.wum-uc-resume.yaml' file upon successful committing of the created update zip
-		util.CleanUpFile(wumucResumeFile)
+
+		// Todo Delete this when going production
+		commitUpdateToSVN()
+
+		// Cleanup the '.wum-uc-resume.yaml' file upon successful committing of the created update zip to the SVN repo
+		util.CleanUpFile(wumucResumeFilePath)
 	}
 }
 
@@ -1822,8 +1827,8 @@ func commitUpdateToSVN() {
 	var stdOut, stdErr bytes.Buffer
 	//-------------Testing----------------
 	resumeFileTest := ResumeFile{}
-	resumeFileTest.UpdateNumber = "0013"
-	resumeFileTest.UpdateName = "WSO2-CARBON-UPDATE-5.0.0-0013"
+	resumeFileTest.UpdateNumber = "0014"
+	resumeFileTest.UpdateName = "WSO2-CARBON-UPDATE-5.0.0-0014"
 	resumeFileTest.Developer = "admin"
 	resumeFileTest.PlatformName = "hamming"
 	resumeFile := &resumeFileTest

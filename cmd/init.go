@@ -78,7 +78,8 @@ func init() {
 func initializeInitCommand(cmd *cobra.Command, args []string) {
 	logger.Debug("[Init] called")
 	util.Init(username, []byte(password))
-	isCurrentVersionSupported()
+	// Todo change according to version check
+	//isCurrentVersionSupported()
 	fmt.Fprintln(os.Stderr, constant.DONE_MSG)
 }
 
