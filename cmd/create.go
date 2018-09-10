@@ -1737,9 +1737,15 @@ func continueResumedUpdateCreation() {
 	} else {
 		// Create the update zip from resumed state
 		// Check if the exploded update directory exists
-		exists, err := util.IsDirectoryExists(resumedFile.ExplodedUpdateDirectoryPath)
+		executablePath, err := os.Executable()
 		if err != nil {
-			logger.Debug(fmt.Sprintf("error occurred in checking the existance of %s exploded update directory", resumedFile.ExplodedUpdateDirectoryPath))
+			util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when getting the path of 'wum-uc' executable"))
+		}
+		executableDirPath := filepath.Dir(executablePath)
+		explodedDirPath := path.Join(executableDirPath, resumedFile.ExplodedUpdateDirectoryPath)
+		exists, err := util.IsDirectoryExists(explodedDirPath)
+		if err != nil {
+			logger.Debug(fmt.Sprintf("error occurred in checking the existance of %s exploded update directory", explodedDirPath))
 			util.HandleErrorAndExit(err, fmt.Sprintf("error occured when resuming the update creation"))
 		}
 
@@ -1749,7 +1755,7 @@ func continueResumedUpdateCreation() {
 			util.HandleErrorAndExit(err, fmt.Sprintf("error occured when resuming the update creation, "+
 				"please recreate the update using 'wum-uc create' command"))
 		}
-		// Copy Developer edited `update-descriptor3.yaml` to the temp location for creating the update.
+		// Copy developer edited `update-descriptor3.yaml` to the temp location for creating the update.
 		source := path.Join(resumedFile.ResourceDirectoryPath, constant.UPDATE_DESCRIPTOR_V3_FILE)
 		destination := path.Join(resumedFile.ExplodedUpdateDirectoryPath, constant.UPDATE_DESCRIPTOR_V3_FILE)
 		updateZipName := resumedFile.UpdateName + ".zip"
@@ -1776,7 +1782,12 @@ func continueResumedUpdateCreation() {
 		// Remove the temp directories and files
 		util.CleanUpDirectory(constant.TEMP_DIR)
 
-		// Update '.wum-uc-resume.yaml' file as the update zip created successfully
+		/* Update '.wum-uc-resume.yaml' file as the update zip created successfully.
+		This is done to avoid recreating the same update zip when an issue occurred in committing the validated
+		update zip to the SVN as the final step.
+		The developer will be able to resume committing the thus created update zip to the SVN by running 'wum-uc create
+		--continue' command
+		*/
 		resumedFile.IsUpdateZipCreated = true
 		saveResumeFile(&resumedFile, wumucResumeFilePath)
 		fmt.Println(fmt.Sprintf("'%s'.zip successfully created.\n", resumedFile.UpdateName))
@@ -1836,7 +1847,7 @@ func commitUpdateToSVN() {
 
 	// Handle interrupts received during processing
 	cleanupChannel := util.HandleInterrupts(func() {
-		updateDirectory := constant.SVN_UPDATES + resumeFile.UpdateName
+		updateDirectory := constant.SVN_UPDATES + resumeFile.UpdateNumber
 		updateDirectoryPath := path.Join(WUMUCHome, updateDirectory)
 		util.CleanUpDirectory(updateDirectoryPath)
 	})
@@ -1874,7 +1885,7 @@ func commitUpdateToSVN() {
 		logger.Debug(fmt.Sprintf("stderr of SVNListCommand \n%v", stdErr.String()))
 		exitError, ok := err.(*exec.ExitError)
 		if ok {
-			// err interface value holds a value of type exec.ExitError
+			// err interface value holds a pointer to type exec.ExitError
 			ws := exitError.Sys().(syscall.WaitStatus)
 			exitCode := ws.ExitStatus()
 			logger.Debug(fmt.Sprintf("Error occured in SVNListCommand, \nerr: %s , exit code: %d", err, exitCode))
@@ -1888,8 +1899,9 @@ func commitUpdateToSVN() {
 					"exit code: %d", resumeFile.UpdateName, exitCode))
 			}
 		} else {
-			util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when checking the existance of %s at SVN.",
-				resumeFile.UpdateName))
+			util.HandleErrorAndExit(err, fmt.Sprintf("error occurred when checking the existance of %s at SVN.\n"+
+				"Please re run 'wum-uc create --continue' command to retry commiting the created update zip to the the"+
+				" SVN", resumeFile.UpdateName))
 		}
 	}
 	/*	Successfully ran the 'svn ls' command,
