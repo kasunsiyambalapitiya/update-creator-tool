@@ -1733,6 +1733,8 @@ func continueResumedUpdateCreation() {
 	if resumedFile.IsUpdateZipCreated {
 		// Todo Uncomment before production
 		//commitUpdateToSVN(&resumedFile)
+		// Todo Delete this when going production
+		commitUpdateToSVN()
 
 	} else {
 		// Create the update zip from resumed state
@@ -1838,10 +1840,10 @@ func commitUpdateToSVN() {
 	var stdOut, stdErr bytes.Buffer
 	//-------------Testing----------------
 	resumeFileTest := ResumeFile{}
-	resumeFileTest.UpdateNumber = "0014"
-	resumeFileTest.UpdateName = "WSO2-CARBON-UPDATE-5.0.0-0014"
+	resumeFileTest.UpdateNumber = "2990"
+	resumeFileTest.UpdateName = "WSO2-CARBON-UPDATE-4.4.0-2990"
 	resumeFileTest.Developer = "admin"
-	resumeFileTest.PlatformName = "hamming"
+	resumeFileTest.PlatformName = "wilkes"
 	resumeFile := &resumeFileTest
 	//-------------Testing-done----------------
 
@@ -1903,14 +1905,16 @@ func commitUpdateToSVN() {
 				"Please re run 'wum-uc create --continue' command to retry commiting the created update zip to the the"+
 				" SVN", resumeFile.UpdateName))
 		}
+	} else {
+		/*	Successfully ran the 'svn ls' command,
+			so update directory should already exists in the SVN and the exit code should be zero*/
+		commitUpgradedUpdateToSVN(resumeFile, updateSVNURI, password)
 	}
-	/*	Successfully ran the 'svn ls' command,
-		so update directory should already exists in the SVN and the exit code should be zero*/
-	commitUpgradedUpdateToSVN(resumeFile, updateSVNURI, password)
 	// Stop interrupts being further received to the 'cleanupchannel' as processing completed successfully
 	signal.Stop(cleanupChannel)
 	// Todo uncomment before production
 	//fmt.Println(fmt.Sprintf("%s committed successfully to the update SVN repo", resumeFile.UpdateName))
+	// Todo to keep or delete the checkout update directory after sucessfull commiting
 }
 
 // This function creates the update directory at SVN and commit the created update zip to the SVN.
@@ -1949,7 +1953,8 @@ func commitNewUpdateToSVN(resumeFile *ResumeFile, updateSVNURI string, password 
 	updateZipName := resumeFile.UpdateName + ".zip"
 	updateDirectory := constant.SVN_UPDATE + resumeFile.UpdateNumber
 	updateDirectoryPath := path.Join(WUMUCHome, updateDirectory)
-	err = util.CopyFile(updateZipName, updateDirectoryPath)
+	destination := path.Join(updateDirectoryPath, updateZipName)
+	err = util.CopyFile(updateZipName, destination)
 	if err != nil {
 		util.HandleErrorAndExit(err, fmt.Sprintf("error occured when copying the %s to %s", updateZipName,
 			updateDirectoryPath))
@@ -1962,7 +1967,6 @@ func commitNewUpdateToSVN(resumeFile *ResumeFile, updateSVNURI string, password 
 	// Commit the created update to SVN
 	SVNCommitMsg = fmt.Sprintf("Add %s", resumeFile.UpdateName)
 	performSVNCommitCommand(resumeFile, password, SVNCommitMsg)
-	// Todo to keep or deleted the update directory after sucessfull commiting
 }
 
 // This function change the directory structure of given update at SVN and commit the newly created update zip.
