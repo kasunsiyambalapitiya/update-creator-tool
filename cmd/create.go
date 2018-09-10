@@ -133,7 +133,6 @@ func initializeCreateCommand(cmd *cobra.Command, args []string) {
 	}
 }
 
-// Todo resume working or not
 // Todo file validation check from update-descriptor3.yaml
 // Todo allow multiple selection for same update name
 // Todo add all the content of update-descriptor3.yaml for hash value
