@@ -36,6 +36,12 @@ type WUMUCConfig struct {
 	AppKey       string
 	RefreshToken string
 	AccessToken  string
+	BasicAuth
+}
+
+type BasicAuth struct {
+	Username string
+	Password []byte
 }
 
 var wumucConfig WUMUCConfig
@@ -53,10 +59,15 @@ func LoadWUMUCConfig(wumucLocalRepo string) *WUMUCConfig {
 	}
 	if !exists {
 		logger.Info("Populating config.yaml")
+		basicAuth := BasicAuth{
+			Username: constant.WUMUC_BASIC_AUTH_USERNAME,
+			Password: []byte(constant.WUMUC_BASIC_AUTH_PASSWORD),
+		}
 		wumucConfig = WUMUCConfig{
-			URL:      constant.WUMUC_AUTHENTICATION_URL,
-			TokenURL: constant.WUMUC_AUTHENTICATION_URL + "/" + constant.TOKEN_API_CONTEXT,
-			AppKey:   constant.BASE64_ENCODED_CONSUMER_KEY_AND_SECRET,
+			URL:       constant.WUMUC_AUTHENTICATION_URL,
+			TokenURL:  constant.WUMUC_AUTHENTICATION_URL + "/" + constant.TOKEN_API_CONTEXT,
+			AppKey:    constant.BASE64_ENCODED_CONSUMER_KEY_AND_SECRET,
+			BasicAuth: basicAuth,
 		}
 
 		// Write the wum-uc configuration to the config file.

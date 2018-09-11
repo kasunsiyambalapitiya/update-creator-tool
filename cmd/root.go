@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"os"
 
+	"bytes"
+	"encoding/json"
 	"github.com/ian-kent/go-log/layout"
 	"github.com/ian-kent/go-log/levels"
 	"github.com/ian-kent/go-log/log"
@@ -27,8 +29,12 @@ import (
 	"github.com/spf13/viper"
 	"github.com/wso2/update-creator-tool/constant"
 	"github.com/wso2/update-creator-tool/util"
+	"io/ioutil"
+	"net/http"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"time"
 )
 
 var (
@@ -52,6 +58,11 @@ var RootCmd = &cobra.Command{
 	Long:  "This tool is used to create and validate updates.",
 }
 
+/*// struct which is used for checking if newer versions of 'wum-uc' are available
+type WUMUCVersionCheckRequest struct {
+	WUMUCVersion string `json:"wum-uc-version"`
+}*/
+
 // Execute adds all child commands to the root command sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
@@ -61,7 +72,7 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(setLogLevel, checkPrerequisites, initConfig)
+	cobra.OnInitialize(setLogLevel, checkPrerequisites, initConfig, checkWUMUCVersion)
 }
 
 // This function checks the existence of prerequisite programs needed for running 'wum-uc' tool.
@@ -162,4 +173,63 @@ func setDefaultValues() {
 	viper.SetDefault(constant.RESOURCE_FILES_OPTIONAL, util.ResourceFiles_Optional)
 	viper.SetDefault(constant.RESOURCE_FILES_SKIP, util.ResourceFiles_Skip)
 	viper.SetDefault(constant.PLATFORM_VERSIONS, util.PlatformVersions)
+}
+
+// This function checks whether the current version of 'wum-uc' still supported for creating wum updates.
+func checkWUMUCVersion() {
+	logger.Debug("wum-uc version check started")
+	// Check if last update check timestamp is older than one day.
+	wumucUpdateTimestampFilePath := filepath.Join(WUMUCHome, constant.WUMUC_CACHE_DIRECTORY, constant.WUMUC_UPDATE_CHECK_TIMESTAMP_FILENAME)
+	exists, err := util.IsFileExists(wumucUpdateTimestampFilePath)
+	if err != nil {
+		util.PrintError(fmt.Sprintf("error occurred when checking the existance of %s file",
+			wumucUpdateTimestampFilePath), err)
+		checkWithWUMUCAdmin()
+	}
+	if !exists {
+		logger.Debug(fmt.Sprintf("%s file doesnot exists, hence checking for latest versions of 'wum-uc'", wumucUpdateTimestampFilePath))
+		checkWithWUMUCAdmin()
+	} else {
+		// Check whether the last checked timestamp is greater than one day
+		data, err := ioutil.ReadFile(wumucUpdateTimestampFilePath)
+		if err != nil {
+			util.PrintError(fmt.Sprintf("error occurred when reading the content of %s",
+				wumucUpdateTimestampFilePath), err)
+			checkWithWUMUCAdmin()
+		}
+		oldUpdateTimestamp, err := strconv.ParseInt(string(data), 10, 32)
+		if err != nil {
+			util.HandleErrorAndExit(err, fmt.Sprintf("last update checked timestamp %d", oldUpdateTimestamp))
+		}
+		if time.Now().Sub(oldUpdateTimestamp).Hours() < constant.WUMUC_UPDATE_CHECK_INTERVAL_IN_HOURS {
+
+		}
+
+	}
+}
+
+/*This function connects with 'wumucadmin' micro service to check whether the current version of 'wum-uc' is still being
+supported at 'wum-server' side for creating updates.
+If the current 'wum-uc' version is not supported it will print the error and exists,
+with requesting users to migrate to the new tool.
+If the current version of 'wum-uc' is still being supported for creating updates, the
+developer is allowed to continue the update creation.
+*/
+func checkWithWUMUCAdmin() {
+	WUMUCVersionCheckRequest := WUMUCVersionCheckRequest{}
+	WUMUCVersionCheckRequest.WUMUCVersion = Version
+	requestBody := new(bytes.Buffer)
+	err := json.NewEncoder(requestBody).Encode(WUMUCVersionCheckRequest)
+	if err != nil {
+		util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred when performing the 'wum-uc' version check"))
+	}
+	logger.Debug(fmt.Sprintf("Request sent %v", requestBody))
+	// Todo change the production URI
+	apiURL := util.GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
+		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY
+	response := util.InvokePOSTRequestWithBasicAuth(apiURL, requestBody)
+	if response.StatusCode != http.StatusOK {
+		util.HandleUnableToConnectErrorAndExit(nil)
+	}
+	logger.Debug(fmt.Sprintf("'wum-uc' %s version is supported", Version))
 }
