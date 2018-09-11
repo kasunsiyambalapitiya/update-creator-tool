@@ -27,8 +27,11 @@ import (
 	"github.com/spf13/viper"
 	"github.com/wso2/update-creator-tool/constant"
 	"github.com/wso2/update-creator-tool/util"
+	"io/ioutil"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"time"
 )
 
 var (
@@ -52,6 +55,11 @@ var RootCmd = &cobra.Command{
 	Long:  "This tool is used to create and validate updates.",
 }
 
+/*// struct which is used for checking if newer versions of 'wum-uc' are available
+type WUMUCVersionCheckRequest struct {
+	WUMUCVersion string `json:"wum-uc-version"`
+}*/
+
 // Execute adds all child commands to the root command sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
@@ -61,7 +69,7 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(setLogLevel, checkPrerequisites, initConfig)
+	cobra.OnInitialize(setLogLevel, checkPrerequisites, initConfig, checkWUMUCVersion)
 }
 
 // This function checks the existence of prerequisite programs needed for running 'wum-uc' tool.
@@ -162,4 +170,88 @@ func setDefaultValues() {
 	viper.SetDefault(constant.RESOURCE_FILES_OPTIONAL, util.ResourceFiles_Optional)
 	viper.SetDefault(constant.RESOURCE_FILES_SKIP, util.ResourceFiles_Skip)
 	viper.SetDefault(constant.PLATFORM_VERSIONS, util.PlatformVersions)
+}
+
+// This function checks whether the current version of 'wum-uc' still being supported for creating wum updates.
+func checkWUMUCVersion() {
+	logger.Debug("wum-uc version check started")
+	// Check if last update check timestamp is older than one day.
+	wumucUpdateTimestampFilePath := filepath.Join(WUMUCHome, constant.WUMUC_CACHE_DIRECTORY, constant.WUMUC_UPDATE_CHECK_TIMESTAMP_FILENAME)
+	exists, err := util.IsFileExists(wumucUpdateTimestampFilePath)
+	if err != nil {
+		logger.Error(fmt.Sprintf("%v error occurred when checking the existance of %s file", err,
+			wumucUpdateTimestampFilePath))
+		checkWithWUMUCAdmin()
+		return
+	}
+	if !exists {
+		logger.Debug(fmt.Sprintf("%s file doesnot exists, hence checking for latest versions of 'wum-uc'",
+			wumucUpdateTimestampFilePath))
+		checkWithWUMUCAdmin()
+	} else {
+		// Check whether the last checked timestamp is greater than one day
+		data, err := ioutil.ReadFile(wumucUpdateTimestampFilePath)
+		if err != nil {
+			logger.Error(fmt.Sprintf("%v error occurred when reading the content of %s", err,
+				wumucUpdateTimestampFilePath))
+			checkWithWUMUCAdmin()
+			return
+		}
+		oldUpdateTimestamp, err := strconv.ParseInt(string(data), 10, 64)
+		if err != nil {
+			logger.Error(fmt.Sprintf("%v error occurred when parsing the last update checked timestamp %d", err,
+				oldUpdateTimestamp))
+			checkWithWUMUCAdmin()
+			return
+		}
+		logger.Debug(fmt.Sprintf("last update checked timestamp %d", oldUpdateTimestamp))
+		if time.Now().UTC().Sub(time.Unix(oldUpdateTimestamp, 0)).Hours() > constant.WUMUC_UPDATE_CHECK_INTERVAL_IN_HOURS {
+			checkWithWUMUCAdmin()
+		}
+	}
+}
+
+/*This function connects with 'wumucadmin' micro service to check whether the current version of 'wum-`
+If the current 'wum-uc' version is not supported,
+it will print the error and exists with requesting users to migrate to the new version.
+If the current version of 'wum-uc' is still being supported, the update creation continues.
+*/
+func checkWithWUMUCAdmin() {
+
+	// Todo uncomment and change the production URI before going production.
+	/*	apiURL := util.GetWUMUCConfigs().URL + "/version/" +Version */
+
+	// Todo delete before going production
+	apiURL := "http://localhost:9090/wumucadmin/version/" + Version
+
+	response := util.InvokeGetRequest(apiURL)
+	versionResponse := util.VersionResponse{}
+	util.ProcessResponseFromServer(response, &versionResponse)
+	// Exit if the current version is no longer supported for creating updates
+	if !versionResponse.IsCompatible {
+		util.HandleErrorAndExit(errors.New(fmt.Sprintf(versionResponse.
+			VersionMessage+"\n\t Latest version: %s \n\t Released date: %s\n",
+			versionResponse.LatestVersion.Version, versionResponse.LatestVersion.ReleaseDate)))
+	}
+	// If there is a new version of wum-uc being released
+	if len(versionResponse.LatestVersion.Version) != 0 {
+		// Print new version details if exists and continue creating the update
+		util.PrintInfo(fmt.Sprintf(versionResponse.VersionMessage+"\n\t Latest version: %s \n\t Released date: %s\n",
+			versionResponse.LatestVersion.Version, versionResponse.LatestVersion.ReleaseDate))
+
+		// Write the current timestamp to 'wum-uc-update' cache file for future reference
+		utcTime := time.Now().UTC().Unix()
+		logger.Debug(fmt.Sprintf("Current timestamp  %v", utcTime))
+		cacheDirectoryPath := filepath.Join(WUMUCHome, constant.WUMUC_CACHE_DIRECTORY)
+		err := util.CreateDirectory(cacheDirectoryPath)
+		if err != nil {
+			logger.Error(fmt.Sprintf("%v error occured in creating the directory %s for saving %s cache file", err,
+				cacheDirectoryPath, constant.WUMUC_UPDATE_CHECK_TIMESTAMP_FILENAME))
+		}
+		wumucUpdateTimestampFilePath := filepath.Join(cacheDirectoryPath, constant.WUMUC_UPDATE_CHECK_TIMESTAMP_FILENAME)
+		err = util.WriteFileToDestination([]byte(strconv.FormatInt(utcTime, 10)), wumucUpdateTimestampFilePath)
+		if err != nil {
+			logger.Error(fmt.Sprintf("%v error occurred in writing to %s file", err, wumucUpdateTimestampFilePath))
+		}
+	}
 }

@@ -120,6 +120,18 @@ type TokenResponse struct {
 	AccessToken  string `json:"access_token"`
 }
 
+type Version struct {
+	Version     string `json:"version"`
+	ReleaseDate string `json:"release-date"`
+}
+
+type VersionResponse struct {
+	Version
+	IsCompatible   bool    `json:"is-compatible"`
+	VersionMessage string  `json:"version-message"`
+	LatestVersion  Version `json:"latest-version,omitempty"`
+}
+
 type TokenErrResp struct {
 	Error            string `json:"error"`
 	ErrorDescription string `json:"error_description"`
@@ -709,7 +721,7 @@ func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpda
 	if err := json.NewEncoder(requestBody).Encode(partialUpdateFileRequest); err != nil {
 		HandleErrorAndExit(err)
 	}
-	log.Debug(fmt.Sprintf("Reqeust sent: %v", requestBody))
+	logger.Debug(fmt.Sprintf("Reqeust sent: %v", requestBody))
 	// Invoke the API
 	// Todo uncomment before production
 	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
@@ -719,10 +731,11 @@ func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpda
 		HandleUnableToConnectErrorAndExit(nil)
 	}
 	partialUpdatedFileResponse := PartialUpdatedFileResponse{}
-	processResponseFromServer(response, &partialUpdatedFileResponse)
+	ProcessResponseFromServer(response, &partialUpdatedFileResponse)
 	return &partialUpdatedFileResponse
 }
 
+// Used to invoke POST request with access tokens.
 func InvokePOSTRequest(url string, body io.Reader) *http.Response {
 	request, err := http.NewRequest(http.MethodPost, url, body)
 	if err != nil {
@@ -731,7 +744,18 @@ func InvokePOSTRequest(url string, body io.Reader) *http.Response {
 	wumucConfig := GetWUMUCConfigs()
 	request.Header.Add(constant.HEADER_AUTHORIZATION, "Bearer "+wumucConfig.AccessToken)
 	request.Header.Add(constant.HEADER_CONTENT_TYPE, constant.HEADER_VALUE_APPLICATION_JSON)
-	return makeAPICall(request)
+	return makeAPICall(request, false)
+}
+
+// Used to invoke GET request with basicAuth
+func InvokeGetRequest(url string) *http.Response {
+	request, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		HandleUnableToConnectErrorAndExit(err)
+	}
+	wumucConfig := GetWUMUCConfigs()
+	request.SetBasicAuth(wumucConfig.BasicAuth.Username, string(wumucConfig.BasicAuth.Password))
+	return makeAPICall(request, true)
 }
 
 func HandleUnableToConnectErrorAndExit(err error) {
@@ -743,18 +767,23 @@ func HandleUnableToConnectErrorAndExit(err error) {
 	os.Exit(1)
 }
 
-func makeAPICall(request *http.Request) *http.Response {
-	// Getting a copy of the request body for use when access token is renewed
-	buf, _ := ioutil.ReadAll(request.Body)
-	readerCloser1 := ioutil.NopCloser(bytes.NewBuffer(buf))
-	readerCloser2 := ioutil.NopCloser(bytes.NewBuffer(buf))
-	// Invoke request
-	request.Body = readerCloser1
+func makeAPICall(request *http.Request, isBasicAuth bool) *http.Response {
+	var readerCloser1, readerCloser2 io.ReadCloser
+	if !isBasicAuth {
+		// Getting a copy of the request body for use when access token is renewed
+		buf, _ := ioutil.ReadAll(request.Body)
+		readerCloser1 = ioutil.NopCloser(bytes.NewBuffer(buf))
+		readerCloser2 = ioutil.NopCloser(bytes.NewBuffer(buf))
+		// Invoke request
+		request.Body = readerCloser1
+	}
+
 	timeout := time.Duration(constant.WUMUC_API_CALL_TIMEOUT * time.Minute)
 	httpResponse := invokeRequest(request, timeout)
 
-	// When status codes are 400 or 401 we need to renew the access token
-	if httpResponse.StatusCode == http.StatusBadRequest || httpResponse.StatusCode == http.StatusUnauthorized {
+	// When authorization is token based and the status codes are 400 or 401 we need to renew the access token
+	if !isBasicAuth && (httpResponse.StatusCode == http.StatusBadRequest || httpResponse.StatusCode == http.
+		StatusUnauthorized) {
 		// Expired access token. Renew the access token and update config.yaml. If the refresh token is
 		// invalid, Authenticate() will notify and exit.
 		Authenticate()
@@ -773,7 +802,7 @@ func makeAPICall(request *http.Request) *http.Response {
 // Invoke the client request and handle error scenarios
 func invokeRequest(request *http.Request, timeout time.Duration) *http.Response {
 	response := SendRequest(request, timeout)
-	log.Debug("Status code %v", response.StatusCode)
+	logger.Debug("Status code %v", response.StatusCode)
 	handleErrorResponses(response)
 	return response
 }
@@ -817,14 +846,14 @@ func handleErrorResponses(response *http.Response) {
 	if response.StatusCode == http.StatusNotFound {
 		fmt.Println("wum-uc: resource not found")
 		errorResponse := ErrorResponse{}
-		processResponseFromServer(response, &errorResponse)
+		ProcessResponseFromServer(response, &errorResponse)
 		HandleErrorAndExit(errors.New(errorResponse.Error.Message))
 	}
 
 	if response.StatusCode == http.StatusConflict {
 		fmt.Println("wum-uc: conflict")
 		errorResponse := ErrorResponse{}
-		processResponseFromServer(response, &errorResponse)
+		ProcessResponseFromServer(response, &errorResponse)
 		HandleErrorAndExit(errors.New(errorResponse.Error.Message))
 	}
 
@@ -892,12 +921,12 @@ func InvokeTokenAPI(payload *url.Values, wumucConfig *WUMUCConfig, tokenType str
 	request.Header.Add(constant.HEADER_CONTENT_TYPE, constant.HEADER_VALUE_X_WWW_FORM_URLENCODED)
 
 	response := SendRequest(request, time.Duration(constant.WUMUC_UPDATE_TOKEN_TIMEOUT*time.Minute))
-	log.Debug("Response status code %d\n", response.StatusCode)
+	logger.Debug("Response status code %d\n", response.StatusCode)
 
 	tokenResponse := TokenResponse{}
 	if response.StatusCode != http.StatusAccepted && response.StatusCode != http.StatusOK {
 		tokenErrorResponse := TokenErrResp{}
-		processResponseFromServer(response, &tokenErrorResponse)
+		ProcessResponseFromServer(response, &tokenErrorResponse)
 
 		if constant.RETRIEVE_ACCESS_TOKEN == tokenType && http.StatusBadRequest == response.StatusCode && constant.
 			INVALID_GRANT == tokenErrorResponse.Error {
@@ -910,21 +939,21 @@ func InvokeTokenAPI(payload *url.Values, wumucConfig *WUMUCConfig, tokenType str
 				ErrorDescription))
 		}
 	}
-	processResponseFromServer(response, &tokenResponse)
+	ProcessResponseFromServer(response, &tokenResponse)
 	return &tokenResponse, nil
 }
 
-// Used to unmarshal the json response received to the provided struct
-func processResponseFromServer(response *http.Response, v interface{}) {
+// Used to unmarshal the given json response to the provided struct
+func ProcessResponseFromServer(response *http.Response, v interface{}) {
 	defer response.Body.Close()
 	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		log.Error(constant.ERROR_READING_RESPONSE_MSG)
+		logger.Error(constant.ERROR_READING_RESPONSE_MSG)
 		HandleErrorAndExit(err)
 	}
-	log.Debug(fmt.Sprintf("Response received: %v", string(data)))
+	logger.Debug(fmt.Sprintf("Response received: %v", string(data)))
 	if err = json.Unmarshal(data, v); err != nil {
-		log.Error(constant.ERROR_READING_RESPONSE_MSG)
+		logger.Error(constant.ERROR_READING_RESPONSE_MSG)
 		HandleErrorAndExit(err)
 	}
 }
@@ -935,7 +964,7 @@ func processResponseFromServer(response *http.Response, v interface{}) {
 // If both of the username and the password are not specified, then prompt for username and
 // the password from the user. User can attempt to give credentials three times.
 func Init(username string, password []byte) {
-	log.Debug("Initializing wum-uc with user's WSO2 Credentials")
+	logger.Debug("Initializing wum-uc with user's WSO2 Credentials")
 
 	// Get WUMUC configurations
 	wumucConfig := GetWUMUCConfigs()
@@ -1075,7 +1104,7 @@ func GenerateMd5sumForFileChanges(updateDescriptorV3 *UpdateDescriptorV3) string
 		}
 		return sortedCompatibleProducts[i] < sortedCompatibleProducts[j]
 	})
-	log.Debug("Sorted compatible products list: ", sortedCompatibleProducts)
+	logger.Debug("Sorted compatible products list: ", sortedCompatibleProducts)
 
 	partiallyApplicableProductChangesMap := make(map[string]ProductChanges)
 	for _, productChange := range updateDescriptorV3.PartiallyApplicableProducts {
@@ -1112,7 +1141,7 @@ func GenerateMd5sumForFileChanges(updateDescriptorV3 *UpdateDescriptorV3) string
 		}
 		return sortedPartialApplicableProducts[i] < sortedPartialApplicableProducts[j]
 	})
-	log.Debug("Sorted partially applicable products list: ", sortedPartialApplicableProducts)
+	logger.Debug("Sorted partially applicable products list: ", sortedPartialApplicableProducts)
 
 	// Appending product changes of compatible products to buffer
 	var tempCompatibleProducts []ProductChanges
@@ -1191,7 +1220,10 @@ func isValidateEmailAddress(username string) bool {
 
 // Write the content of given update descriptor passed as a byte array to the destination file.
 func WriteUpdateDescriptorInDestination(data []byte, filePath, destination string) string {
-	WriteFileToDestination(data, filePath)
+	err := WriteFileToDestination(data, filePath)
+	if err != nil {
+		HandleErrorAndExit(err, fmt.Sprintf("error occurred in writing to %s file", filePath))
+	}
 	// Get the absolute location
 	absDestination, err := filepath.Abs(destination)
 	if err != nil {
@@ -1201,21 +1233,22 @@ func WriteUpdateDescriptorInDestination(data []byte, filePath, destination strin
 }
 
 // Write the content passed as byte array to the destination file.
-func WriteFileToDestination(data []byte, filePath string) {
+func WriteFileToDestination(data []byte, filePath string) error {
 	file, err := os.OpenFile(
 		filePath,
 		os.O_WRONLY|os.O_TRUNC|os.O_CREATE,
 		0600,
 	)
 	if err != nil {
-		HandleErrorAndExit(err)
+		return err
 	}
 	defer file.Close()
 
 	// Write bytes to file
 	_, err = file.Write(data)
 	if err != nil {
-		HandleErrorAndExit(err)
+		return err
 	}
-	log.Trace(fmt.Sprintf("Writing content to %s completed successfully", filePath))
+	logger.Trace(fmt.Sprintf("Writing content to %s completed successfully", filePath))
+	return nil
 }

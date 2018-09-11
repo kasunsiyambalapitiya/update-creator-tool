@@ -15,15 +15,11 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"github.com/ian-kent/go-log/log"
 	"github.com/renstrom/dedent"
 	"github.com/spf13/cobra"
 	"github.com/wso2/update-creator-tool/constant"
 	"github.com/wso2/update-creator-tool/util"
-	"net/http"
 	"os"
 )
 
@@ -58,11 +54,6 @@ var initCmd = &cobra.Command{
 	Run:     initializeInitCommand,
 }
 
-// struct which is used for checking if newer versions of 'wum-uc' are available
-type WUMUCVersionCheckRequest struct {
-	WUMUCVersion string `json:"wum-uc-version"`
-}
-
 //This function will be called first and this will add flags to the command.
 func init() {
 	RootCmd.AddCommand(initCmd)
@@ -81,23 +72,4 @@ func initializeInitCommand(cmd *cobra.Command, args []string) {
 	// Todo change according to version check
 	//isCurrentVersionSupported()
 	fmt.Fprintln(os.Stderr, constant.DONE_MSG)
-}
-
-// This function checks if the current version of 'wum-uc' still supported for creating wum updates.
-func isCurrentVersionSupported() {
-	WUMUCVersionCheckRequest := WUMUCVersionCheckRequest{}
-	WUMUCVersionCheckRequest.WUMUCVersion = Version
-	requestBody := new(bytes.Buffer)
-	err := json.NewEncoder(requestBody).Encode(WUMUCVersionCheckRequest)
-	if err != nil {
-		util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred when performing the 'wum-uc' version check"))
-	}
-	log.Debug(fmt.Sprintf("Request sent %v", requestBody))
-	apiURL := util.GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
-		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY
-	response := util.InvokePOSTRequest(apiURL, requestBody)
-	if response.StatusCode != http.StatusOK {
-		util.HandleUnableToConnectErrorAndExit(nil)
-	}
-	log.Debug(fmt.Sprintf("'wum-uc' %s version is supported", Version))
 }

@@ -133,7 +133,6 @@ func initializeCreateCommand(cmd *cobra.Command, args []string) {
 	}
 }
 
-// Todo file validation check from update-descriptor3.yaml
 // Todo allow multiple selection for same update name
 // Todo add all the content of update-descriptor3.yaml for hash value
 
@@ -1698,7 +1697,10 @@ func saveResumeFile(resumeFile *ResumeFile, wumucResumeFilePath string) {
 	data, err := yaml.Marshal(resumeFile)
 	util.HandleErrorAndExit(err, "error occurred while marshalling the resume file.")
 	logger.Debug(fmt.Sprintf("Resume file location %s", wumucResumeFilePath))
-	util.WriteFileToDestination(data, wumucResumeFilePath)
+	err = util.WriteFileToDestination(data, wumucResumeFilePath)
+	if err != nil {
+		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred in writing to %s file", wumucResumeFilePath))
+	}
 	logger.Debug(fmt.Sprintf("%s file created successfully in %s \n", constant.WUMUC_RESUME_FILE, constant.WUM_UC_HOME))
 }
 
@@ -1727,7 +1729,6 @@ func continueResumedUpdateCreation() {
 		util.HandleErrorAndExit(err, "error occurred while un-marshaling the ", wumucResumeFilePath)
 	}
 
-	// TOdo move version check to the begingin of 'create' command
 	// Check if the update zip has already being created
 	if resumedFile.IsUpdateZipCreated {
 		// Todo Uncomment before production
@@ -1793,8 +1794,7 @@ func continueResumedUpdateCreation() {
 		saveResumeFile(&resumedFile, wumucResumeFilePath)
 		fmt.Println(fmt.Sprintf("'%s'.zip successfully created.\n", resumedFile.UpdateName))
 		logger.Debug(fmt.Sprintf("%s successfully updated with the status of update zip creation", constant.WUMUC_RESUME_FILE))
-		// Todo create a .cache file and read it for every time (in root) if it is greater than one day,
-		// ask the user to reint wum-uc. Then in init check for version
+
 		// Todo uncomment before production
 		//commitUpdateToSVN(&resumedFile)
 

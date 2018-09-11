@@ -93,10 +93,16 @@ const (
 	NOT_A_CONTRIBUTION_MD5          = "NOT_A_CONTRIBUTION_MD5"
 	NOT_A_CONTRIBUTION_MD5_URL      = "https://wso2.com/license/wso2-update/NOT_A_CONTRIBUTION.txt.md5"
 
-	WUMUC_HOME_DIR_NAME = ".wum-uc"
-	WUM_UC_HOME         = "WUM_UC_HOME"
-	WUMUC_RESUME_FILE   = ".wum-uc-resume.yaml"
+	WUMUC_HOME_DIR_NAME                   = ".wum-uc"
+	WUM_UC_HOME                           = "WUM_UC_HOME"
+	WUMUC_RESUME_FILE                     = ".wum-uc-resume.yaml"
+	WUMUC_CACHE_DIRECTORY                 = ".cache"
+	WUMUC_UPDATE_CHECK_TIMESTAMP_FILENAME = "wum-uc-update"
+	WUMUC_UPDATE_CHECK_INTERVAL_IN_HOURS  = 24
 
+	WUMUC_BASIC_AUTH_USERNAME = "admin"
+	// Todo provide correct credentials before going production
+	WUMUC_BASIC_AUTH_PASSWORD              = "admin"
 	WUMUC_AUTHENTICATION_URL               = "https://api.updates.wso2.com"
 	TOKEN_API_CONTEXT                      = "token"
 	BASE64_ENCODED_CONSUMER_KEY_AND_SECRET = ""
