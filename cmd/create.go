@@ -1697,7 +1697,10 @@ func saveResumeFile(resumeFile *ResumeFile, wumucResumeFilePath string) {
 	data, err := yaml.Marshal(resumeFile)
 	util.HandleErrorAndExit(err, "error occurred while marshalling the resume file.")
 	logger.Debug(fmt.Sprintf("Resume file location %s", wumucResumeFilePath))
-	util.WriteFileToDestination(data, wumucResumeFilePath)
+	err = util.WriteFileToDestination(data, wumucResumeFilePath)
+	if err != nil {
+		util.HandleErrorAndExit(err, fmt.Sprintf("error occurred in writing to %s file", wumucResumeFilePath))
+	}
 	logger.Debug(fmt.Sprintf("%s file created successfully in %s \n", constant.WUMUC_RESUME_FILE, constant.WUM_UC_HOME))
 }
 

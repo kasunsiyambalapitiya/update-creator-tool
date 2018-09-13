@@ -1202,7 +1202,10 @@ func isValidateEmailAddress(username string) bool {
 
 // Write the content of given update descriptor passed as a byte array to the destination file.
 func WriteUpdateDescriptorInDestination(data []byte, filePath, destination string) string {
-	WriteFileToDestination(data, filePath)
+	err := WriteFileToDestination(data, filePath)
+	if err != nil {
+		HandleErrorAndExit(err, fmt.Sprintf("error occurred in writing to %s file", filePath))
+	}
 	// Get the absolute location
 	absDestination, err := filepath.Abs(destination)
 	if err != nil {
@@ -1212,21 +1215,22 @@ func WriteUpdateDescriptorInDestination(data []byte, filePath, destination strin
 }
 
 // Write the content passed as byte array to the destination file.
-func WriteFileToDestination(data []byte, filePath string) {
+func WriteFileToDestination(data []byte, filePath string) error {
 	file, err := os.OpenFile(
 		filePath,
 		os.O_WRONLY|os.O_TRUNC|os.O_CREATE,
 		0600,
 	)
 	if err != nil {
-		HandleErrorAndExit(err)
+		return err
 	}
 	defer file.Close()
 
 	// Write bytes to file
 	_, err = file.Write(data)
 	if err != nil {
-		HandleErrorAndExit(err)
+		return err
 	}
 	logger.Trace(fmt.Sprintf("Writing content to %s completed successfully", filePath))
+	return nil
 }

@@ -182,38 +182,43 @@ func checkWUMUCVersion() {
 	wumucUpdateTimestampFilePath := filepath.Join(WUMUCHome, constant.WUMUC_CACHE_DIRECTORY, constant.WUMUC_UPDATE_CHECK_TIMESTAMP_FILENAME)
 	exists, err := util.IsFileExists(wumucUpdateTimestampFilePath)
 	if err != nil {
-		util.PrintError(fmt.Sprintf("error occurred when checking the existance of %s file",
-			wumucUpdateTimestampFilePath), err)
+		logger.Error(fmt.Sprintf("%v error occurred when checking the existance of %s file", err,
+			wumucUpdateTimestampFilePath))
 		checkWithWUMUCAdmin()
+		return
 	}
 	if !exists {
-		logger.Debug(fmt.Sprintf("%s file doesnot exists, hence checking for latest versions of 'wum-uc'", wumucUpdateTimestampFilePath))
+		logger.Debug(fmt.Sprintf("%s file doesnot exists, hence checking for latest versions of 'wum-uc'",
+			wumucUpdateTimestampFilePath))
 		checkWithWUMUCAdmin()
 	} else {
 		// Check whether the last checked timestamp is greater than one day
 		data, err := ioutil.ReadFile(wumucUpdateTimestampFilePath)
 		if err != nil {
-			util.PrintError(fmt.Sprintf("error occurred when reading the content of %s",
-				wumucUpdateTimestampFilePath), err)
+			logger.Error(fmt.Sprintf("%v error occurred when reading the content of %s", err,
+				wumucUpdateTimestampFilePath))
 			checkWithWUMUCAdmin()
+			return
 		}
 		oldUpdateTimestamp, err := strconv.ParseInt(string(data), 10, 32)
 		if err != nil {
-			util.HandleErrorAndExit(err, fmt.Sprintf("last update checked timestamp %d", oldUpdateTimestamp))
+			logger.Error(fmt.Sprintf("%v error occurred when parsing the last update checked timestamp %d", err,
+				oldUpdateTimestamp))
+			checkWithWUMUCAdmin()
+			return
 		}
-		if time.Now().Sub(oldUpdateTimestamp).Hours() < constant.WUMUC_UPDATE_CHECK_INTERVAL_IN_HOURS {
-
+		logger.Debug(fmt.Sprintf("last update checked timestamp %d", oldUpdateTimestamp))
+		if time.Now().UTC().Sub(time.Unix(oldUpdateTimestamp, 0)).Hours() > constant.WUMUC_UPDATE_CHECK_INTERVAL_IN_HOURS {
+			checkWithWUMUCAdmin()
 		}
-
 	}
 }
 
 /*This function connects with 'wumucadmin' micro service to check whether the current version of 'wum-uc' is still being
-supported at 'wum-server' side for creating updates.
-If the current 'wum-uc' version is not supported it will print the error and exists,
-with requesting users to migrate to the new tool.
-If the current version of 'wum-uc' is still being supported for creating updates, the
-developer is allowed to continue the update creation.
+supported for creating wum updates.
+If the current 'wum-uc' version is not supported,
+it will print the error and exists with requesting users to migrate to the new version.
+If the current version of 'wum-uc' is still being supported, the update creation continues.
 */
 func checkWithWUMUCAdmin() {
 	WUMUCVersionCheckRequest := WUMUCVersionCheckRequest{}
@@ -231,5 +236,21 @@ func checkWithWUMUCAdmin() {
 	if response.StatusCode != http.StatusOK {
 		util.HandleUnableToConnectErrorAndExit(nil)
 	}
-	logger.Debug(fmt.Sprintf("'wum-uc' %s version is supported", Version))
+	// Write the current timestamp to 'wum-uc-update' cache file for future reference
+	utcTime := time.Now().UTC()
+	nanoSecUnixTime := utcTime.UnixNano()
+	miliSecUnixTime := nanoSecUnixTime / 1000000
+	logger.Trace(fmt.Sprintf("Current timestamp in miliseconds"))
+	cacheDirectoryPath := filepath.Join(WUMUCHome, constant.WUMUC_CACHE_DIRECTORY)
+	err = util.CreateDirectory(cacheDirectoryPath)
+	if err != nil {
+		logger.Error(fmt.Sprintf("%v error occured in creating the directory %s for saving %s cache file", err,
+			cacheDirectoryPath, constant.WUMUC_UPDATE_CHECK_TIMESTAMP_FILENAME))
+	}
+	wumucUpdateTimestampFilePath := filepath.Join(WUMUCHome, constant.WUMUC_CACHE_DIRECTORY, constant.WUMUC_UPDATE_CHECK_TIMESTAMP_FILENAME)
+	err = util.WriteFileToDestination([]byte(strconv.FormatInt(miliSecUnixTime, 10)), wumucUpdateTimestampFilePath)
+	if err != nil {
+		logger.Error(fmt.Sprintf("%v error occurred in writing to %s file", err, wumucUpdateTimestampFilePath))
+	}
+	logger.Debug(fmt.Sprintf("'wum-uc' %s version is supported for creating updates", Version))
 }
