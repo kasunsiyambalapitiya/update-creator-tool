@@ -120,6 +120,18 @@ type TokenResponse struct {
 	AccessToken  string `json:"access_token"`
 }
 
+type Version struct {
+	Version     string `json:"version"`
+	ReleaseDate string `json:"release-date"`
+}
+
+type VersionResponse struct {
+	Version
+	IsCompatible   bool    `json:"is-compatible"`
+	VersionMessage string  `json:"version-message"`
+	LatestVersion  Version `json:"latest-version,omitempty"`
+}
+
 type TokenErrResp struct {
 	Error            string `json:"error"`
 	ErrorDescription string `json:"error_description"`
@@ -719,7 +731,7 @@ func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpda
 		HandleUnableToConnectErrorAndExit(nil)
 	}
 	partialUpdatedFileResponse := PartialUpdatedFileResponse{}
-	processResponseFromServer(response, &partialUpdatedFileResponse)
+	ProcessResponseFromServer(response, &partialUpdatedFileResponse)
 	return &partialUpdatedFileResponse
 }
 
@@ -834,14 +846,14 @@ func handleErrorResponses(response *http.Response) {
 	if response.StatusCode == http.StatusNotFound {
 		fmt.Println("wum-uc: resource not found")
 		errorResponse := ErrorResponse{}
-		processResponseFromServer(response, &errorResponse)
+		ProcessResponseFromServer(response, &errorResponse)
 		HandleErrorAndExit(errors.New(errorResponse.Error.Message))
 	}
 
 	if response.StatusCode == http.StatusConflict {
 		fmt.Println("wum-uc: conflict")
 		errorResponse := ErrorResponse{}
-		processResponseFromServer(response, &errorResponse)
+		ProcessResponseFromServer(response, &errorResponse)
 		HandleErrorAndExit(errors.New(errorResponse.Error.Message))
 	}
 
@@ -914,7 +926,7 @@ func InvokeTokenAPI(payload *url.Values, wumucConfig *WUMUCConfig, tokenType str
 	tokenResponse := TokenResponse{}
 	if response.StatusCode != http.StatusAccepted && response.StatusCode != http.StatusOK {
 		tokenErrorResponse := TokenErrResp{}
-		processResponseFromServer(response, &tokenErrorResponse)
+		ProcessResponseFromServer(response, &tokenErrorResponse)
 
 		if constant.RETRIEVE_ACCESS_TOKEN == tokenType && http.StatusBadRequest == response.StatusCode && constant.
 			INVALID_GRANT == tokenErrorResponse.Error {
@@ -927,12 +939,12 @@ func InvokeTokenAPI(payload *url.Values, wumucConfig *WUMUCConfig, tokenType str
 				ErrorDescription))
 		}
 	}
-	processResponseFromServer(response, &tokenResponse)
+	ProcessResponseFromServer(response, &tokenResponse)
 	return &tokenResponse, nil
 }
 
-// Used to unmarshal the json response received to the provided struct
-func processResponseFromServer(response *http.Response, v interface{}) {
+// Used to unmarshal the given json response to the provided struct
+func ProcessResponseFromServer(response *http.Response, v interface{}) {
 	defer response.Body.Close()
 	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {

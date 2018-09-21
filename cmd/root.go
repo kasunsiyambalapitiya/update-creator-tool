@@ -28,7 +28,6 @@ import (
 	"github.com/wso2/update-creator-tool/constant"
 	"github.com/wso2/update-creator-tool/util"
 	"io/ioutil"
-	"net/http"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -198,7 +197,7 @@ func checkWUMUCVersion() {
 			checkWithWUMUCAdmin()
 			return
 		}
-		oldUpdateTimestamp, err := strconv.ParseInt(string(data), 10, 32)
+		oldUpdateTimestamp, err := strconv.ParseInt(string(data), 10, 64)
 		if err != nil {
 			logger.Error(fmt.Sprintf("%v error occurred when parsing the last update checked timestamp %d", err,
 				oldUpdateTimestamp))
@@ -212,8 +211,7 @@ func checkWUMUCVersion() {
 	}
 }
 
-/*This function connects with 'wumucadmin' micro service to check whether the current version of 'wum-uc' is still being
-supported for creating wum updates.
+/*This function connects with 'wumucadmin' micro service to check whether the current version of 'wum-`
 If the current 'wum-uc' version is not supported,
 it will print the error and exists with requesting users to migrate to the new version.
 If the current version of 'wum-uc' is still being supported, the update creation continues.
@@ -227,27 +225,33 @@ func checkWithWUMUCAdmin() {
 	apiURL := "http://localhost:9090/wumucadmin/version/" + Version
 
 	response := util.InvokeGetRequest(apiURL)
-	// Todo Process the response  body and see if compatibility is true,
-	// if not exist and display the new version message
+	versionResponse := util.VersionResponse{}
+	util.ProcessResponseFromServer(response, &versionResponse)
+	// Exit if the current version is no longer supported for creating updates
+	if !versionResponse.IsCompatible {
+		util.HandleErrorAndExit(errors.New(fmt.Sprintf(versionResponse.
+			VersionMessage+"\n\t Latest version: %s \n\t Released date: %s\n",
+			versionResponse.LatestVersion.Version, versionResponse.LatestVersion.ReleaseDate)))
+	}
+	// If there is a new version of wum-uc being released
+	if len(versionResponse.LatestVersion.Version) != 0 {
+		// Print new version details if exists and continue creating the update
+		util.PrintInfo(fmt.Sprintf(versionResponse.VersionMessage+"\n\t Latest version: %s \n\t Released date: %s\n",
+			versionResponse.LatestVersion.Version, versionResponse.LatestVersion.ReleaseDate))
 
-	if response.StatusCode != http.StatusOK {
-		util.HandleUnableToConnectErrorAndExit(nil)
+		// Write the current timestamp to 'wum-uc-update' cache file for future reference
+		utcTime := time.Now().UTC().Unix()
+		logger.Debug(fmt.Sprintf("Current timestamp  %v", utcTime))
+		cacheDirectoryPath := filepath.Join(WUMUCHome, constant.WUMUC_CACHE_DIRECTORY)
+		err := util.CreateDirectory(cacheDirectoryPath)
+		if err != nil {
+			logger.Error(fmt.Sprintf("%v error occured in creating the directory %s for saving %s cache file", err,
+				cacheDirectoryPath, constant.WUMUC_UPDATE_CHECK_TIMESTAMP_FILENAME))
+		}
+		wumucUpdateTimestampFilePath := filepath.Join(cacheDirectoryPath, constant.WUMUC_UPDATE_CHECK_TIMESTAMP_FILENAME)
+		err = util.WriteFileToDestination([]byte(strconv.FormatInt(utcTime, 10)), wumucUpdateTimestampFilePath)
+		if err != nil {
+			logger.Error(fmt.Sprintf("%v error occurred in writing to %s file", err, wumucUpdateTimestampFilePath))
+		}
 	}
-	// Write the current timestamp to 'wum-uc-update' cache file for future reference
-	utcTime := time.Now().UTC()
-	nanoSecUnixTime := utcTime.UnixNano()
-	miliSecUnixTime := nanoSecUnixTime / 1000000
-	logger.Trace(fmt.Sprintf("Current timestamp in miliseconds %v", miliSecUnixTime))
-	cacheDirectoryPath := filepath.Join(WUMUCHome, constant.WUMUC_CACHE_DIRECTORY)
-	err := util.CreateDirectory(cacheDirectoryPath)
-	if err != nil {
-		logger.Error(fmt.Sprintf("%v error occured in creating the directory %s for saving %s cache file", err,
-			cacheDirectoryPath, constant.WUMUC_UPDATE_CHECK_TIMESTAMP_FILENAME))
-	}
-	wumucUpdateTimestampFilePath := filepath.Join(cacheDirectoryPath, constant.WUMUC_UPDATE_CHECK_TIMESTAMP_FILENAME)
-	err = util.WriteFileToDestination([]byte(strconv.FormatInt(miliSecUnixTime, 10)), wumucUpdateTimestampFilePath)
-	if err != nil {
-		logger.Error(fmt.Sprintf("%v error occurred in writing to %s file", err, wumucUpdateTimestampFilePath))
-	}
-	logger.Debug(fmt.Sprintf("'wum-uc' %s version is supported for creating updates", Version))
 }
