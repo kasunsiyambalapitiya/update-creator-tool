@@ -54,11 +54,6 @@ var initCmd = &cobra.Command{
 	Run:     initializeInitCommand,
 }
 
-// struct which is used for checking if newer versions of 'wum-uc' are available
-type WUMUCVersionCheckRequest struct {
-	WUMUCVersion string `json:"wum-uc-version"`
-}
-
 //This function will be called first and this will add flags to the command.
 func init() {
 	RootCmd.AddCommand(initCmd)

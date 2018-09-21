@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"os"
 
-	"bytes"
-	"encoding/json"
 	"github.com/ian-kent/go-log/layout"
 	"github.com/ian-kent/go-log/levels"
 	"github.com/ian-kent/go-log/log"
@@ -175,7 +173,7 @@ func setDefaultValues() {
 	viper.SetDefault(constant.PLATFORM_VERSIONS, util.PlatformVersions)
 }
 
-// This function checks whether the current version of 'wum-uc' still supported for creating wum updates.
+// This function checks whether the current version of 'wum-uc' still being supported for creating wum updates.
 func checkWUMUCVersion() {
 	logger.Debug("wum-uc version check started")
 	// Check if last update check timestamp is older than one day.
@@ -221,18 +219,17 @@ it will print the error and exists with requesting users to migrate to the new v
 If the current version of 'wum-uc' is still being supported, the update creation continues.
 */
 func checkWithWUMUCAdmin() {
-	WUMUCVersionCheckRequest := WUMUCVersionCheckRequest{}
-	WUMUCVersionCheckRequest.WUMUCVersion = Version
-	requestBody := new(bytes.Buffer)
-	err := json.NewEncoder(requestBody).Encode(WUMUCVersionCheckRequest)
-	if err != nil {
-		util.HandleErrorAndExit(err, fmt.Sprintf("Error occurred when performing the 'wum-uc' version check"))
-	}
-	logger.Debug(fmt.Sprintf("Request sent %v", requestBody))
-	// Todo change the production URI
-	apiURL := util.GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
-		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY
-	response := util.InvokePOSTRequestWithBasicAuth(apiURL, requestBody)
+
+	// Todo uncomment and change the production URI before going production.
+	/*	apiURL := util.GetWUMUCConfigs().URL + "/version/" +Version */
+
+	// Todo delete before going production
+	apiURL := "http://localhost:9090/wumucadmin/version/" + Version
+
+	response := util.InvokeGetRequest(apiURL)
+	// Todo Process the response  body and see if compatibility is true,
+	// if not exist and display the new version message
+
 	if response.StatusCode != http.StatusOK {
 		util.HandleUnableToConnectErrorAndExit(nil)
 	}
@@ -240,14 +237,14 @@ func checkWithWUMUCAdmin() {
 	utcTime := time.Now().UTC()
 	nanoSecUnixTime := utcTime.UnixNano()
 	miliSecUnixTime := nanoSecUnixTime / 1000000
-	logger.Trace(fmt.Sprintf("Current timestamp in miliseconds"))
+	logger.Trace(fmt.Sprintf("Current timestamp in miliseconds %v", miliSecUnixTime))
 	cacheDirectoryPath := filepath.Join(WUMUCHome, constant.WUMUC_CACHE_DIRECTORY)
-	err = util.CreateDirectory(cacheDirectoryPath)
+	err := util.CreateDirectory(cacheDirectoryPath)
 	if err != nil {
 		logger.Error(fmt.Sprintf("%v error occured in creating the directory %s for saving %s cache file", err,
 			cacheDirectoryPath, constant.WUMUC_UPDATE_CHECK_TIMESTAMP_FILENAME))
 	}
-	wumucUpdateTimestampFilePath := filepath.Join(WUMUCHome, constant.WUMUC_CACHE_DIRECTORY, constant.WUMUC_UPDATE_CHECK_TIMESTAMP_FILENAME)
+	wumucUpdateTimestampFilePath := filepath.Join(cacheDirectoryPath, constant.WUMUC_UPDATE_CHECK_TIMESTAMP_FILENAME)
 	err = util.WriteFileToDestination([]byte(strconv.FormatInt(miliSecUnixTime, 10)), wumucUpdateTimestampFilePath)
 	if err != nil {
 		logger.Error(fmt.Sprintf("%v error occurred in writing to %s file", err, wumucUpdateTimestampFilePath))

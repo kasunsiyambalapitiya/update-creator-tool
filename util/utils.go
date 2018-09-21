@@ -723,6 +723,7 @@ func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpda
 	return &partialUpdatedFileResponse
 }
 
+// Used to invoke POST request with access tokens.
 func InvokePOSTRequest(url string, body io.Reader) *http.Response {
 	request, err := http.NewRequest(http.MethodPost, url, body)
 	if err != nil {
@@ -734,8 +735,9 @@ func InvokePOSTRequest(url string, body io.Reader) *http.Response {
 	return makeAPICall(request, false)
 }
 
-func InvokePOSTRequestWithBasicAuth(url string, body io.Reader) *http.Response {
-	request, err := http.NewRequest(http.MethodPost, url, body)
+// Used to invoke GET request with basicAuth
+func InvokeGetRequest(url string) *http.Response {
+	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		HandleUnableToConnectErrorAndExit(err)
 	}
@@ -754,12 +756,16 @@ func HandleUnableToConnectErrorAndExit(err error) {
 }
 
 func makeAPICall(request *http.Request, isBasicAuth bool) *http.Response {
-	// Getting a copy of the request body for use when access token is renewed
-	buf, _ := ioutil.ReadAll(request.Body)
-	readerCloser1 := ioutil.NopCloser(bytes.NewBuffer(buf))
-	readerCloser2 := ioutil.NopCloser(bytes.NewBuffer(buf))
-	// Invoke request
-	request.Body = readerCloser1
+	var readerCloser1, readerCloser2 io.ReadCloser
+	if !isBasicAuth {
+		// Getting a copy of the request body for use when access token is renewed
+		buf, _ := ioutil.ReadAll(request.Body)
+		readerCloser1 = ioutil.NopCloser(bytes.NewBuffer(buf))
+		readerCloser2 = ioutil.NopCloser(bytes.NewBuffer(buf))
+		// Invoke request
+		request.Body = readerCloser1
+	}
+
 	timeout := time.Duration(constant.WUMUC_API_CALL_TIMEOUT * time.Minute)
 	httpResponse := invokeRequest(request, timeout)
 
