@@ -1729,7 +1729,6 @@ func continueResumedUpdateCreation() {
 		util.HandleErrorAndExit(err, "error occurred while un-marshaling the ", wumucResumeFilePath)
 	}
 
-	// TOdo move version check to the begingin of 'create' command
 	// Check if the update zip has already being created
 	if resumedFile.IsUpdateZipCreated {
 		// Todo Uncomment before production
@@ -1795,8 +1794,7 @@ func continueResumedUpdateCreation() {
 		saveResumeFile(&resumedFile, wumucResumeFilePath)
 		fmt.Println(fmt.Sprintf("'%s'.zip successfully created.\n", resumedFile.UpdateName))
 		logger.Debug(fmt.Sprintf("%s successfully updated with the status of update zip creation", constant.WUMUC_RESUME_FILE))
-		// Todo create a .cache file and read it for every time (in root) if it is greater than one day,
-		// ask the user to reint wum-uc. Then in init check for version
+
 		// Todo uncomment before production
 		//commitUpdateToSVN(&resumedFile)
 
