@@ -65,11 +65,9 @@ func init() {
 
 }
 
-// Initialize WUM-UC with WSO2 credentials and check if the current version of 'wum-uc' is supported.
+// Initialize WUM-UC with WSO2 credentials.
 func initializeInitCommand(cmd *cobra.Command, args []string) {
 	logger.Debug("[Init] called")
 	util.Init(username, []byte(password))
-	// Todo change according to version check
-	//isCurrentVersionSupported()
 	fmt.Fprintln(os.Stderr, constant.DONE_MSG)
 }

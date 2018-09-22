@@ -60,8 +60,8 @@ func LoadWUMUCConfig(wumucLocalRepo string) *WUMUCConfig {
 	if !exists {
 		logger.Info("Populating config.yaml")
 		basicAuth := BasicAuth{
-			Username: constant.WUMUC_BASIC_AUTH_USERNAME,
-			Password: []byte(constant.WUMUC_BASIC_AUTH_PASSWORD),
+			Username: constant.WUMUC_ADMIN_BASIC_AUTH_USERNAME,
+			Password: []byte(constant.WUMUC_ADMIN_BASIC_AUTH_PASSWORD),
 		}
 		wumucConfig = WUMUCConfig{
 			URL:       constant.WUMUC_AUTHENTICATION_URL,

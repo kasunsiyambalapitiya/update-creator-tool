@@ -100,9 +100,9 @@ const (
 	WUMUC_UPDATE_CHECK_TIMESTAMP_FILENAME = "wum-uc-update"
 	WUMUC_UPDATE_CHECK_INTERVAL_IN_HOURS  = 24
 
-	WUMUC_BASIC_AUTH_USERNAME = "admin"
+	WUMUC_ADMIN_BASIC_AUTH_USERNAME = "admin"
 	// Todo provide correct credentials before going production
-	WUMUC_BASIC_AUTH_PASSWORD              = "admin"
+	WUMUC_ADMIN_BASIC_AUTH_PASSWORD        = "admin"
 	WUMUC_AUTHENTICATION_URL               = "https://api.updates.wso2.com"
 	TOKEN_API_CONTEXT                      = "token"
 	BASE64_ENCODED_CONSUMER_KEY_AND_SECRET = ""
