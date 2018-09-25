@@ -158,11 +158,10 @@ func compare(updateFileMap, distributionFileMap map[string]bool, updateDescripto
 			logger.Debug(fmt.Sprintf("fileName: %s", fileName))
 			_, foundInResources := resourceFiles[fileName]
 			logger.Debug(fmt.Sprintf("found in resources: %v", foundInResources))
-			//check
 			if !isInAddedFiles && !foundInResources {
-				return errors.New(fmt.Sprintf("File not found in the distribution: '%v'. If this is "+
-					"a new file, add an entry to the 'added_files' sections in both the '%v' and '%v' files",
-					filePath, constant.UPDATE_DESCRIPTOR_V2_FILE, constant.UPDATE_DESCRIPTOR_V3_FILE))
+				return errors.New(fmt.Sprintf("'%v' file not found in the distribution. If this is "+
+					"a new file, provide it as an 'added_files' during the update creation process.",
+					filePath))
 			} else if isInAddedFiles {
 				logger.Debug("'" + filePath + "' found in added files.")
 			}
@@ -236,7 +235,6 @@ func readUpdateZip(filename string) (map[string]bool, *util.UpdateDescriptorV3, 
 				if err != nil {
 					return nil, nil, err
 				}
-				//check
 				err = util.ValidateUpdateDescriptorV3(&updateDescriptorV3)
 				if err != nil {
 					return nil, nil, errors.New("'" + constant.UPDATE_DESCRIPTOR_V3_FILE +
