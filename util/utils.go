@@ -723,9 +723,8 @@ func GetPartialUpdatedFiles(updateDescriptorV2 *UpdateDescriptorV2) *PartialUpda
 	}
 	logger.Debug(fmt.Sprintf("Reqeust sent: %v", requestBody))
 	// Invoke the API
-	// Todo uncomment before production
-	apiURL := GetWUMUCConfigs().URL + "/" + constant.PRODUCT_API_CONTEXT + "/" + constant.
-		PRODUCT_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY
+	apiURL := GetWUMUCConfigs().ServerURL + "/" + constant.FILES_API_CONTEXT + "/" + constant.
+		FILES_API_VERSION + "/" + constant.APPLICABLE_PRODUCTS + "?" + constant.FILE_LIST_ONLY
 	response := InvokePOSTRequest(apiURL, requestBody)
 	if response.StatusCode != http.StatusOK {
 		HandleUnableToConnectErrorAndExit(nil)
@@ -753,8 +752,7 @@ func InvokeGetRequest(url string) *http.Response {
 	if err != nil {
 		HandleUnableToConnectErrorAndExit(err)
 	}
-	wumucConfig := GetWUMUCConfigs()
-	request.SetBasicAuth(wumucConfig.BasicAuth.Username, string(wumucConfig.BasicAuth.Password))
+	request.SetBasicAuth(constant.WUMUC_ADMIN_BASIC_AUTH_USERNAME, constant.WUMUC_ADMIN_BASIC_AUTH_PASSWORD)
 	return makeAPICall(request, true)
 }
 

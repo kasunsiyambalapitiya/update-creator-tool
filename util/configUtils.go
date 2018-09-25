@@ -31,17 +31,12 @@ import (
 
 type WUMUCConfig struct {
 	Username     string
-	URL          string
+	ServerURL    string
 	TokenURL     string
+	VersionURL   string
 	AppKey       string
 	RefreshToken string
 	AccessToken  string
-	BasicAuth
-}
-
-type BasicAuth struct {
-	Username string
-	Password []byte
 }
 
 var wumucConfig WUMUCConfig
@@ -59,15 +54,11 @@ func LoadWUMUCConfig(wumucLocalRepo string) *WUMUCConfig {
 	}
 	if !exists {
 		logger.Info("Populating config.yaml")
-		basicAuth := BasicAuth{
-			Username: constant.WUMUC_ADMIN_BASIC_AUTH_USERNAME,
-			Password: []byte(constant.WUMUC_ADMIN_BASIC_AUTH_PASSWORD),
-		}
 		wumucConfig = WUMUCConfig{
-			URL:       constant.WUMUC_AUTHENTICATION_URL,
-			TokenURL:  constant.WUMUC_AUTHENTICATION_URL + "/" + constant.TOKEN_API_CONTEXT,
-			AppKey:    constant.BASE64_ENCODED_CONSUMER_KEY_AND_SECRET,
-			BasicAuth: basicAuth,
+			ServerURL:  constant.WUM_SERVER_URL,
+			TokenURL:   constant.WUM_SERVER_URL + "/" + constant.TOKEN_API_CONTEXT,
+			VersionURL: constant.WUMUC_ADMIN_SERVER_URL,
+			AppKey:     constant.BASE64_ENCODED_CONSUMER_KEY_AND_SECRET,
 		}
 
 		// Write the wum-uc configuration to the config file.
@@ -130,11 +121,14 @@ func WriteConfigFile(wumucConfig *WUMUCConfig, wumucConfigFilePath string) error
 
 // Validate wum-uc configurations
 func (wumucConfig *WUMUCConfig) validate() {
-	if wumucConfig.URL == "" {
-		HandleErrorAndExit(errors.New("invalid configurations, missing value for URL key"))
+	if wumucConfig.ServerURL == "" {
+		HandleErrorAndExit(errors.New("invalid configurations, missing value for ServerURL key"))
 	}
 	if wumucConfig.TokenURL == "" {
 		HandleErrorAndExit(errors.New("invalid configurations, missing value for TokenURL key"))
+	}
+	if wumucConfig.VersionURL == "" {
+		HandleErrorAndExit(errors.New("invalid configurations, missing value for VersionURL key"))
 	}
 	if wumucConfig.AppKey == "" {
 		HandleErrorAndExit(errors.New("invalid configurations, missing value for AppKey key"))

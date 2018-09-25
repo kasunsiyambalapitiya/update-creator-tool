@@ -55,11 +55,6 @@ var RootCmd = &cobra.Command{
 	Long:  "This tool is used to create and validate updates.",
 }
 
-/*// struct which is used for checking if newer versions of 'wum-uc' are available
-type WUMUCVersionCheckRequest struct {
-	WUMUCVersion string `json:"wum-uc-version"`
-}*/
-
 // Execute adds all child commands to the root command sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
@@ -217,12 +212,8 @@ it will print the error and exists with requesting users to migrate to the new v
 If the current version of 'wum-uc' is still being supported, the update creation continues.
 */
 func checkWithWUMUCAdmin() {
-
-	// Todo uncomment and change the production URI before going production.
-	/*	apiURL := util.GetWUMUCConfigs().URL + "/version/" +Version */
-
-	// Todo delete before going production
-	apiURL := "http://localhost:9090/wumucadmin/version/" + Version
+	apiURL := util.GetWUMUCConfigs().VersionURL + "/" + constant.WUMUCADMIN_API_CONTEXT + "/" + constant.
+		VERSION + Version
 
 	response := util.InvokeGetRequest(apiURL)
 	versionResponse := util.VersionResponse{}
@@ -238,20 +229,19 @@ func checkWithWUMUCAdmin() {
 		// Print new version details if exists and continue creating the update
 		util.PrintInfo(fmt.Sprintf(versionResponse.VersionMessage+"\n\t Latest version: %s \n\t Released date: %s\n",
 			versionResponse.LatestVersion.Version, versionResponse.LatestVersion.ReleaseDate))
-
-		// Write the current timestamp to 'wum-uc-update' cache file for future reference
-		utcTime := time.Now().UTC().Unix()
-		logger.Debug(fmt.Sprintf("Current timestamp  %v", utcTime))
-		cacheDirectoryPath := filepath.Join(WUMUCHome, constant.WUMUC_CACHE_DIRECTORY)
-		err := util.CreateDirectory(cacheDirectoryPath)
-		if err != nil {
-			logger.Error(fmt.Sprintf("%v error occured in creating the directory %s for saving %s cache file", err,
-				cacheDirectoryPath, constant.WUMUC_UPDATE_CHECK_TIMESTAMP_FILENAME))
-		}
-		wumucUpdateTimestampFilePath := filepath.Join(cacheDirectoryPath, constant.WUMUC_UPDATE_CHECK_TIMESTAMP_FILENAME)
-		err = util.WriteFileToDestination([]byte(strconv.FormatInt(utcTime, 10)), wumucUpdateTimestampFilePath)
-		if err != nil {
-			logger.Error(fmt.Sprintf("%v error occurred in writing to %s file", err, wumucUpdateTimestampFilePath))
-		}
+	}
+	// Write the current timestamp to 'wum-uc-update' cache file for future reference
+	utcTime := time.Now().UTC().Unix()
+	logger.Debug(fmt.Sprintf("Current timestamp  %v", utcTime))
+	cacheDirectoryPath := filepath.Join(WUMUCHome, constant.WUMUC_CACHE_DIRECTORY)
+	err := util.CreateDirectory(cacheDirectoryPath)
+	if err != nil {
+		logger.Error(fmt.Sprintf("%v error occured in creating the directory %s for saving %s cache file", err,
+			cacheDirectoryPath, constant.WUMUC_UPDATE_CHECK_TIMESTAMP_FILENAME))
+	}
+	wumucUpdateTimestampFilePath := filepath.Join(cacheDirectoryPath, constant.WUMUC_UPDATE_CHECK_TIMESTAMP_FILENAME)
+	err = util.WriteFileToDestination([]byte(strconv.FormatInt(utcTime, 10)), wumucUpdateTimestampFilePath)
+	if err != nil {
+		logger.Error(fmt.Sprintf("%v error occurred in writing to %s file", err, wumucUpdateTimestampFilePath))
 	}
 }

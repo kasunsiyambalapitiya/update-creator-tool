@@ -37,6 +37,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/wso2/update-creator-tool/constant"
 	"github.com/wso2/update-creator-tool/util"
+	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/yaml.v2"
 	"os/exec"
 	"regexp"
@@ -127,9 +128,6 @@ func initializeCreateCommand(cmd *cobra.Command, args []string) {
 		continueResumedUpdateCreation()
 	}
 }
-
-// Todo allow multiple selection for same update name
-// Todo add all the content of update-descriptor3.yaml for hash value
 
 // This function will start the update creation process.
 func createUpdate(updateDirectoryPath, distributionPath string) {
@@ -1660,7 +1658,6 @@ func setProductChangesInUpdateDescriptorV3(partialUpdatedProducts *util.PartialU
 	return productChanges
 }
 
-// Todo check SVN with Maheshika
 // This will append removed files to update-descriptor.yaml
 func appendRemovedFilesToUpdateDescriptor(updateDescriptorV2 *util.UpdateDescriptorV2) {
 userInputLoop:
@@ -1731,10 +1728,7 @@ func continueResumedUpdateCreation() {
 
 	// Check if the update zip has already being created
 	if resumedFile.IsUpdateZipCreated {
-		// Todo Uncomment before production
-		//commitUpdateToSVN(&resumedFile)
-		// Todo Delete this when going production
-		commitUpdateToSVN()
+		commitUpdateToSVN(&resumedFile)
 		logger.Debug(fmt.Sprintf("Update zip %s.zip already created", resumedFile.UpdateName))
 	} else {
 		logger.Debug(fmt.Sprintf("Creating update zip %s.zip from resume state", resumedFile.UpdateName))
@@ -1798,11 +1792,7 @@ func continueResumedUpdateCreation() {
 		fmt.Println(fmt.Sprintf("'%s'.zip successfully created.\n", resumedFile.UpdateName))
 		logger.Debug(fmt.Sprintf("%s successfully updated with the status of update zip creation", constant.WUMUC_RESUME_FILE))
 
-		// Todo uncomment before production
-		//commitUpdateToSVN(&resumedFile)
-
-		// Todo Delete this when going production
-		commitUpdateToSVN()
+		commitUpdateToSVN(&resumedFile)
 
 		// Cleanup the '.wum-uc-resume.yaml' file upon successful committing of the created update zip to the SVN repo
 		util.CleanUpFile(wumucResumeFilePath)
@@ -1833,22 +1823,11 @@ func validateUpdate(resumeFile *ResumeFile) {
 	startValidation(updateZipPath, resumeFile.DistributionPath)
 }
 
-// This function will commit the create update zip to the update SVN repo.
-// Todo uncomment before production
-//func commitUpdateToSVN(resumeFile *resumeFile) {
-func commitUpdateToSVN() {
-	// Todo uncomment before production
-	//fmt.Println(fmt.Sprintf("Committing the %s.zip to the update SVN repo started", resumeFile.UpdateName))
+// This function will commit the created update zip to the update SVN repo.
+func commitUpdateToSVN(resumeFile *ResumeFile) {
 	var stdOut, stdErr bytes.Buffer
-	//-------------Testing----------------
-	resumeFileTest := ResumeFile{}
-	resumeFileTest.UpdateNumber = "2990"
-	resumeFileTest.UpdateName = "WSO2-CARBON-UPDATE-4.4.0-2990"
-	resumeFileTest.Developer = "admin"
-	resumeFileTest.PlatformName = "wilkes"
-	resumeFile := &resumeFileTest
-	//-------------Testing-done----------------
 
+	fmt.Println(fmt.Sprintf("Committing %s.zip to the update SVN repo started ...", resumeFile.UpdateName))
 	// Handle interrupts received during processing
 	cleanupChannel := util.HandleInterrupts(func() {
 		updateDirectory := constant.SVN_UPDATES + resumeFile.UpdateNumber
@@ -1856,27 +1835,16 @@ func commitUpdateToSVN() {
 		util.CleanUpDirectory(updateDirectoryPath)
 	})
 
-	// Todo If it exists go to the folder see if the location is locked, if locked err. If not locked move the zip (
-	// should only have the update zip) to old/old-T and SVN add the new file, then commit to the root of relevant update
+	// Request password from user for committing created update zip to the SVN
+	var password []byte
+	fmt.Fprintf(os.Stdout, "Enter password for %s for committing the update to the SVN: ", resumeFile.Developer)
+	password, err := terminal.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		util.HandleErrorAndExit(err, constant.UNABLE_TO_READ_YOUR_INPUT_MSG)
+	}
+	fmt.Fprintln(os.Stdout)
 
-	// Request password from user for committing created update to the SVN
-	// Todo uncomment before production
-	/*	var password []byte
-		fmt.Fprintf(os.Stdout, "Enter password for %s for committing the update to the SVN: ", resumeFile.Developer)
-		password, err := terminal.ReadPassword(int(syscall.Stdin))
-		if err != nil {
-			util.HandleErrorAndExit(err, constant.UNABLE_TO_READ_YOUR_INPUT_MSG)
-		}
-		fmt.Fprintln(os.Stdout)*/
-
-	//-------------Testing----------------
-	password := []byte("admin")
-	//SVNURI := "http://172.17.0.2/svn/repo"
-	SVNURI := "http://localhost:8090/svn/repo"
-	//-------------Testing-done----------------
-
-	// Todo uncomment before production
-	//SVNURI := constant.SVN_UPDATE_REPO + "/" + resumeFile.PlatformName + "/" + constant.SVN_UPDATES
+	SVNURI := constant.SVN_UPDATE_REPO + "/" + resumeFile.PlatformName + "/" + constant.SVN_UPDATES
 	updateSVNURI := SVNURI + "/" + constant.SVN_UPDATE + resumeFile.UpdateNumber
 
 	// First need to checkout whether the given update is already committed to the SVN.
@@ -1884,7 +1852,7 @@ func commitUpdateToSVN() {
 		constant.NON_INTERACTIVE, constant.USER_NAME, resumeFile.Developer, constant.PASSWORD, string(password))
 	SVNListCommand.Stdout = &stdOut
 	SVNListCommand.Stderr = &stdErr
-	err := SVNListCommand.Run()
+	err = SVNListCommand.Run()
 	logger.Trace(fmt.Sprintf("stdout of SVNListCommand \n%v", stdOut.String()))
 	if err != nil {
 		logger.Trace(fmt.Sprintf("stderr of SVNListCommand \n%v", stdErr.String()))
@@ -1910,16 +1878,14 @@ func commitUpdateToSVN() {
 				" SVN", resumeFile.UpdateName))
 		}
 	} else {
-		/*	Successfully ran the 'svn ls' command,
-			so update directory should already exists in the SVN and the exit code should be zero*/
+		/*Successfully ran the 'svn ls' command,
+		so update directory should already exists in the SVN and the exit code should be zero*/
 		logger.Debug(fmt.Sprintf("Update directory does exists at SVN Repo"))
 		commitUpgradedUpdateToSVN(resumeFile, updateSVNURI, password)
 	}
 	// Stop interrupts being further received to the 'cleanupchannel' as processing completed successfully
 	signal.Stop(cleanupChannel)
-	// Todo uncomment before production
-	//fmt.Println(fmt.Sprintf("%s committed successfully to the update SVN repo", resumeFile.UpdateName))
-	// Todo to keep or delete the checkout update directory after sucessfull commiting
+	fmt.Println(fmt.Sprintf("%s committed successfully to the update SVN repo", resumeFile.UpdateName))
 }
 
 // This function creates the update directory at SVN and commit the created update zip to the SVN.

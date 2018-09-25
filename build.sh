@@ -1,7 +1,7 @@
 #!/bin/bash
 
 target="wum-uc.go"
-version="3.0.1"
+version="3.1.0"
 
 type glide >/dev/null 2>&1 || { echo >&2 "Glide dependency management is needed to build the Update Creator Tool (https://glide.sh/).  Aborting."; exit 1; }
 

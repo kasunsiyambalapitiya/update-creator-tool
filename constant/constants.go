@@ -100,10 +100,12 @@ const (
 	WUMUC_UPDATE_CHECK_TIMESTAMP_FILENAME = "wum-uc-update"
 	WUMUC_UPDATE_CHECK_INTERVAL_IN_HOURS  = 24
 
-	WUMUC_ADMIN_BASIC_AUTH_USERNAME = "admin"
-	// Todo provide correct credentials before going production
-	WUMUC_ADMIN_BASIC_AUTH_PASSWORD        = "admin"
-	WUMUC_AUTHENTICATION_URL               = "https://api.updates.wso2.com"
+	WUMUC_ADMIN_BASIC_AUTH_USERNAME        = "admin"
+	WUMUC_ADMIN_BASIC_AUTH_PASSWORD        = ""
+	WUMUC_ADMIN_SERVER_URL                 = "http://ballerina-services.wso2.com:9103"
+	WUMUCADMIN_API_CONTEXT                 = "wumucadmin"
+	VERSION                                = "version"
+	WUM_SERVER_URL                         = "https://api.updates.wso2.com"
 	TOKEN_API_CONTEXT                      = "token"
 	BASE64_ENCODED_CONSUMER_KEY_AND_SECRET = ""
 	RENEW_REFRESH_TOKEN                    = "renewRefreshToken"
@@ -118,7 +120,7 @@ const (
 	DONE_MSG                               = "Done!\n"
 	INVALID_EMAIL_ADDRESS                  = "Invalid email address"
 
-	PRODUCT_API_CONTEXT = "products"
+	FILES_API_CONTEXT   = "files"
 	DEFAULT_DESCRIPTION = `Description goes here
 `
 
@@ -127,7 +129,7 @@ const (
 	DEFAULT_JIRA_KEY     = "Enter JIRA_KEY/GITHUB ISSUE URL"
 	DEFAULT_JIRA_SUMMARY = "Enter JIRA_KEY SUMMARY/GITHUB_ISSUE_SUMMARY"
 
-	PRODUCT_API_VERSION                  = "3.0.0"
+	FILES_API_VERSION                    = "3.2.1"
 	APPLICABLE_PRODUCTS                  = "applicable-products"
 	FILE_LIST_ONLY                       = "fileListOnly=true"
 	UNABLE_TO_CONNECT_WUM_SERVERS        = "there is a problem connecting to WUM Servers please try again"

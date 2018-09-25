@@ -338,9 +338,9 @@ func validateFile(file *zip.File, fileName, fullPath, updateName string) ([]byte
 	}
 	if isPatchWordFound {
 		util.PrintWarning(fmt.Sprintf("'%v' file contains the word 'patch' in following lines. Please "+
-			"review and change it to 'update' if possible.", fileName))
+			"review and change it to 'update' if possible.\n", fileName))
 		for i, line := range allMatches {
-			util.PrintInfo(fmt.Sprintf("Matching Line #%d - %v", i+1, line[0]))
+			util.PrintInfo(fmt.Sprintf("Matching Line #%d - %v\n", i+1, line[0]))
 		}
 		fmt.Println()
 	}
