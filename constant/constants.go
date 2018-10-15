@@ -129,7 +129,7 @@ const (
 	DEFAULT_JIRA_KEY     = "Enter JIRA_KEY/GITHUB ISSUE URL"
 	DEFAULT_JIRA_SUMMARY = "Enter JIRA_KEY SUMMARY/GITHUB_ISSUE_SUMMARY"
 
-	FILES_API_VERSION                    = "3.2.1"
+	FILES_API_VERSION                    = "3.0.0"
 	APPLICABLE_PRODUCTS                  = "applicable-products"
 	FILE_LIST_ONLY                       = "fileListOnly=true"
 	UNABLE_TO_CONNECT_WUM_SERVERS        = "there is a problem connecting to WUM Servers please try again"
