@@ -213,7 +213,7 @@ If the current version of 'wum-uc' is still being supported, the update creation
 */
 func checkWithWUMUCAdmin() {
 	apiURL := util.GetWUMUCConfigs().VersionURL + "/" + constant.WUMUCADMIN_API_CONTEXT + "/" + constant.
-		VERSION + Version
+		VERSION + "/" + Version
 
 	response := util.InvokeGetRequest(apiURL)
 	versionResponse := util.VersionResponse{}
